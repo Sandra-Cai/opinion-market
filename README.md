@@ -34,9 +34,9 @@ Opinion Market is a social trading platform that allows users to:
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-- Modern web browser
+- Python 3.8 or higher
+- PostgreSQL
+- pip
 
 ### Installation
 
@@ -46,53 +46,61 @@ Opinion Market is a social trading platform that allows users to:
    cd opinion-market
    ```
 
-2. **Install dependencies**
+2. **Run the setup script**
    ```bash
-   npm install
-   # or
-   yarn install
+   python setup.py
    ```
 
-3. **Set up environment variables**
+3. **Or install manually**
    ```bash
-   cp .env.example .env
+   # Create virtual environment
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   
+   # Install dependencies
+   pip install -r requirements.txt
+   
+   # Set up environment variables
+   cp env.example .env
    # Edit .env with your configuration
    ```
 
 4. **Start the development server**
    ```bash
-   npm run dev
+   python run.py
    # or
-   yarn dev
+   uvicorn app.main:app --reload
    ```
 
-5. **Open your browser**
-   Navigate to `http://localhost:3000`
+5. **Access the API**
+   - API: `http://localhost:8000`
+   - Documentation: `http://localhost:8000/docs`
+   - Alternative docs: `http://localhost:8000/redoc`
 
 ## 📁 Project Structure
 
 ```
 opinion-market/
-├── src/
-│   ├── components/     # React components
-│   ├── pages/         # Page components
-│   ├── hooks/         # Custom React hooks
-│   ├── utils/         # Utility functions
-│   ├── types/         # TypeScript type definitions
-│   └── styles/        # CSS and styling
-├── public/            # Static assets
-├── docs/             # Documentation
-└── tests/            # Test files
+├── app/
+│   ├── api/          # API routes and endpoints
+│   ├── core/         # Core configuration and utilities
+│   ├── models/       # Database models
+│   └── schemas/      # Pydantic schemas
+├── tests/            # Test files
+├── alembic/          # Database migrations
+├── requirements.txt  # Python dependencies
+├── run.py           # Application entry point
+└── setup.py         # Setup script
 ```
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React, TypeScript, Tailwind CSS
-- **Backend**: Node.js, Express
-- **Database**: PostgreSQL
-- **Authentication**: JWT, OAuth
-- **Real-time**: WebSocket/Socket.io
-- **Deployment**: Docker, Vercel/Netlify
+- **Backend**: Python, FastAPI
+- **Database**: PostgreSQL, SQLAlchemy
+- **Authentication**: JWT, bcrypt
+- **API Documentation**: OpenAPI/Swagger
+- **Testing**: pytest
+- **Deployment**: Docker, uvicorn
 
 ## 🤝 Contributing
 
@@ -118,10 +126,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🗺️ Roadmap
 
-### Phase 1: Core Platform
+### Phase 1: Core Platform ✅
 - [x] Basic opinion trading functionality
 - [x] User authentication and profiles
 - [x] Market creation and voting
+- [x] RESTful API with FastAPI
+- [x] Database models and relationships
 - [ ] Portfolio management
 - [ ] Real-time price updates
 
@@ -132,6 +142,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Reputation system
 
 ### Phase 3: Advanced Features
+- [ ] WebSocket real-time updates
 - [ ] Mobile app
 - [ ] API for third-party integrations
 - [ ] Advanced analytics

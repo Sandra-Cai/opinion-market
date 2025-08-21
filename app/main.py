@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import uvicorn
+import asyncio
 
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.v1.api import api_router
 from app.core.auth import get_current_user
-from app.models import user, market, trade, vote
+from app.models import user, market, trade, vote, position
+from app.services.price_feed import price_feed_manager
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -17,9 +19,15 @@ Base.metadata.create_all(bind=engine)
 async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting Opinion Market API...")
+    
+    # Start price feed service in background
+    price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
+    
     yield
+    
     # Shutdown
     print("👋 Shutting down Opinion Market API...")
+    price_feed_task.cancel()
 
 app = FastAPI(
     title="Opinion Market API",

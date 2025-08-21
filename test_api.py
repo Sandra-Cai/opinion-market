@@ -94,11 +94,61 @@ def test_api():
     if response.status_code == 200:
         trade = response.json()
         print(f"   Trade created: {trade['amount']} shares at ${trade['price_per_share']}")
+        print(f"   Fee: ${trade['fee_amount']}")
+        print(f"   Price impact: {trade['price_impact']}%")
+    else:
+        print(f"   Error: {response.json()}")
+    
+    # Test portfolio positions
+    print("\n7. Testing portfolio positions...")
+    response = requests.get(f"{BASE_URL}/positions/portfolio", headers=headers)
+    print(f"   Status: {response.status_code}")
+    if response.status_code == 200:
+        portfolio = response.json()
+        print(f"   Portfolio value: ${portfolio['total_portfolio_value']}")
+        print(f"   Total P&L: ${portfolio['total_pnl']}")
+        print(f"   Active positions: {portfolio['active_positions']}")
+    else:
+        print(f"   Error: {response.json()}")
+    
+    # Test market stats
+    print("\n8. Testing market statistics...")
+    response = requests.get(f"{BASE_URL}/markets/stats")
+    print(f"   Status: {response.status_code}")
+    if response.status_code == 200:
+        stats = response.json()
+        print(f"   Total markets: {stats['total_markets']}")
+        print(f"   Active markets: {stats['active_markets']}")
+        print(f"   24h volume: ${stats['total_volume_24h']}")
+    else:
+        print(f"   Error: {response.json()}")
+    
+    # Test leaderboard
+    print("\n9. Testing leaderboard...")
+    response = requests.get(f"{BASE_URL}/leaderboard/traders?limit=5")
+    print(f"   Status: {response.status_code}")
+    if response.status_code == 200:
+        leaderboard = response.json()
+        print(f"   Top {len(leaderboard['traders'])} traders:")
+        for trader in leaderboard['traders'][:3]:
+            print(f"     {trader['rank']}. {trader['user']['username']} - ${trader['user']['total_profit']}")
+    else:
+        print(f"   Error: {response.json()}")
+    
+    # Test trending markets
+    print("\n10. Testing trending markets...")
+    response = requests.get(f"{BASE_URL}/markets/trending?limit=3")
+    print(f"   Status: {response.status_code}")
+    if response.status_code == 200:
+        trending = response.json()
+        print(f"   Trending markets: {len(trending)}")
+        for market in trending:
+            print(f"     - {market['title']} (${market['volume_24h']})")
     else:
         print(f"   Error: {response.json()}")
     
     # Test creating a vote
-    print("\n7. Testing vote creation...")
+    print("\n11. Testing vote creation...")
     vote_data = {
         "outcome": "outcome_a",
         "confidence": 0.8,
@@ -113,12 +163,14 @@ def test_api():
         print(f"   Error: {response.json()}")
     
     # Test getting user profile
-    print("\n8. Testing get user profile...")
+    print("\n12. Testing get user profile...")
     response = requests.get(f"{BASE_URL}/users/me", headers=headers)
     print(f"   Status: {response.status_code}")
     if response.status_code == 200:
         user = response.json()
         print(f"   User: {user['username']} - {user['total_trades']} trades")
+        print(f"   Portfolio value: ${user['portfolio_value']}")
+        print(f"   Win rate: {user['win_rate']}%")
     
     print("\n✅ API testing completed!")
 

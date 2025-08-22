@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, users, markets, trades, votes, positions, websocket, leaderboard, disputes, notifications, analytics, verification
+from app.api.v1.endpoints import auth, users, markets, trades, votes, positions, websocket, leaderboard, disputes, notifications, analytics, verification, orders
 
 api_router = APIRouter()
 
@@ -15,3 +15,4 @@ api_router.include_router(disputes.router, prefix="/disputes", tags=["disputes"]
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(verification.router, prefix="/verification", tags=["verification"])
+api_router.include_router(orders.router, prefix="/orders", tags=["orders"])

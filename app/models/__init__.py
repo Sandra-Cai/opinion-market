@@ -6,3 +6,4 @@ from .position import Position
 from .dispute import MarketDispute, DisputeVote
 from .notification import Notification, NotificationPreference
 from .order import Order, OrderFill, OrderBook
+from .governance import GovernanceProposal, GovernanceVote, GovernanceToken

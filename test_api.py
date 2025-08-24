@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script for Opinion Market API
-Run this script to test all API endpoints
+Run this script to test all API endpoints including advanced features
 """
 
 import requests
@@ -21,6 +21,9 @@ test_trade_id = None
 test_position_id = None
 test_dispute_id = None
 test_order_id = None
+test_proposal_id = None
+test_futures_contract_id = None
+test_options_contract_id = None
 
 def print_response(response, title=""):
     """Print API response in a formatted way"""
@@ -166,8 +169,7 @@ def test_disputes():
     
     headers = {"Authorization": f"Bearer {test_user_token}"}
     
-    # First, we need to resolve a market to create a dispute
-    # For testing, we'll just test the dispute creation endpoint
+    # Test create dispute
     dispute_data = {
         "market_id": test_market_id,
         "dispute_type": "incorrect_resolution",
@@ -318,6 +320,146 @@ def test_orders():
         response = requests.post(f"{API_BASE}/orders/{test_order_id}/cancel", headers=headers)
         print_response(response, "Cancel Order")
 
+def test_governance():
+    """Test governance endpoints"""
+    global test_proposal_id
+    
+    print("🏛️ Testing Governance...")
+    
+    headers = {"Authorization": f"Bearer {test_user_token}"}
+    
+    # Test get governance stats
+    response = requests.get(f"{API_BASE}/governance/stats", headers=headers)
+    print_response(response, "Get Governance Stats")
+    
+    # Test get my tokens
+    response = requests.get(f"{API_BASE}/governance/tokens/me", headers=headers)
+    print_response(response, "Get My Governance Tokens")
+    
+    # Test stake tokens
+    stake_data = {"amount": 50.0}
+    response = requests.post(f"{API_BASE}/governance/tokens/stake", json=stake_data, headers=headers)
+    print_response(response, "Stake Tokens")
+    
+    # Test create proposal
+    proposal_data = {
+        "title": "Reduce trading fees to 1%",
+        "description": "This proposal aims to reduce trading fees from 2% to 1% to increase platform adoption",
+        "proposal_type": "fee_change",
+        "voting_start": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+        "voting_end": (datetime.utcnow() + timedelta(days=7)).isoformat(),
+        "quorum_required": 0.1,
+        "majority_required": 0.6
+    }
+    
+    response = requests.post(f"{API_BASE}/governance/proposals", json=proposal_data, headers=headers)
+    print_response(response, "Create Governance Proposal")
+    
+    if response.status_code == 201:
+        test_proposal_id = response.json()["id"]
+    
+    # Test get proposals
+    response = requests.get(f"{API_BASE}/governance/proposals", headers=headers)
+    print_response(response, "Get Governance Proposals")
+    
+    # Test vote on proposal
+    if test_proposal_id:
+        vote_data = {
+            "vote_type": "yes",
+            "voting_power": 25.0,
+            "reason": "Lower fees will attract more users"
+        }
+        response = requests.post(f"{API_BASE}/governance/proposals/{test_proposal_id}/vote", json=vote_data, headers=headers)
+        print_response(response, "Vote on Proposal")
+
+def test_advanced_markets():
+    """Test advanced market endpoints"""
+    global test_futures_contract_id, test_options_contract_id
+    
+    print("🚀 Testing Advanced Markets...")
+    
+    headers = {"Authorization": f"Bearer {test_user_token}"}
+    
+    # Test create futures contract
+    futures_data = {
+        "market_id": test_market_id,
+        "contract_size": 100.0,
+        "tick_size": 0.01,
+        "margin_requirement": 0.1,
+        "settlement_date": (datetime.utcnow() + timedelta(days=30)).isoformat(),
+        "cash_settlement": True,
+        "max_position_size": 1000.0,
+        "daily_price_limit": 0.2
+    }
+    
+    response = requests.post(f"{API_BASE}/advanced-markets/futures/contracts", json=futures_data, headers=headers)
+    print_response(response, "Create Futures Contract")
+    
+    if response.status_code == 201:
+        test_futures_contract_id = response.json()["id"]
+    
+    # Test get futures contracts
+    response = requests.get(f"{API_BASE}/advanced-markets/futures/contracts", headers=headers)
+    print_response(response, "Get Futures Contracts")
+    
+    # Test create futures position
+    if test_futures_contract_id:
+        futures_position_data = {
+            "contract_id": test_futures_contract_id,
+            "long_contracts": 2.0,
+            "short_contracts": 0.0,
+            "average_entry_price": 0.5
+        }
+        response = requests.post(f"{API_BASE}/advanced-markets/futures/positions", json=futures_position_data, headers=headers)
+        print_response(response, "Create Futures Position")
+    
+    # Test create options contract
+    options_data = {
+        "market_id": test_market_id,
+        "option_type": "call",
+        "strike_price": 0.6,
+        "expiration_date": (datetime.utcnow() + timedelta(days=14)).isoformat(),
+        "contract_size": 1.0,
+        "premium": 0.1
+    }
+    
+    response = requests.post(f"{API_BASE}/advanced-markets/options/contracts", json=options_data, headers=headers)
+    print_response(response, "Create Options Contract")
+    
+    if response.status_code == 201:
+        test_options_contract_id = response.json()["id"]
+    
+    # Test get options contracts
+    response = requests.get(f"{API_BASE}/advanced-markets/options/contracts", headers=headers)
+    print_response(response, "Get Options Contracts")
+    
+    # Test create conditional market
+    conditional_data = {
+        "market_id": test_market_id,
+        "condition_description": "Market activates when Bitcoin price reaches $50k",
+        "trigger_condition": {"price_threshold": 0.5},
+        "trigger_market_id": test_market_id
+    }
+    
+    response = requests.post(f"{API_BASE}/advanced-markets/conditional", json=conditional_data, headers=headers)
+    print_response(response, "Create Conditional Market")
+    
+    # Test create spread market
+    spread_data = {
+        "market_id": test_market_id,
+        "spread_type": "range",
+        "min_value": 0.0,
+        "max_value": 1.0,
+        "tick_size": 0.1
+    }
+    
+    response = requests.post(f"{API_BASE}/advanced-markets/spread", json=spread_data, headers=headers)
+    print_response(response, "Create Spread Market")
+    
+    # Test get market instruments
+    response = requests.get(f"{API_BASE}/advanced-markets/instruments/{test_market_id}", headers=headers)
+    print_response(response, "Get Market Instruments")
+
 def test_leaderboard():
     """Test leaderboard endpoints"""
     print("🏆 Testing Leaderboards...")
@@ -351,6 +493,31 @@ def test_websocket():
     print("- /ws/user - User-specific updates")
     print("- /ws/global - Global market updates")
 
+def test_security():
+    """Test security features"""
+    print("🔒 Testing Security Features...")
+    
+    headers = {"Authorization": f"Bearer {test_user_token}"}
+    
+    # Test rate limiting (make multiple rapid requests)
+    print("Testing rate limiting...")
+    for i in range(5):
+        response = requests.get(f"{API_BASE}/users/me", headers=headers)
+        print(f"Request {i+1}: Status {response.status_code}")
+        time.sleep(0.1)
+    
+    # Test fraud detection (create suspicious trade)
+    print("Testing fraud detection...")
+    suspicious_trade_data = {
+        "market_id": test_market_id,
+        "trade_type": "buy",
+        "outcome": "outcome_a",
+        "amount": 10000.0  # Very large trade
+    }
+    
+    response = requests.post(f"{API_BASE}/trades/", json=suspicious_trade_data, headers=headers)
+    print_response(response, "Create Suspicious Trade (Fraud Detection)")
+
 def run_all_tests():
     """Run all API tests"""
     print("🚀 Starting Opinion Market API Tests")
@@ -366,8 +533,11 @@ def run_all_tests():
         test_analytics()
         test_verification()
         test_orders()
+        test_governance()
+        test_advanced_markets()
         test_leaderboard()
         test_websocket()
+        test_security()
         
         print("✅ All tests completed!")
         

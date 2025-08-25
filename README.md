@@ -34,6 +34,10 @@ Opinion Market is a decentralized prediction market platform that allows users t
 - **Order Book**: Advanced order matching and depth visualization
 - **Price Predictions**: AI-powered market price forecasting
 - **Sentiment Analysis**: Trading sentiment and market psychology insights
+- **Mobile API**: Mobile-optimized endpoints and push notifications
+- **Advanced Orders**: Stop-loss, take-profit, trailing stops, and conditional orders
+- **Rewards System**: Gamification with achievements and token rewards
+- **Real-time Analytics**: Live market data and performance tracking
 
 ### Polymarket-like Features
 - **Liquidity Pools**: Separate pools for each market outcome
@@ -42,6 +46,47 @@ Opinion Market is a decentralized prediction market platform that allows users t
 - **Trending Algorithm**: Real-time market trending detection
 - **Advanced Order Types**: Limit, market, and stop orders
 - **Real-time Price Feeds**: Live market data and trade broadcasts
+
+## 🎯 Advanced Features
+
+### AI-Powered Analytics
+- **Market Predictions**: ML-based price forecasting and trend analysis
+- **User Insights**: Personalized trading recommendations and performance analysis
+- **Sentiment Analysis**: Real-time market sentiment tracking
+- **Risk Assessment**: AI-powered risk analysis for trades and portfolios
+- **Performance Analytics**: Advanced portfolio performance metrics
+- **Price Forecasting**: Short, medium, and long-term price predictions
+- **Technical Indicators**: RSI, MACD, Bollinger Bands, and more
+- **Market Correlation Analysis**: Cross-market relationship insights
+
+### Rewards & Gamification
+- **Daily Login Rewards**: Earn tokens and XP for daily engagement
+- **Trade Streaks**: Bonus rewards for consecutive trading days
+- **Achievement System**: Unlock achievements for various milestones
+- **Volume Milestones**: Rewards for reaching trading volume targets
+- **Profit Milestones**: Bonuses for profitable trading performance
+- **Market Creation Rewards**: Incentives for creating quality markets
+- **Governance Participation**: Rewards for active governance involvement
+- **Winning Streaks**: Special rewards for consecutive profitable trades
+- **Leaderboards**: Competitive rankings across multiple categories
+
+### Mobile API Support
+- **Mobile-Optimized Endpoints**: Streamlined API responses for mobile apps
+- **Push Notifications**: Real-time alerts for trades, market updates, and rewards
+- **Device Registration**: Secure mobile device management
+- **Mobile Dashboard**: Optimized data for mobile interfaces
+- **Portfolio Tracking**: Mobile-friendly portfolio management
+- **Performance Charts**: Mobile-optimized chart data
+- **Search & Discovery**: Fast market search for mobile users
+
+### Advanced Order Types
+- **Stop-Loss Orders**: Automatic selling when price falls below threshold
+- **Take-Profit Orders**: Secure gains when price reaches target
+- **Trailing Stops**: Dynamic stop-loss that follows price movements
+- **Conditional Orders**: Orders that trigger based on other market conditions
+- **Bracket Orders**: Entry orders with automatic stop-loss and take-profit
+- **Risk Management**: Built-in risk assessment and warnings
+- **Order Statistics**: Performance tracking for advanced orders
 
 ## 🚀 Getting Started
 

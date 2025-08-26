@@ -104,6 +104,22 @@ Opinion Market is a decentralized prediction market platform that allows users t
 - **Performance Analysis**: Trend analysis and predictive insights
 - **Production-Ready Infrastructure**: Docker, monitoring stack, and backup systems
 
+### Advanced Machine Learning & AI
+- **Market Price Predictions**: ML-powered price forecasting with confidence scores
+- **User Behavior Analysis**: Comprehensive trading profile and risk assessment
+- **Personalized Recommendations**: AI-driven trading suggestions based on user patterns
+- **Model Performance Tracking**: Continuous model evaluation and retraining
+- **Bulk Market Analysis**: Multi-market prediction and trend analysis
+- **Intelligent Insights**: Automated market and user insights generation
+
+### Blockchain Integration & DeFi Features
+- **Smart Contract Integration**: Market creation and trading on blockchain
+- **Multi-Chain Support**: Ethereum, Polygon, and Arbitrum networks
+- **Governance on Blockchain**: Decentralized proposal creation and voting
+- **Token Balance Tracking**: Real-time cryptocurrency and token balances
+- **Transaction Monitoring**: Automated blockchain transaction tracking
+- **DeFi Rewards**: Blockchain-based reward distribution system
+
 ## 🚀 Getting Started
 
 ### Prerequisites

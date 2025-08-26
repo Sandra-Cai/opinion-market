@@ -1,0 +1,359 @@
+# Opinion Market Helm Chart Values
+# This file contains the default values for the Opinion Market Helm chart
+
+# Global configuration
+global:
+  environment: production
+  domain: opinionmarket.com
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Application configuration
+app:
+  name: opinion-market-api
+  image:
+    repository: opinionmarket/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicas: 3
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  
+  # Application configuration
+  config:
+    databaseUrl: "postgresql://opinion_market:password@postgres-service:5432/opinion_market"
+    redisUrl: "redis://redis-service:6379"
+    secretKey: "your-secret-key-here"
+    algorithm: "HS256"
+    accessTokenExpireMinutes: 30
+    environment: "production"
+    logLevel: "INFO"
+    corsOrigins: "https://opinionmarket.com,https://www.opinionmarket.com"
+    smtpHost: "smtp.gmail.com"
+    smtpPort: 587
+    smtpUser: "noreply@opinionmarket.com"
+    encryptionKey: "your-encryption-key-here"
+  
+  # Secrets
+  secrets:
+    databasePassword: "password"
+    smtpPassword: "password"
+    jwtSecret: "your-jwt-secret"
+    encryptionKey: "your-encryption-key"
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  
+  # Ingress configuration
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: api.opinionmarket.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: opinion-market-tls
+        hosts:
+          - api.opinionmarket.com
+  
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  
+  startupProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    failureThreshold: 30
+    periodSeconds: 10
+
+# Celery Worker configuration
+celeryWorker:
+  enabled: true
+  image:
+    repository: opinionmarket/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicas: 2
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+# Celery Beat configuration
+celeryBeat:
+  enabled: true
+  image:
+    repository: opinionmarket/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicas: 1
+  
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: 15-alpine
+  
+  replicas: 1
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  
+  auth:
+    database: opinion_market
+    username: opinion_market
+    password: password
+  
+  service:
+    type: ClusterIP
+    port: 5432
+
+# Redis configuration
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7-alpine
+  
+  replicas: 1
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  
+  service:
+    type: ClusterIP
+    port: 6379
+  
+  # Redis configuration
+  config:
+    maxmemory: 1gb
+    maxmemoryPolicy: allkeys-lru
+    appendonly: yes
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  
+  # Prometheus
+  prometheus:
+    enabled: true
+    image:
+      repository: prom/prometheus
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+    
+    service:
+      type: ClusterIP
+      port: 9090
+    
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      hosts:
+        - host: prometheus.opinionmarket.com
+          paths:
+            - path: /
+              pathType: Prefix
+  
+  # Grafana
+  grafana:
+    enabled: true
+    image:
+      repository: grafana/grafana
+      tag: latest
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 250m
+        memory: 512Mi
+    
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""
+    
+    auth:
+      adminPassword: admin123
+    
+    service:
+      type: ClusterIP
+      port: 3000
+    
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      hosts:
+        - host: grafana.opinionmarket.com
+          paths:
+            - path: /
+              pathType: Prefix
+
+# Security configuration
+security:
+  # Network policies
+  networkPolicies:
+    enabled: true
+  
+  # Pod security policies
+  podSecurityPolicies:
+    enabled: true
+  
+  # RBAC
+  rbac:
+    enabled: true
+    create: true
+
+# Backup configuration
+backup:
+  enabled: true
+  
+  # Database backup
+  database:
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention: 30  # Keep backups for 30 days
+    storage:
+      type: s3
+      bucket: opinion-market-backups
+      region: us-east-1
+  
+  # File backup
+  files:
+    schedule: "0 3 * * *"  # Daily at 3 AM
+    retention: 7  # Keep backups for 7 days
+    storage:
+      type: s3
+      bucket: opinion-market-files
+      region: us-east-1
+
+# Load balancer configuration
+loadBalancer:
+  enabled: false
+  type: LoadBalancer
+  port: 80
+  annotations: {}
+
+# Service mesh configuration
+serviceMesh:
+  enabled: false
+  type: istio  # or linkerd
+
+# Resource quotas
+resourceQuotas:
+  enabled: true
+  limits:
+    cpu: "4"
+    memory: "8Gi"
+    persistentvolumeclaims: "10"
+    services: "20"
+    services.loadbalancers: "2"
+
+# Node selectors
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Annotations
+annotations: {}
+
+# Labels
+labels: {}

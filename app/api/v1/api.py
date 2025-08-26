@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, users, markets, trades, votes, positions, websocket, leaderboard, disputes, notifications, analytics, verification, orders, governance, advanced_markets, ai_analytics, rewards, mobile, advanced_orders, market_data, ml_analytics
+from app.api.v1.endpoints import auth, users, markets, trades, votes, positions, websocket, leaderboard, disputes, notifications, analytics, verification, orders, governance, advanced_markets, ai_analytics, rewards, mobile, advanced_orders, market_data, ml_analytics, social
 
 api_router = APIRouter()
 
@@ -24,3 +24,4 @@ api_router.include_router(mobile.router, prefix="/mobile", tags=["mobile"])
 api_router.include_router(advanced_orders.router, prefix="/advanced-orders", tags=["advanced-orders"])
 api_router.include_router(market_data.router, prefix="/market-data", tags=["market-data"])
 api_router.include_router(ml_analytics.router, prefix="/ml-analytics", tags=["ml-analytics"])
+api_router.include_router(social.router, prefix="/social", tags=["social"])

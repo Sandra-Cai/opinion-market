@@ -129,6 +129,16 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "opinion-market-api"}
 
+@app.get("/ready")
+async def readiness_check():
+    return {"status": "ready", "service": "opinion-market-api"}
+
+@app.get("/metrics")
+async def metrics():
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    from fastapi.responses import Response
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",

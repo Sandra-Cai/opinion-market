@@ -1,0 +1,414 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-policies
+  namespace: gatekeeper-system
+data:
+  # Policy to ensure all pods have resource limits
+  pod-resource-limits.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.containers[_].resources.limits
+      msg := "All containers must have resource limits"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.containers[_].resources.requests
+      msg := "All containers must have resource requests"
+    }
+
+  # Policy to prevent privileged containers
+  no-privileged-containers.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].securityContext.privileged == true
+      msg := "Privileged containers are not allowed"
+    }
+
+  # Policy to enforce security contexts
+  security-context.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.securityContext.runAsNonRoot
+      msg := "Pods must run as non-root"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.securityContext.readOnlyRootFilesystem
+      msg := "Pods must have read-only root filesystem"
+    }
+
+  # Policy to enforce network policies
+  network-policy.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Namespace"
+      not data.kubernetes.networkpolicies[input.request.object.metadata.name]
+      msg := "All namespaces must have a default network policy"
+    }
+
+  # Policy to enforce pod security standards
+  pod-security-standards.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].securityContext.allowPrivilegeEscalation == true
+      msg := "Privilege escalation is not allowed"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].securityContext.capabilities.add[_] == "NET_ADMIN"
+      msg := "NET_ADMIN capability is not allowed"
+    }
+
+  # Policy to enforce image security
+  image-security.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not startswith(input.request.object.spec.containers[_].image, "ghcr.io/")
+      not startswith(input.request.object.spec.containers[_].image, "docker.io/library/")
+      msg := "Only approved image registries are allowed"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].image == "latest"
+      msg := "Latest tag is not allowed, use specific version"
+    }
+
+  # Policy to enforce namespace labels
+  namespace-labels.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Namespace"
+      not input.request.object.metadata.labels.environment
+      msg := "All namespaces must have environment label"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Namespace"
+      not input.request.object.metadata.labels.team
+      msg := "All namespaces must have team label"
+    }
+
+  # Policy to enforce service account usage
+  service-account.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.serviceAccountName
+      msg := "All pods must use a service account"
+    }
+
+  # Policy to enforce resource quotas
+  resource-quotas.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Namespace"
+      not data.kubernetes.resourcequotas[input.request.object.metadata.name]
+      msg := "All namespaces must have resource quotas"
+    }
+
+  # Policy to enforce limit ranges
+  limit-ranges.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Namespace"
+      not data.kubernetes.limitranges[input.request.object.metadata.name]
+      msg := "All namespaces must have limit ranges"
+    }
+
+  # Policy to enforce pod disruption budgets
+  pod-disruption-budget.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Deployment"
+      not data.kubernetes.poddisruptionbudgets[input.request.object.metadata.name]
+      msg := "All deployments must have pod disruption budgets"
+    }
+
+  # Policy to enforce ingress TLS
+  ingress-tls.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Ingress"
+      not input.request.object.spec.tls
+      msg := "All ingresses must have TLS configuration"
+    }
+
+  # Policy to enforce service type
+  service-type.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Service"
+      input.request.object.spec.type == "LoadBalancer"
+      not input.request.object.metadata.annotations["service.beta.kubernetes.io/aws-load-balancer-internal"]
+      msg := "LoadBalancer services must be internal"
+    }
+
+  # Policy to enforce pod anti-affinity
+  pod-anti-affinity.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Deployment"
+      input.request.object.spec.replicas > 1
+      not input.request.object.spec.template.spec.affinity.podAntiAffinity
+      msg := "Multi-replica deployments must have pod anti-affinity"
+    }
+
+  # Policy to enforce node affinity
+  node-affinity.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.affinity.nodeAffinity
+      msg := "All pods must have node affinity rules"
+    }
+
+  # Policy to enforce pod security policies
+  pod-security-policy.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].securityContext.runAsUser == 0
+      msg := "Pods cannot run as root user (UID 0)"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].securityContext.privileged == true
+      msg := "Privileged containers are not allowed"
+    }
+
+  # Policy to enforce network security
+  network-security.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].ports[_].hostPort
+      msg := "Host ports are not allowed"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.hostNetwork == true
+      msg := "Host network is not allowed"
+    }
+
+  # Policy to enforce storage security
+  storage-security.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.volumes[_].hostPath
+      msg := "Host path volumes are not allowed"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.volumes[_].emptyDir
+      not input.request.object.spec.volumes[_].emptyDir.medium == "Memory"
+      msg := "Empty dir volumes must use memory medium"
+    }
+
+  # Policy to enforce RBAC
+  rbac.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Role"
+      input.request.object.rules[_].resources[_] == "*"
+      msg := "Wildcard resources are not allowed in roles"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Role"
+      input.request.object.rules[_].verbs[_] == "*"
+      msg := "Wildcard verbs are not allowed in roles"
+    }
+
+  # Policy to enforce secrets management
+  secrets-management.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Secret"
+      input.request.object.type == "Opaque"
+      msg := "Opaque secrets are not allowed, use specific secret types"
+    }
+
+  # Policy to enforce configmap usage
+  configmap-usage.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].env[_].value
+      not startswith(input.request.object.spec.containers[_].env[_].value, "{{")
+      msg := "Environment variables should use configmaps or secrets"
+    }
+
+  # Policy to enforce health checks
+  health-checks.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.containers[_].livenessProbe
+      msg := "All containers must have liveness probes"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.spec.containers[_].readinessProbe
+      msg := "All containers must have readiness probes"
+    }
+
+  # Policy to enforce resource naming
+  resource-naming.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not regex.match("^[a-z0-9-]+$", input.request.object.metadata.name)
+      msg := "Resource names must be lowercase with hyphens only"
+    }
+
+  # Policy to enforce labels
+  labels.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.metadata.labels.app
+      msg := "All pods must have app label"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.metadata.labels.version
+      msg := "All pods must have version label"
+    }
+
+  # Policy to enforce annotations
+  annotations.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.metadata.annotations["prometheus.io/scrape"]
+      msg := "All pods must have prometheus scrape annotation"
+    }
+
+  # Policy to enforce service mesh
+  service-mesh.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      not input.request.object.metadata.labels["sidecar.istio.io/inject"]
+      msg := "All pods must be part of service mesh"
+    }
+
+  # Policy to enforce backup annotations
+  backup-annotations.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "PersistentVolumeClaim"
+      not input.request.object.metadata.annotations["backup.velero.io/backup-volumes"]
+      msg := "All PVCs must have backup annotations"
+    }
+
+  # Policy to enforce cost optimization
+  cost-optimization.rego: |
+    package kubernetes.admission
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].resources.requests.cpu > "1000m"
+      msg := "CPU requests should not exceed 1000m"
+    }
+    
+    deny[msg] {
+      input.request.kind.kind == "Pod"
+      input.request.object.spec.containers[_].resources.requests.memory > "2Gi"
+      msg := "Memory requests should not exceed 2Gi"
+    }
+
+---
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: Config
+metadata:
+  name: config
+  namespace: gatekeeper-system
+spec:
+  sync:
+    syncOnly:
+      - group: ""
+        version: "v1"
+        kind: "Pod"
+      - group: ""
+        version: "v1"
+        kind: "Namespace"
+      - group: ""
+        version: "v1"
+        kind: "Service"
+      - group: ""
+        version: "v1"
+        kind: "Ingress"
+      - group: "apps"
+        version: "v1"
+        kind: "Deployment"
+      - group: "rbac.authorization.k8s.io"
+        version: "v1"
+        kind: "Role"
+      - group: "rbac.authorization.k8s.io"
+        version: "v1"
+        kind: "RoleBinding"
+      - group: ""
+        version: "v1"
+        kind: "Secret"
+      - group: ""
+        version: "v1"
+        kind: "ConfigMap"
+      - group: ""
+        version: "v1"
+        kind: "PersistentVolumeClaim"
+      - group: "policy"
+        version: "v1"
+        kind: "PodDisruptionBudget"
+      - group: ""
+        version: "v1"
+        kind: "ResourceQuota"
+      - group: ""
+        version: "v1"
+        kind: "LimitRange"
+      - group: "networking.k8s.io"
+        version: "v1"
+        kind: "NetworkPolicy"

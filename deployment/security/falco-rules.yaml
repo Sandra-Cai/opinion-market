@@ -1,0 +1,661 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-rules
+  namespace: falco
+data:
+  falco_rules.yaml: |
+    # Custom rules for Opinion Market platform
+    
+    # Rule to detect unauthorized container creation
+    - rule: Unauthorized Container Creation
+      desc: Detect creation of containers outside of approved namespaces
+      condition: spawned_process and container and not k8s.ns.name in (opinion-market, kube-system, monitoring)
+      output: Unauthorized container creation detected (user=%user.name command=%proc.cmdline container=%container.name image=%container.image.repository:%container.image.tag)
+      priority: WARNING
+      tags: [container, unauthorized]
+
+    # Rule to detect privilege escalation attempts
+    - rule: Privilege Escalation Attempt
+      desc: Detect attempts to escalate privileges in containers
+      condition: spawned_process and container and proc.name in (sudo, su, doas) and not proc.args contains "-u"
+      output: Privilege escalation attempt detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: CRITICAL
+      tags: [privilege_escalation, container]
+
+    # Rule to detect suspicious file access
+    - rule: Suspicious File Access
+      desc: Detect access to sensitive files in containers
+      condition: open_write and container and fd.name in (/etc/passwd, /etc/shadow, /etc/sudoers, /root/.ssh/id_rsa)
+      output: Suspicious file access detected (user=%user.name command=%proc.cmdline file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [file_access, container]
+
+    # Rule to detect network scanning
+    - rule: Network Scanning
+      desc: Detect network scanning activities
+      condition: spawned_process and container and proc.name in (nmap, masscan, netcat, nc) and not proc.args contains "localhost"
+      output: Network scanning detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [network_scanning, container]
+
+    # Rule to detect cryptocurrency mining
+    - rule: Cryptocurrency Mining
+      desc: Detect cryptocurrency mining activities
+      condition: spawned_process and container and proc.name in (minerd, xmrig, cpuminer, ethminer, ccminer)
+      output: Cryptocurrency mining detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: CRITICAL
+      tags: [cryptocurrency_mining, container]
+
+    # Rule to detect reverse shell attempts
+    - rule: Reverse Shell
+      desc: Detect reverse shell attempts
+      condition: spawned_process and container and proc.name in (bash, sh, zsh) and proc.args contains ">/dev/tcp/"
+      output: Reverse shell attempt detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: CRITICAL
+      tags: [reverse_shell, container]
+
+    # Rule to detect data exfiltration
+    - rule: Data Exfiltration
+      desc: Detect large data transfers to external destinations
+      condition: outbound and container and fd.name contains ".sql" and evt.type=write and evt.dir=< and proc.name in (curl, wget, scp, rsync)
+      output: Potential data exfiltration detected (user=%user.name command=%proc.cmdline file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [data_exfiltration, container]
+
+    # Rule to detect unauthorized package installation
+    - rule: Unauthorized Package Installation
+      desc: Detect installation of unauthorized packages
+      condition: spawned_process and container and proc.name in (apt-get, yum, dnf, apk, pip, npm) and not proc.args contains "update"
+      output: Unauthorized package installation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [package_installation, container]
+
+    # Rule to detect container escape attempts
+    - rule: Container Escape Attempt
+      desc: Detect attempts to escape container isolation
+      condition: spawned_process and container and proc.args contains "docker" and proc.args contains "run"
+      output: Container escape attempt detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: CRITICAL
+      tags: [container_escape, container]
+
+    # Rule to detect sensitive data access
+    - rule: Sensitive Data Access
+      desc: Detect access to sensitive data files
+      condition: open_read and container and fd.name contains "password" or fd.name contains "secret" or fd.name contains "key"
+      output: Sensitive data access detected (user=%user.name command=%proc.cmdline file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [sensitive_data, container]
+
+    # Rule to detect process injection
+    - rule: Process Injection
+      desc: Detect process injection attempts
+      condition: spawned_process and container and proc.name in (gdb, strace, ptrace) and not proc.args contains "debug"
+      output: Process injection attempt detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [process_injection, container]
+
+    # Rule to detect unauthorized network connections
+    - rule: Unauthorized Network Connection
+      desc: Detect unauthorized outbound network connections
+      condition: outbound and container and not fd.sip in (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+      output: Unauthorized network connection detected (user=%user.name command=%proc.cmdline container=%container.name remote_ip=%fd.sip)
+      priority: WARNING
+      tags: [network_connection, container]
+
+    # Rule to detect file modification in system directories
+    - rule: System File Modification
+      desc: Detect modification of system files
+      condition: open_write and container and fd.name startswith "/etc/" and not proc.name in (systemd, init)
+      output: System file modification detected (user=%user.name command=%proc.cmdline file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [system_file, container]
+
+    # Rule to detect suspicious environment variables
+    - rule: Suspicious Environment Variables
+      desc: Detect suspicious environment variables
+      condition: spawned_process and container and proc.env contains "LD_PRELOAD" or proc.env contains "LD_LIBRARY_PATH"
+      output: Suspicious environment variables detected (user=%user.name command=%proc.cmdline container=%container.name env=%proc.env)
+      priority: WARNING
+      tags: [environment_variables, container]
+
+    # Rule to detect unauthorized user creation
+    - rule: Unauthorized User Creation
+      desc: Detect unauthorized user creation
+      condition: spawned_process and container and proc.name in (useradd, adduser) and not proc.args contains "system"
+      output: Unauthorized user creation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [user_creation, container]
+
+    # Rule to detect unauthorized service installation
+    - rule: Unauthorized Service Installation
+      desc: Detect unauthorized service installation
+      condition: spawned_process and container and proc.name in (systemctl, service) and proc.args contains "enable"
+      output: Unauthorized service installation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [service_installation, container]
+
+    # Rule to detect database access from unauthorized containers
+    - rule: Unauthorized Database Access
+      desc: Detect database access from unauthorized containers
+      condition: spawned_process and container and proc.name in (psql, mysql, redis-cli) and not k8s.ns.name=opinion-market
+      output: Unauthorized database access detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [database_access, container]
+
+    # Rule to detect configuration file modification
+    - rule: Configuration File Modification
+      desc: Detect modification of configuration files
+      condition: open_write and container and fd.name endswith ".conf" or fd.name endswith ".config" or fd.name endswith ".yaml" or fd.name endswith ".yml"
+      output: Configuration file modification detected (user=%user.name command=%proc.cmdline file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [configuration, container]
+
+    # Rule to detect log file tampering
+    - rule: Log File Tampering
+      desc: Detect tampering with log files
+      condition: open_write and container and fd.name contains "log" and not proc.name in (rsyslogd, systemd-journald)
+      output: Log file tampering detected (user=%user.name command=%proc.cmdline file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [log_tampering, container]
+
+    # Rule to detect unauthorized port binding
+    - rule: Unauthorized Port Binding
+      desc: Detect binding to unauthorized ports
+      condition: spawned_process and container and proc.name in (netcat, nc, socat) and proc.args contains "-l"
+      output: Unauthorized port binding detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [port_binding, container]
+
+    # Rule to detect file upload to external servers
+    - rule: External File Upload
+      desc: Detect file uploads to external servers
+      condition: spawned_process and container and proc.name in (curl, wget, scp, rsync) and proc.args contains "upload" or proc.args contains "put"
+      output: External file upload detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [file_upload, container]
+
+    # Rule to detect memory dump attempts
+    - rule: Memory Dump Attempt
+      desc: Detect attempts to dump process memory
+      condition: spawned_process and container and proc.name in (gcore, gdb, dd) and proc.args contains "/proc/"
+      output: Memory dump attempt detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [memory_dump, container]
+
+    # Rule to detect unauthorized cron job creation
+    - rule: Unauthorized Cron Job
+      desc: Detect unauthorized cron job creation
+      condition: spawned_process and container and proc.name in (crontab, at) and not proc.args contains "list"
+      output: Unauthorized cron job creation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [cron_job, container]
+
+    # Rule to detect unauthorized mount operations
+    - rule: Unauthorized Mount
+      desc: Detect unauthorized mount operations
+      condition: spawned_process and container and proc.name=mount and not proc.args contains "proc"
+      output: Unauthorized mount operation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [mount, container]
+
+    # Rule to detect unauthorized kernel module loading
+    - rule: Unauthorized Kernel Module
+      desc: Detect unauthorized kernel module loading
+      condition: spawned_process and container and proc.name in (insmod, modprobe, depmod)
+      output: Unauthorized kernel module loading detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: CRITICAL
+      tags: [kernel_module, container]
+
+    # Rule to detect unauthorized device access
+    - rule: Unauthorized Device Access
+      desc: Detect unauthorized device access
+      condition: open_read and container and fd.name startswith "/dev/" and not fd.name in (/dev/null, /dev/zero, /dev/urandom, /dev/random)
+      output: Unauthorized device access detected (user=%user.name command=%proc.cmdline device=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [device_access, container]
+
+    # Rule to detect unauthorized signal sending
+    - rule: Unauthorized Signal
+      desc: Detect unauthorized signal sending
+      condition: spawned_process and container and proc.name=kill and proc.args contains "-9"
+      output: Unauthorized signal sending detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [signal, container]
+
+    # Rule to detect unauthorized file deletion
+    - rule: Unauthorized File Deletion
+      desc: Detect unauthorized file deletion
+      condition: unlink and container and fd.name contains "log" or fd.name contains "config" or fd.name contains "backup"
+      output: Unauthorized file deletion detected (user=%user.name command=%proc.cmdline file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [file_deletion, container]
+
+    # Rule to detect unauthorized process termination
+    - rule: Unauthorized Process Termination
+      desc: Detect unauthorized process termination
+      condition: spawned_process and container and proc.name=kill and not proc.args contains "SIGTERM"
+      output: Unauthorized process termination detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [process_termination, container]
+
+    # Rule to detect unauthorized network interface manipulation
+    - rule: Unauthorized Network Interface
+      desc: Detect unauthorized network interface manipulation
+      condition: spawned_process and container and proc.name in (ifconfig, ip, iptables, ufw)
+      output: Unauthorized network interface manipulation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [network_interface, container]
+
+    # Rule to detect unauthorized DNS manipulation
+    - rule: Unauthorized DNS Manipulation
+      desc: Detect unauthorized DNS manipulation
+      condition: spawned_process and container and proc.name in (nslookup, dig, host) and not proc.args contains "localhost"
+      output: Unauthorized DNS manipulation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [dns_manipulation, container]
+
+    # Rule to detect unauthorized time manipulation
+    - rule: Unauthorized Time Manipulation
+      desc: Detect unauthorized time manipulation
+      condition: spawned_process and container and proc.name in (date, timedatectl, hwclock)
+      output: Unauthorized time manipulation detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [time_manipulation, container]
+
+    # Rule to detect unauthorized user switching
+    - rule: Unauthorized User Switch
+      desc: Detect unauthorized user switching
+      condition: spawned_process and container and proc.name in (su, sudo, runuser) and not proc.args contains "-u"
+      output: Unauthorized user switch detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [user_switch, container]
+
+    # Rule to detect unauthorized file permission changes
+    - rule: Unauthorized Permission Change
+      desc: Detect unauthorized file permission changes
+      condition: spawned_process and container and proc.name in (chmod, chown, chgrp) and not proc.args contains "644"
+      output: Unauthorized permission change detected (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [permission_change, container]
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: falco
+data:
+  falco.yaml: |
+    # Falco configuration for Opinion Market platform
+    
+    # Webhook configuration for alerts
+    webserver:
+      enabled: true
+      listen_port: 9765
+      ssl_enabled: false
+    
+    # Program output configuration
+    program_output:
+      enabled: true
+      program: "curl -d @- -X POST http://alertmanager:9093/api/v1/alerts"
+    
+    # File output configuration
+    file_output:
+      enabled: true
+      filename: "/var/log/falco/events.log"
+    
+    # Syslog output configuration
+    syslog_output:
+      enabled: true
+      program: "falco"
+    
+    # HTTP output configuration
+    http_output:
+      enabled: true
+      url: "http://webhook:8080/falco"
+    
+    # Rules file configuration
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/k8s_audit_rules.yaml
+      - /etc/falco/rules.d/
+    
+    # Engine configuration
+    engine:
+      kind: "falco"
+      engine_kind: "falco"
+    
+    # Loader configuration
+    load_plugins:
+      - name: json
+        library_path: libjson.so
+    
+    # Plugin configuration
+    plugins:
+      - name: json
+        library_path: libjson.so
+        init_config: ""
+    
+    # Output configuration
+    outputs:
+      - name: "stdout"
+        enabled: true
+      - name: "file"
+        enabled: true
+        filename: "/var/log/falco/events.log"
+      - name: "syslog"
+        enabled: true
+        program: "falco"
+      - name: "http"
+        enabled: true
+        url: "http://webhook:8080/falco"
+      - name: "program"
+        enabled: true
+        program: "curl -d @- -X POST http://alertmanager:9093/api/v1/alerts"
+    
+    # Log level configuration
+    log_level: "info"
+    
+    # Log file configuration
+    log_file: "/var/log/falco/falco.log"
+    
+    # Log rotation configuration
+    log_rotation:
+      enabled: true
+      max_size: 100
+      max_age: 30
+      max_backups: 10
+      compress: true
+    
+    # Metrics configuration
+    metrics:
+      enabled: true
+      listen_port: 9376
+      k8s_healthz_port: 9366
+    
+    # K8s audit configuration
+    k8s_audit:
+      enabled: true
+      audit_log_path: "/var/log/kubernetes/audit.log"
+    
+    # K8s API configuration
+    k8s_api:
+      enabled: true
+      kubeconfig: "/etc/kubernetes/admin.conf"
+    
+    # K8s cache configuration
+    k8s_cache:
+      enabled: true
+      cache_size: 1000
+      cache_ttl: 300
+    
+    # K8s health configuration
+    k8s_health:
+      enabled: true
+      healthz_port: 9366
+    
+    # K8s node configuration
+    k8s_node:
+      enabled: true
+      node_name: "{{ .NodeName }}"
+    
+    # K8s pod configuration
+    k8s_pod:
+      enabled: true
+      pod_name: "{{ .PodName }}"
+      pod_namespace: "{{ .PodNamespace }}"
+    
+    # K8s service configuration
+    k8s_service:
+      enabled: true
+      service_name: "{{ .ServiceName }}"
+      service_namespace: "{{ .ServiceNamespace }}"
+    
+    # K8s deployment configuration
+    k8s_deployment:
+      enabled: true
+      deployment_name: "{{ .DeploymentName }}"
+      deployment_namespace: "{{ .DeploymentNamespace }}"
+    
+    # K8s replica set configuration
+    k8s_replicaset:
+      enabled: true
+      replicaset_name: "{{ .ReplicaSetName }}"
+      replicaset_namespace: "{{ .ReplicaSetNamespace }}"
+    
+    # K8s daemon set configuration
+    k8s_daemonset:
+      enabled: true
+      daemonset_name: "{{ .DaemonSetName }}"
+      daemonset_namespace: "{{ .DaemonSetNamespace }}"
+    
+    # K8s stateful set configuration
+    k8s_statefulset:
+      enabled: true
+      statefulset_name: "{{ .StatefulSetName }}"
+      statefulset_namespace: "{{ .StatefulSetNamespace }}"
+    
+    # K8s job configuration
+    k8s_job:
+      enabled: true
+      job_name: "{{ .JobName }}"
+      job_namespace: "{{ .JobNamespace }}"
+    
+    # K8s cron job configuration
+    k8s_cronjob:
+      enabled: true
+      cronjob_name: "{{ .CronJobName }}"
+      cronjob_namespace: "{{ .CronJobNamespace }}"
+    
+    # K8s ingress configuration
+    k8s_ingress:
+      enabled: true
+      ingress_name: "{{ .IngressName }}"
+      ingress_namespace: "{{ .IngressNamespace }}"
+    
+    # K8s config map configuration
+    k8s_configmap:
+      enabled: true
+      configmap_name: "{{ .ConfigMapName }}"
+      configmap_namespace: "{{ .ConfigMapNamespace }}"
+    
+    # K8s secret configuration
+    k8s_secret:
+      enabled: true
+      secret_name: "{{ .SecretName }}"
+      secret_namespace: "{{ .SecretNamespace }}"
+    
+    # K8s persistent volume claim configuration
+    k8s_pvc:
+      enabled: true
+      pvc_name: "{{ .PVCName }}"
+      pvc_namespace: "{{ .PVCNamespace }}"
+    
+    # K8s persistent volume configuration
+    k8s_pv:
+      enabled: true
+      pv_name: "{{ .PVName }}"
+    
+    # K8s storage class configuration
+    k8s_storageclass:
+      enabled: true
+      storageclass_name: "{{ .StorageClassName }}"
+    
+    # K8s network policy configuration
+    k8s_networkpolicy:
+      enabled: true
+      networkpolicy_name: "{{ .NetworkPolicyName }}"
+      networkpolicy_namespace: "{{ .NetworkPolicyNamespace }}"
+    
+    # K8s pod disruption budget configuration
+    k8s_poddisruptionbudget:
+      enabled: true
+      poddisruptionbudget_name: "{{ .PodDisruptionBudgetName }}"
+      poddisruptionbudget_namespace: "{{ .PodDisruptionBudgetNamespace }}"
+    
+    # K8s horizontal pod autoscaler configuration
+    k8s_hpa:
+      enabled: true
+      hpa_name: "{{ .HPAName }}"
+      hpa_namespace: "{{ .HPANamespace }}"
+    
+    # K8s vertical pod autoscaler configuration
+    k8s_vpa:
+      enabled: true
+      vpa_name: "{{ .VPAName }}"
+      vpa_namespace: "{{ .VPANamespace }}"
+    
+    # K8s cluster autoscaler configuration
+    k8s_clusterautoscaler:
+      enabled: true
+      clusterautoscaler_name: "{{ .ClusterAutoscalerName }}"
+    
+    # K8s node autoprovisioner configuration
+    k8s_nodeautoprovisioner:
+      enabled: true
+      nodeautoprovisioner_name: "{{ .NodeAutoprovisionerName }}"
+    
+    # K8s pod autoscaler configuration
+    k8s_podautoscaler:
+      enabled: true
+      podautoscaler_name: "{{ .PodAutoscalerName }}"
+      podautoscaler_namespace: "{{ .PodAutoscalerNamespace }}"
+    
+    # K8s pod security policy configuration
+    k8s_podsecuritypolicy:
+      enabled: true
+      podsecuritypolicy_name: "{{ .PodSecurityPolicyName }}"
+    
+    # K8s pod security standards configuration
+    k8s_podsecuritystandards:
+      enabled: true
+      podsecuritystandards_name: "{{ .PodSecurityStandardsName }}"
+    
+    # K8s security context constraints configuration
+    k8s_securitycontextconstraints:
+      enabled: true
+      securitycontextconstraints_name: "{{ .SecurityContextConstraintsName }}"
+    
+    # K8s role configuration
+    k8s_role:
+      enabled: true
+      role_name: "{{ .RoleName }}"
+      role_namespace: "{{ .RoleNamespace }}"
+    
+    # K8s cluster role configuration
+    k8s_clusterrole:
+      enabled: true
+      clusterrole_name: "{{ .ClusterRoleName }}"
+    
+    # K8s role binding configuration
+    k8s_rolebinding:
+      enabled: true
+      rolebinding_name: "{{ .RoleBindingName }}"
+      rolebinding_namespace: "{{ .RoleBindingNamespace }}"
+    
+    # K8s cluster role binding configuration
+    k8s_clusterrolebinding:
+      enabled: true
+      clusterrolebinding_name: "{{ .ClusterRoleBindingName }}"
+    
+    # K8s service account configuration
+    k8s_serviceaccount:
+      enabled: true
+      serviceaccount_name: "{{ .ServiceAccountName }}"
+      serviceaccount_namespace: "{{ .ServiceAccountNamespace }}"
+    
+    # K8s limit range configuration
+    k8s_limitrange:
+      enabled: true
+      limitrange_name: "{{ .LimitRangeName }}"
+      limitrange_namespace: "{{ .LimitRangeNamespace }}"
+    
+    # K8s resource quota configuration
+    k8s_resourcequota:
+      enabled: true
+      resourcequota_name: "{{ .ResourceQuotaName }}"
+      resourcequota_namespace: "{{ .ResourceQuotaNamespace }}"
+    
+    # K8s priority class configuration
+    k8s_priorityclass:
+      enabled: true
+      priorityclass_name: "{{ .PriorityClassName }}"
+    
+    # K8s pod priority configuration
+    k8s_podpriority:
+      enabled: true
+      podpriority_name: "{{ .PodPriorityName }}"
+      podpriority_namespace: "{{ .PodPriorityNamespace }}"
+    
+    # K8s pod disruption budget configuration
+    k8s_poddisruptionbudget:
+      enabled: true
+      poddisruptionbudget_name: "{{ .PodDisruptionBudgetName }}"
+      poddisruptionbudget_namespace: "{{ .PodDisruptionBudgetNamespace }}"
+    
+    # K8s pod security policy configuration
+    k8s_podsecuritypolicy:
+      enabled: true
+      podsecuritypolicy_name: "{{ .PodSecurityPolicyName }}"
+    
+    # K8s pod security standards configuration
+    k8s_podsecuritystandards:
+      enabled: true
+      podsecuritystandards_name: "{{ .PodSecurityStandardsName }}"
+    
+    # K8s security context constraints configuration
+    k8s_securitycontextconstraints:
+      enabled: true
+      securitycontextconstraints_name: "{{ .SecurityContextConstraintsName }}"
+    
+    # K8s role configuration
+    k8s_role:
+      enabled: true
+      role_name: "{{ .RoleName }}"
+      role_namespace: "{{ .RoleNamespace }}"
+    
+    # K8s cluster role configuration
+    k8s_clusterrole:
+      enabled: true
+      clusterrole_name: "{{ .ClusterRoleName }}"
+    
+    # K8s role binding configuration
+    k8s_rolebinding:
+      enabled: true
+      rolebinding_name: "{{ .RoleBindingName }}"
+      rolebinding_namespace: "{{ .RoleBindingNamespace }}"
+    
+    # K8s cluster role binding configuration
+    k8s_clusterrolebinding:
+      enabled: true
+      clusterrolebinding_name: "{{ .ClusterRoleBindingName }}"
+    
+    # K8s service account configuration
+    k8s_serviceaccount:
+      enabled: true
+      serviceaccount_name: "{{ .ServiceAccountName }}"
+      serviceaccount_namespace: "{{ .ServiceAccountNamespace }}"
+    
+    # K8s limit range configuration
+    k8s_limitrange:
+      enabled: true
+      limitrange_name: "{{ .LimitRangeName }}"
+      limitrange_namespace: "{{ .LimitRangeNamespace }}"
+    
+    # K8s resource quota configuration
+    k8s_resourcequota:
+      enabled: true
+      resourcequota_name: "{{ .ResourceQuotaName }}"
+      resourcequota_namespace: "{{ .ResourceQuotaNamespace }}"
+    
+    # K8s priority class configuration
+    k8s_priorityclass:
+      enabled: true
+      priorityclass_name: "{{ .PriorityClassName }}"
+    
+    # K8s pod priority configuration
+    k8s_podpriority:
+      enabled: true
+      podpriority_name: "{{ .PodPriorityName }}"
+      podpriority_namespace: "{{ .PodPriorityNamespace }}"

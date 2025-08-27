@@ -1,0 +1,407 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: opinion-market-alerts
+  namespace: opinion-market
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: opinion-market.rules
+    rules:
+    # High CPU Usage
+    - alert: HighCPUUsage
+      expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High CPU usage on {{ $labels.instance }}"
+        description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}"
+
+    # High Memory Usage
+    - alert: HighMemoryUsage
+      expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High memory usage on {{ $labels.instance }}"
+        description: "Memory usage is above 85% for more than 5 minutes on {{ $labels.instance }}"
+
+    # High Disk Usage
+    - alert: HighDiskUsage
+      expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High disk usage on {{ $labels.instance }}"
+        description: "Disk usage is above 85% for more than 5 minutes on {{ $labels.instance }}"
+
+    # API High Response Time
+    - alert: APIHighResponseTime
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High API response time"
+        description: "95th percentile of API response time is above 2 seconds"
+
+    # API High Error Rate
+    - alert: APIHighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "High API error rate"
+        description: "Error rate is above 5% for more than 2 minutes"
+
+    # Database Connection Issues
+    - alert: DatabaseConnectionIssues
+      expr: pg_stat_database_numbackends > 80
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High database connections"
+        description: "Database has more than 80 active connections"
+
+    # Redis Memory Usage
+    - alert: RedisHighMemoryUsage
+      expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High Redis memory usage"
+        description: "Redis memory usage is above 80%"
+
+    # Pod Restarting Frequently
+    - alert: PodRestartingFrequently
+      expr: increase(kube_pod_container_status_restarts_total[15m]) > 5
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Pod restarting frequently"
+        description: "Pod {{ $labels.pod }} has restarted more than 5 times in 15 minutes"
+
+    # Pod Not Ready
+    - alert: PodNotReady
+      expr: kube_pod_status_ready{condition="true"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Pod not ready"
+        description: "Pod {{ $labels.pod }} is not ready for more than 5 minutes"
+
+    # Node Not Ready
+    - alert: NodeNotReady
+      expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Node not ready"
+        description: "Node {{ $labels.node }} is not ready for more than 5 minutes"
+
+    # High Trading Volume Alert
+    - alert: HighTradingVolume
+      expr: rate(opinion_market_trading_volume_total[5m]) > 10000
+      for: 2m
+      labels:
+        severity: info
+        team: trading
+      annotations:
+        summary: "High trading volume detected"
+        description: "Trading volume is above 10,000 units per second"
+
+    # Market Creation Rate
+    - alert: HighMarketCreationRate
+      expr: rate(opinion_market_markets_created_total[5m]) > 10
+      for: 2m
+      labels:
+        severity: info
+        team: trading
+      annotations:
+        summary: "High market creation rate"
+        description: "More than 10 markets created per second"
+
+    # User Registration Rate
+    - alert: HighUserRegistrationRate
+      expr: rate(opinion_market_users_registered_total[5m]) > 50
+      for: 2m
+      labels:
+        severity: info
+        team: platform
+      annotations:
+        summary: "High user registration rate"
+        description: "More than 50 users registering per second"
+
+    # Security Events
+    - alert: HighSecurityEvents
+      expr: rate(opinion_market_security_events_total[5m]) > 100
+      for: 2m
+      labels:
+        severity: critical
+        team: security
+      annotations:
+        summary: "High security events detected"
+        description: "More than 100 security events per second"
+
+    # Failed Authentication Attempts
+    - alert: HighFailedAuthAttempts
+      expr: rate(opinion_market_auth_failures_total[5m]) > 20
+      for: 2m
+      labels:
+        severity: warning
+        team: security
+      annotations:
+        summary: "High failed authentication attempts"
+        description: "More than 20 failed authentication attempts per second"
+
+    # Celery Worker Issues
+    - alert: CeleryWorkerDown
+      expr: up{job="celery-worker"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Celery worker down"
+        description: "Celery worker {{ $labels.instance }} is down"
+
+    # Celery Task Queue Backlog
+    - alert: CeleryTaskBacklog
+      expr: celery_tasks_pending > 1000
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Celery task backlog"
+        description: "More than 1000 pending tasks in queue"
+
+    # Database Query Performance
+    - alert: SlowDatabaseQueries
+      expr: histogram_quantile(0.95, rate(pg_stat_activity_max_tx_duration[5m])) > 30
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Slow database queries"
+        description: "95th percentile of database query duration is above 30 seconds"
+
+    # Redis Connection Issues
+    - alert: RedisConnectionIssues
+      expr: redis_connected_clients < 1
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Redis connection issues"
+        description: "No clients connected to Redis"
+
+    # Prometheus Target Down
+    - alert: PrometheusTargetDown
+      expr: up == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Prometheus target down"
+        description: "Target {{ $labels.instance }} is down"
+
+    # Grafana Down
+    - alert: GrafanaDown
+      expr: up{job="grafana"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Grafana down"
+        description: "Grafana is down"
+
+    # Certificate Expiration
+    - alert: CertificateExpiringSoon
+      expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 30
+      for: 1h
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Certificate expiring soon"
+        description: "SSL certificate for {{ $labels.instance }} expires in less than 30 days"
+
+    # Backup Failure
+    - alert: BackupFailure
+      expr: backup_last_success_timestamp < time() - 86400
+      for: 1h
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Backup failure"
+        description: "No successful backup in the last 24 hours"
+
+    # Disk Space Running Out
+    - alert: DiskSpaceRunningOut
+      expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 90
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Disk space running out"
+        description: "Disk usage is above 90% on {{ $labels.instance }}"
+
+    # Network Interface Errors
+    - alert: NetworkInterfaceErrors
+      expr: rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m]) > 10
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "Network interface errors"
+        description: "High rate of network errors on {{ $labels.instance }}"
+
+    # Load Average High
+    - alert: LoadAverageHigh
+      expr: node_load1 > 10
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High load average"
+        description: "Load average is above 10 on {{ $labels.instance }}"
+
+    # Memory Pressure
+    - alert: MemoryPressure
+      expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes) / node_memory_MemTotal_bytes * 100 > 90
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Memory pressure"
+        description: "Memory pressure is high on {{ $labels.instance }}"
+
+    # Swap Usage
+    - alert: SwapUsage
+      expr: (node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) / node_memory_SwapTotal_bytes * 100 > 10
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High swap usage"
+        description: "Swap usage is above 10% on {{ $labels.instance }}"
+
+    # File Descriptors
+    - alert: FileDescriptorsHigh
+      expr: node_filefd_allocated / node_filefd_maximum * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High file descriptor usage"
+        description: "File descriptor usage is above 80% on {{ $labels.instance }}"
+
+    # Inode Usage
+    - alert: InodeUsageHigh
+      expr: (node_filesystem_files - node_filesystem_files_free) / node_filesystem_files * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High inode usage"
+        description: "Inode usage is above 80% on {{ $labels.instance }}"
+
+    # Container Memory Usage
+    - alert: ContainerMemoryUsage
+      expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes * 100) > 85
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High container memory usage"
+        description: "Container {{ $labels.container }} memory usage is above 85%"
+
+    # Container CPU Usage
+    - alert: ContainerCPUUsage
+      expr: (rate(container_cpu_usage_seconds_total[5m]) / container_spec_cpu_quota * 100) > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "High container CPU usage"
+        description: "Container {{ $labels.container }} CPU usage is above 80%"
+
+    # Kubernetes API Server
+    - alert: KubernetesAPIServerDown
+      expr: up{job="kubernetes-apiservers"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Kubernetes API server down"
+        description: "Kubernetes API server is down"
+
+    # Etcd
+    - alert: EtcdDown
+      expr: up{job="etcd"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Etcd down"
+        description: "Etcd is down"
+
+    # Scheduler
+    - alert: SchedulerDown
+      expr: up{job="kube-scheduler"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Kubernetes scheduler down"
+        description: "Kubernetes scheduler is down"
+
+    # Controller Manager
+    - alert: ControllerManagerDown
+      expr: up{job="kube-controller-manager"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "Kubernetes controller manager down"
+        description: "Kubernetes controller manager is down"

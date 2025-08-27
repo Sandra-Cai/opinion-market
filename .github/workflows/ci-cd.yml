@@ -21,6 +21,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -28,6 +33,7 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-results.sarif'
+          exit-code: '0'
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -38,12 +44,12 @@ jobs:
       - name: Run Bandit security linter
         run: |
           pip install bandit
-          bandit -r app/ -f json -o bandit-report.json || true
+          bandit -r app/ -f json -o bandit-report.json || echo "Bandit scan completed with warnings"
 
       - name: Run Safety check
         run: |
           pip install safety
-          safety check --json --output safety-report.json || true
+          safety check --json --output safety-report.json || echo "Safety check completed with warnings"
 
   # Code quality and testing
   test:

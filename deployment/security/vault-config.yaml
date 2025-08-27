@@ -1,0 +1,530 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault
+data:
+  vault.json: |
+    {
+      "storage": {
+        "file": {
+          "path": "/vault/file"
+        }
+      },
+      "listener": {
+        "tcp": {
+          "address": "0.0.0.0:8200",
+          "tls_disable": true
+        }
+      },
+      "ui": true,
+      "disable_mlock": true,
+      "api_addr": "http://0.0.0.0:8200",
+      "cluster_addr": "https://0.0.0.0:8201",
+      "seal": {
+        "awskms": {
+          "region": "us-east-1",
+          "kms_key_id": "alias/vault-unseal-key"
+        }
+      },
+      "service_registration": "kubernetes",
+      "ha_storage": {
+        "consul": {
+          "path": "vault/",
+          "service": "vault",
+          "service_tags": "vault",
+          "service_address": "POD_IP",
+          "check_timeout": "5s",
+          "disable_registration": "false"
+        }
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  serviceName: vault
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      serviceAccountName: vault
+      containers:
+      - name: vault
+        image: vault:1.13.0
+        ports:
+        - containerPort: 8200
+          name: http
+        - containerPort: 8201
+          name: https-internal
+        env:
+        - name: VAULT_CACERT
+          value: /vault/userconfig/vault-ha-tls/vault.ca
+        - name: VAULT_SKIP_VERIFY
+          value: "true"
+        - name: VAULT_ADDR
+          value: https://127.0.0.1:8200
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: VAULT_API_ADDR
+          value: https://$(POD_IP):8200
+        - name: VAULT_CLUSTER_ADDR
+          value: https://$(POD_IP):8201
+        - name: AWS_REGION
+          value: us-east-1
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: vault-aws-credentials
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: vault-aws-credentials
+              key: secret-access-key
+        command:
+        - vault
+        args:
+        - server
+        - -config=/vault/config/vault.json
+        volumeMounts:
+        - name: vault-config
+          mountPath: /vault/config
+        - name: vault-file
+          mountPath: /vault/file
+        - name: vault-userconfig-vault-ha-tls
+          mountPath: /vault/userconfig/vault-ha-tls
+          readOnly: true
+        - name: vault-tls
+          mountPath: /vault/tls
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 100
+          capabilities:
+            add:
+            - IPC_LOCK
+        livenessProbe:
+          httpGet:
+            path: /v1/sys/health
+            port: 8200
+            scheme: HTTPS
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/sys/health
+            port: 8200
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: vault-config
+        configMap:
+          name: vault-config
+      - name: vault-file
+        persistentVolumeClaim:
+          claimName: vault-file
+      - name: vault-userconfig-vault-ha-tls
+        secret:
+          secretName: vault-ha-tls
+      - name: vault-tls
+        secret:
+          secretName: vault-tls
+  volumeClaimTemplates:
+  - metadata:
+      name: vault-file
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: vault
+  labels:
+    app: vault
+spec:
+  ports:
+  - port: 8200
+    targetPort: 8200
+    protocol: TCP
+    name: http
+  - port: 8201
+    targetPort: 8201
+    protocol: TCP
+    name: https-internal
+  selector:
+    app: vault
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault
+  namespace: vault
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-server-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: vault
+  namespace: vault
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-aws-credentials
+  namespace: vault
+type: Opaque
+data:
+  access-key-id: <base64-encoded-access-key>
+  secret-access-key: <base64-encoded-secret-key>
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-policies
+  namespace: vault
+data:
+  opinion-market-policy.hcl: |
+    # Opinion Market application policy
+    path "secret/data/opinion-market/*" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/database" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/redis" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/api" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/jwt" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/encryption" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/smtp" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/aws" {
+      capabilities = ["read"]
+    }
+    
+    path "secret/data/opinion-market/third-party" {
+      capabilities = ["read"]
+    }
+    
+    path "auth/kubernetes/login" {
+      capabilities = ["create", "read"]
+    }
+    
+    path "sys/leases/renew" {
+      capabilities = ["update"]
+    }
+    
+    path "sys/leases/revoke" {
+      capabilities = ["update"]
+    }
+
+  admin-policy.hcl: |
+    # Admin policy for vault management
+    path "*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+
+  monitoring-policy.hcl: |
+    # Monitoring policy for metrics access
+    path "sys/metrics" {
+      capabilities = ["read"]
+    }
+    
+    path "sys/health" {
+      capabilities = ["read"]
+    }
+    
+    path "sys/seal-status" {
+      capabilities = ["read"]
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-init
+  namespace: vault
+data:
+  init.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Wait for vault to be ready
+    until vault status; do
+      echo "Waiting for vault to be ready..."
+      sleep 5
+    done
+    
+    # Initialize vault if not already initialized
+    if ! vault status | grep -q "Initialized.*true"; then
+      echo "Initializing vault..."
+      vault operator init \
+        -key-shares=5 \
+        -key-threshold=3 \
+        -format=json > /tmp/vault-keys.json
+      
+      # Store keys in Kubernetes secret
+      kubectl create secret generic vault-keys \
+        --from-file=vault-keys.json=/tmp/vault-keys.json \
+        --dry-run=client -o yaml | kubectl apply -f -
+      
+      echo "Vault initialized successfully"
+    else
+      echo "Vault already initialized"
+    fi
+    
+    # Unseal vault
+    echo "Unsealing vault..."
+    for i in {1..3}; do
+      KEY=$(jq -r ".keys[$((i-1))]" /tmp/vault-keys.json)
+      vault operator unseal $KEY
+    done
+    
+    # Enable secrets engine
+    echo "Enabling secrets engine..."
+    vault secrets enable -path=secret kv-v2
+    
+    # Enable Kubernetes auth
+    echo "Enabling Kubernetes auth..."
+    vault auth enable kubernetes
+    
+    # Configure Kubernetes auth
+    echo "Configuring Kubernetes auth..."
+    vault write auth/kubernetes/config \
+      kubernetes_host="https://kubernetes.default.svc.cluster.local" \
+      kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+      token_reviewer_jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token
+    
+    # Create policies
+    echo "Creating policies..."
+    vault policy write opinion-market /vault/config/opinion-market-policy.hcl
+    vault policy write admin /vault/config/admin-policy.hcl
+    vault policy write monitoring /vault/config/monitoring-policy.hcl
+    
+    # Create secrets
+    echo "Creating secrets..."
+    
+    # Database secrets
+    vault kv put secret/opinion-market/database \
+      host=postgres-postgresql \
+      port=5432 \
+      database=opinion_market \
+      username=opinion_market \
+      password=password
+    
+    # Redis secrets
+    vault kv put secret/opinion-market/redis \
+      host=redis-master \
+      port=6379 \
+      password="" \
+      database=0
+    
+    # API secrets
+    vault kv put secret/opinion-market/api \
+      secret_key=your-secret-key-here \
+      algorithm=HS256 \
+      access_token_expire_minutes=30
+    
+    # JWT secrets
+    vault kv put secret/opinion-market/jwt \
+      secret=your-jwt-secret \
+      algorithm=HS256 \
+      issuer=opinion-market \
+      audience=opinion-market-api
+    
+    # Encryption secrets
+    vault kv put secret/opinion-market/encryption \
+      key=your-encryption-key \
+      algorithm=AES-256-GCM
+    
+    # SMTP secrets
+    vault kv put secret/opinion-market/smtp \
+      host=smtp.gmail.com \
+      port=587 \
+      username=noreply@opinionmarket.com \
+      password=your-smtp-password \
+      use_tls=true
+    
+    # AWS secrets
+    vault kv put secret/opinion-market/aws \
+      access_key_id=your-access-key \
+      secret_access_key=your-secret-key \
+      region=us-east-1 \
+      s3_bucket=opinion-market-backups \
+      cloudfront_distribution=your-distribution-id
+    
+    # Third-party API secrets
+    vault kv put secret/opinion-market/third-party \
+      openai_api_key=your-openai-key \
+      stripe_secret_key=your-stripe-key \
+      twilio_account_sid=your-twilio-sid \
+      twilio_auth_token=your-twilio-token
+    
+    # Create Kubernetes auth role
+    echo "Creating Kubernetes auth role..."
+    vault write auth/kubernetes/role/opinion-market \
+      bound_service_account_names=opinion-market-api \
+      bound_service_account_namespaces=opinion-market \
+      policies=opinion-market \
+      ttl=1h
+    
+    echo "Vault setup completed successfully"
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init
+  namespace: vault
+spec:
+  template:
+    spec:
+      serviceAccountName: vault
+      containers:
+      - name: vault-init
+        image: vault:1.13.0
+        command:
+        - /bin/bash
+        - /vault/config/init.sh
+        volumeMounts:
+        - name: vault-config
+          mountPath: /vault/config
+        - name: vault-policies
+          mountPath: /vault/config
+        env:
+        - name: VAULT_ADDR
+          value: http://vault:8200
+        - name: VAULT_SKIP_VERIFY
+          value: "true"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 100
+      volumes:
+      - name: vault-config
+        configMap:
+          name: vault-init
+      - name: vault-policies
+        configMap:
+          name: vault-policies
+      restartPolicy: OnFailure
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-internal
+  namespace: vault
+  labels:
+    app: vault
+spec:
+  ports:
+  - port: 8200
+    targetPort: 8200
+    protocol: TCP
+    name: http
+  selector:
+    app: vault
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vault-ingress
+  namespace: vault
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - vault.opinionmarket.com
+    secretName: vault-tls
+  rules:
+  - host: vault.opinionmarket.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vault
+            port:
+              number: 8200
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  selector:
+    matchLabels:
+      app: vault
+  endpoints:
+  - port: http
+    path: /v1/sys/metrics
+    interval: 30s
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true

@@ -1,0 +1,647 @@
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: opinion-market-jaeger
+  namespace: opinion-market
+spec:
+  strategy: production
+  storage:
+    type: elasticsearch
+    options:
+      es:
+        server-urls: http://elasticsearch-master:9200
+        index-prefix: jaeger
+        username: elastic
+        password: changeme
+  ingress:
+    enabled: true
+    hosts:
+    - host: jaeger.opinionmarket.com
+      paths:
+      - path: /
+        pathType: Prefix
+    tls:
+    - secretName: jaeger-tls
+      hosts:
+      - jaeger.opinionmarket.com
+  agent:
+    strategy: DaemonSet
+    options:
+      log-level: info
+  collector:
+    replicas: 3
+    options:
+      log-level: info
+      kafka:
+        producer:
+          topic: jaeger-spans
+          brokers: kafka:9092
+  query:
+    replicas: 2
+    options:
+      log-level: info
+      query:
+        base-path: /jaeger
+  sampling:
+    default_strategy:
+      type: probabilistic
+      param: 0.1
+    per_operation_strategies:
+      - operation: /api/v1/markets
+        type: probabilistic
+        param: 1.0
+      - operation: /api/v1/trades
+        type: probabilistic
+        param: 1.0
+      - operation: /api/v1/users
+        type: probabilistic
+        param: 0.5
+  options:
+    log-level: info
+    query:
+      base-path: /jaeger
+    storage:
+      type: elasticsearch
+      options:
+        es:
+          server-urls: http://elasticsearch-master:9200
+          index-prefix: jaeger
+          username: elastic
+          password: changeme
+    agent:
+      strategy: DaemonSet
+      options:
+        log-level: info
+    collector:
+      replicas: 3
+      options:
+        log-level: info
+        kafka:
+          producer:
+            topic: jaeger-spans
+            brokers: kafka:9092
+    sampling:
+      default_strategy:
+        type: probabilistic
+        param: 0.1
+      per_operation_strategies:
+        - operation: /api/v1/markets
+          type: probabilistic
+          param: 1.0
+        - operation: /api/v1/trades
+          type: probabilistic
+          param: 1.0
+        - operation: /api/v1/users
+          type: probabilistic
+          param: 0.5
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+  namespace: opinion-market
+data:
+  jaeger-config.yaml: |
+    sampling:
+      default_strategy:
+        type: probabilistic
+        param: 0.1
+      per_operation_strategies:
+        - operation: /api/v1/markets
+          type: probabilistic
+          param: 1.0
+        - operation: /api/v1/trades
+          type: probabilistic
+          param: 1.0
+        - operation: /api/v1/users
+          type: probabilistic
+          param: 0.5
+        - operation: /api/v1/predictions
+          type: probabilistic
+          param: 1.0
+        - operation: /api/v1/analytics
+          type: probabilistic
+          param: 0.3
+    storage:
+      type: elasticsearch
+      options:
+        es:
+          server-urls: http://elasticsearch-master:9200
+          index-prefix: jaeger
+          username: elastic
+          password: changeme
+          num_shards: 5
+          num_replicas: 1
+    query:
+      base_path: /jaeger
+      ui_config:
+        dependencies:
+          menuEnabled: true
+        tracking:
+          gaID: UA-000000-2
+        menu:
+          - label: "About"
+            url: "https://github.com/jaegertracing/jaeger"
+        topTagInputs:
+          - tag: environment
+            defaultValue: production
+        search:
+          maxLookback:
+            label: "2 Days"
+            value: "2d"
+          hideSearch: false
+          findTraces: true
+          analytics:
+            gaID: UA-000000-2
+        defaultMetrics: []
+        metrics:
+          - name: "Request Rate"
+            unit: "req/min"
+            isDefault: true
+            query: "rate(traces_spanmetrics_latency_bucket{operation=~\"$operation\"}[5m])"
+          - name: "95th Percentile Latency"
+            unit: "ms"
+            isDefault: true
+            query: "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{operation=~\"$operation\"}[5m])) by (le))"
+          - name: "99th Percentile Latency"
+            unit: "ms"
+            isDefault: false
+            query: "histogram_quantile(0.99, sum(rate(traces_spanmetrics_latency_bucket{operation=~\"$operation\"}[5m])) by (le))"
+          - name: "Error Rate"
+            unit: "errors/min"
+            isDefault: true
+            query: "rate(traces_spanmetrics_calls_total{operation=~\"$operation\", status_code=\"STATUS_CODE_ERROR\"}[5m])"
+    agent:
+      strategy: DaemonSet
+      options:
+        log-level: info
+        collector:
+          host-port: jaeger-collector:14268
+    collector:
+      replicas: 3
+      options:
+        log-level: info
+        kafka:
+          producer:
+            topic: jaeger-spans
+            brokers: kafka:9092
+            encoding: json
+        storage:
+          type: elasticsearch
+          options:
+            es:
+              server-urls: http://elasticsearch-master:9200
+              index-prefix: jaeger
+              username: elastic
+              password: changeme
+              num_shards: 5
+              num_replicas: 1
+        sampling:
+          default_strategy:
+            type: probabilistic
+            param: 0.1
+          per_operation_strategies:
+            - operation: /api/v1/markets
+              type: probabilistic
+              param: 1.0
+            - operation: /api/v1/trades
+              type: probabilistic
+              param: 1.0
+            - operation: /api/v1/users
+              type: probabilistic
+              param: 0.5
+            - operation: /api/v1/predictions
+              type: probabilistic
+              param: 1.0
+            - operation: /api/v1/analytics
+              type: probabilistic
+              param: 0.3
+    dependencies:
+      enabled: true
+      schedule: "55 23 * * *"
+      spark_dependencies:
+        master: spark://spark-master:7077
+        log_level: WARN
+        user: spark
+        java_opts: "-Xms1g -Xmx1g"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+    spark_dependencies:
+      enabled: true
+      schedule: "55 23 * * *"
+      master: spark://spark-master:7077
+      log_level: WARN
+      user: spark
+      java_opts: "-Xms1g -Xmx1g"
+      resources:
+        requests:
+          memory: "1Gi"
+          cpu: "500m"
+        limits:
+          memory: "2Gi"
+          cpu: "1000m"
+    es_index_cleaner:
+      enabled: true
+      schedule: "55 23 * * *"
+      numberOfDays: 7
+      unit: days
+    es_rollover:
+      enabled: true
+      schedule: "0 0 * * *"
+      read_aliases: jaeger-read
+      write_aliases: jaeger-write
+      conditions: '{"max_age": "2d"}'
+      actions: '{"rollover": {"max_age": "2d"}}'
+    kafka:
+      enabled: true
+      topic: jaeger-spans
+      brokers: kafka:9092
+      encoding: json
+      group_id: jaeger
+      client_id: jaeger
+      version: 2.8.0
+      sarama_config:
+        version: 2.8.0
+        net:
+          dial_timeout: 10s
+          read_timeout: 10s
+          write_timeout: 10s
+        metadata:
+          retry:
+            max: 3
+            backoff: 250ms
+        producer:
+          max_message_bytes: 1000000
+          required_acks: 1
+          timeout: 10s
+          compression: snappy
+          retry:
+            max: 3
+            backoff: 100ms
+        consumer:
+          fetch:
+            min: 1
+            default: 1048576
+          max_wait_time: 250ms
+          max_processing_time: 100ms
+          retry:
+            backoff: 2s
+        group:
+          session:
+            timeout: 30s
+          rebalance:
+            timeout: 60s
+            retry:
+              max: 4
+              backoff: 2s
+            strategy: range
+        channel:
+          buffer_size: 256
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: opinion-market
+  labels:
+    app: jaeger
+    component: collector
+spec:
+  ports:
+  - port: 14268
+    protocol: TCP
+    targetPort: 14268
+    name: collector-http
+  - port: 14250
+    protocol: TCP
+    targetPort: 14250
+    name: collector-grpc
+  - port: 14269
+    protocol: TCP
+    targetPort: 14269
+    name: collector-admin
+  selector:
+    app: jaeger
+    component: collector
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: opinion-market
+  labels:
+    app: jaeger
+    component: query
+spec:
+  ports:
+  - port: 16686
+    protocol: TCP
+    targetPort: 16686
+    name: query-http
+  - port: 16687
+    protocol: TCP
+    targetPort: 16687
+    name: query-admin
+  selector:
+    app: jaeger
+    component: query
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-agent
+  namespace: opinion-market
+  labels:
+    app: jaeger
+    component: agent
+spec:
+  ports:
+  - port: 5775
+    protocol: UDP
+    targetPort: 5775
+    name: agent-compact
+  - port: 6831
+    protocol: UDP
+    targetPort: 6831
+    name: agent-binary
+  - port: 6832
+    protocol: UDP
+    targetPort: 6832
+    name: agent-binary-thrift
+  - port: 5778
+    protocol: TCP
+    targetPort: 5778
+    name: agent-config
+  - port: 14271
+    protocol: TCP
+    targetPort: 14271
+    name: agent-admin
+  selector:
+    app: jaeger
+    component: agent
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: jaeger-agent
+  namespace: opinion-market
+  labels:
+    app: jaeger
+    component: agent
+spec:
+  selector:
+    matchLabels:
+      app: jaeger
+      component: agent
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: agent
+    spec:
+      containers:
+      - name: jaeger-agent
+        image: jaegertracing/jaeger-agent:1.42
+        ports:
+        - containerPort: 5775
+          protocol: UDP
+        - containerPort: 6831
+          protocol: UDP
+        - containerPort: 6832
+          protocol: UDP
+        - containerPort: 5778
+          protocol: TCP
+        - containerPort: 14271
+          protocol: TCP
+        args:
+        - --collector.host-port=jaeger-collector:14268
+        - --reporter.grpc.host-port=jaeger-collector:14250
+        - --log-level=info
+        - --sampling.default_strategy.type=probabilistic
+        - --sampling.default_strategy.param=0.1
+        - --sampling.per_operation_strategies='[{"operation":"/api/v1/markets","type":"probabilistic","param":1.0},{"operation":"/api/v1/trades","type":"probabilistic","param":1.0},{"operation":"/api/v1/users","type":"probabilistic","param":0.5},{"operation":"/api/v1/predictions","type":"probabilistic","param":1.0},{"operation":"/api/v1/analytics","type":"probabilistic","param":0.3}]'
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /etc/jaeger
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: jaeger-config
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-collector
+  namespace: opinion-market
+  labels:
+    app: jaeger
+    component: collector
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jaeger
+      component: collector
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: collector
+    spec:
+      containers:
+      - name: jaeger-collector
+        image: jaegertracing/jaeger-collector:1.42
+        ports:
+        - containerPort: 14268
+          protocol: TCP
+        - containerPort: 14250
+          protocol: TCP
+        - containerPort: 14269
+          protocol: TCP
+        args:
+        - --log-level=info
+        - --sampling.default_strategy.type=probabilistic
+        - --sampling.default_strategy.param=0.1
+        - --sampling.per_operation_strategies='[{"operation":"/api/v1/markets","type":"probabilistic","param":1.0},{"operation":"/api/v1/trades","type":"probabilistic","param":1.0},{"operation":"/api/v1/users","type":"probabilistic","param":0.5},{"operation":"/api/v1/predictions","type":"probabilistic","param":1.0},{"operation":"/api/v1/analytics","type":"probabilistic","param":0.3}]'
+        - --storage.type=elasticsearch
+        - --storage.options.es.server-urls=http://elasticsearch-master:9200
+        - --storage.options.es.index-prefix=jaeger
+        - --storage.options.es.username=elastic
+        - --storage.options.es.password=changeme
+        - --storage.options.es.num-shards=5
+        - --storage.options.es.num-replicas=1
+        - --kafka.producer.topic=jaeger-spans
+        - --kafka.producer.brokers=kafka:9092
+        - --kafka.producer.encoding=json
+        env:
+        - name: SPAN_STORAGE_TYPE
+          value: elasticsearch
+        - name: ES_SERVER_URLS
+          value: http://elasticsearch-master:9200
+        - name: ES_INDEX_PREFIX
+          value: jaeger
+        - name: ES_USERNAME
+          value: elastic
+        - name: ES_PASSWORD
+          value: changeme
+        - name: ES_NUM_SHARDS
+          value: "5"
+        - name: ES_NUM_REPLICAS
+          value: "1"
+        - name: KAFKA_PRODUCER_TOPIC
+          value: jaeger-spans
+        - name: KAFKA_PRODUCER_BROKERS
+          value: kafka:9092
+        - name: KAFKA_PRODUCER_ENCODING
+          value: json
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /etc/jaeger
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: jaeger-config
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-query
+  namespace: opinion-market
+  labels:
+    app: jaeger
+    component: query
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: jaeger
+      component: query
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: query
+    spec:
+      containers:
+      - name: jaeger-query
+        image: jaegertracing/jaeger-query:1.42
+        ports:
+        - containerPort: 16686
+          protocol: TCP
+        - containerPort: 16687
+          protocol: TCP
+        args:
+        - --log-level=info
+        - --query.base-path=/jaeger
+        - --storage.type=elasticsearch
+        - --storage.options.es.server-urls=http://elasticsearch-master:9200
+        - --storage.options.es.index-prefix=jaeger
+        - --storage.options.es.username=elastic
+        - --storage.options.es.password=changeme
+        - --storage.options.es.num-shards=5
+        - --storage.options.es.num-replicas=1
+        env:
+        - name: SPAN_STORAGE_TYPE
+          value: elasticsearch
+        - name: ES_SERVER_URLS
+          value: http://elasticsearch-master:9200
+        - name: ES_INDEX_PREFIX
+          value: jaeger
+        - name: ES_USERNAME
+          value: elastic
+        - name: ES_PASSWORD
+          value: changeme
+        - name: ES_NUM_SHARDS
+          value: "5"
+        - name: ES_NUM_REPLICAS
+          value: "1"
+        - name: QUERY_BASE_PATH
+          value: /jaeger
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /etc/jaeger
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: jaeger-config
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jaeger-ingress
+  namespace: opinion-market
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - jaeger.opinionmarket.com
+    secretName: jaeger-tls
+  rules:
+  - host: jaeger.opinionmarket.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jaeger-query
+            port:
+              number: 16686

@@ -1,0 +1,559 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: opinion-market-gateway
+  namespace: opinion-market
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "api.opinionmarket.com"
+    - "grafana.opinionmarket.com"
+    - "prometheus.opinionmarket.com"
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "api.opinionmarket.com"
+    - "grafana.opinionmarket.com"
+    - "prometheus.opinionmarket.com"
+    tls:
+      mode: SIMPLE
+      credentialName: opinion-market-tls
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: opinion-market-api
+  namespace: opinion-market
+spec:
+  hosts:
+  - "api.opinionmarket.com"
+  gateways:
+  - opinion-market-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1"
+    route:
+    - destination:
+        host: opinion-market-api
+        port:
+          number: 8000
+      weight: 100
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+    timeout: 30s
+    corsPolicy:
+      allowOrigins:
+      - exact: "https://opinionmarket.com"
+      - exact: "https://www.opinionmarket.com"
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - authorization
+      - content-type
+      - x-requested-with
+      maxAge: "24h"
+  - match:
+    - uri:
+        prefix: "/health"
+    route:
+    - destination:
+        host: opinion-market-api
+        port:
+          number: 8000
+      weight: 100
+    timeout: 5s
+  - match:
+    - uri:
+        prefix: "/metrics"
+    route:
+    - destination:
+        host: opinion-market-api
+        port:
+          number: 8000
+      weight: 100
+    timeout: 10s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: opinion-market-grafana
+  namespace: opinion-market
+spec:
+  hosts:
+  - "grafana.opinionmarket.com"
+  gateways:
+  - opinion-market-gateway
+  http:
+  - route:
+    - destination:
+        host: grafana
+        port:
+          number: 3000
+      weight: 100
+    timeout: 30s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: opinion-market-prometheus
+  namespace: opinion-market
+spec:
+  hosts:
+  - "prometheus.opinionmarket.com"
+  gateways:
+  - opinion-market-gateway
+  http:
+  - route:
+    - destination:
+        host: prometheus
+        port:
+          number: 9090
+      weight: 100
+    timeout: 30s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: opinion-market-api
+  namespace: opinion-market
+spec:
+  host: opinion-market-api
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 30ms
+      http:
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 10
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+  - name: v2
+    labels:
+      version: v2
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: opinion-market-api-auth
+  namespace: opinion-market
+spec:
+  selector:
+    matchLabels:
+      app: opinion-market-api
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/opinion-market/sa/opinion-market-api"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/health", "/metrics"]
+  - from:
+    - source:
+        namespaces: ["opinion-market"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        paths: ["/api/v1/*"]
+  - from:
+    - source:
+        namespaces: ["monitoring"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/metrics"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: opinion-market-peer-auth
+  namespace: opinion-market
+spec:
+  mtls:
+    mode: STRICT
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: opinion-market-jwt-auth
+  namespace: opinion-market
+spec:
+  selector:
+    matchLabels:
+      app: opinion-market-api
+  jwtRules:
+  - issuer: "https://auth.opinionmarket.com"
+    jwksUri: "https://auth.opinionmarket.com/.well-known/jwks.json"
+    audiences:
+    - "opinion-market-api"
+    forwardOriginalToken: true
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-apis
+  namespace: opinion-market
+spec:
+  hosts:
+  - "api.openai.com"
+  - "api.stripe.com"
+  - "api.twilio.com"
+  ports:
+  - number: 443
+    name: https-443
+    protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: opinion-market-sidecar
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  ingress:
+  - port:
+      number: 8000
+      protocol: HTTP
+      name: http-api
+    defaultEndpoint: 127.0.0.1:8000
+  egress:
+  - hosts:
+    - "opinion-market/*"
+    - "monitoring/*"
+    - "kube-system/*"
+  - hosts:
+    - "api.openai.com"
+    - "api.stripe.com"
+    - "api.twilio.com"
+    ports:
+    - number: 443
+      protocol: HTTPS
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: opinion-market-api-filter
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.wasm
+        typedConfig:
+          '@type': type.googleapis.com/udpa.type.v1.TypedStruct
+          typeUrl: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+          value:
+            config:
+              vm_config:
+                runtime: envoy.wasm.runtime.v8
+                code:
+                  local:
+                    filename: /etc/istio/extensions/stats-filter.wasm
+              configuration:
+                '@type': type.googleapis.com/google.protobuf.StringValue
+                value: |
+                  {
+                    "metrics": [
+                      {
+                        "name": "requests_total",
+                        "type": "COUNTER",
+                        "tags": ["source_app", "destination_app"]
+                      },
+                      {
+                        "name": "request_duration",
+                        "type": "HISTOGRAM",
+                        "tags": ["source_app", "destination_app"]
+                      }
+                    ]
+                  }
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: opinion-market-rate-limit
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.ratelimit
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
+          domain: opinion-market
+          rate_limit_service:
+            grpc_service:
+              envoy_grpc:
+                cluster_name: rate_limit_cluster
+            transport_api_version: V3
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: opinion-market-cors
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.cors
+        typedConfig:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+          allowOriginStringMatch:
+          - exact: "https://opinionmarket.com"
+          - exact: "https://www.opinionmarket.com"
+          allowMethods: "GET, POST, PUT, DELETE, OPTIONS"
+          allowHeaders: "authorization, content-type, x-requested-with"
+          maxAge: "86400"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: opinion-market-circuit-breaker
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  configPatches:
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+      cluster:
+        service: "postgres"
+    patch:
+      operation: MERGE
+      value:
+        outlier_detection:
+          consecutive_5xx: 5
+          interval: 30s
+          base_ejection_time: 30s
+          max_ejection_percent: 10
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+      cluster:
+        service: "redis"
+    patch:
+      operation: MERGE
+      value:
+        outlier_detection:
+          consecutive_5xx: 3
+          interval: 10s
+          base_ejection_time: 30s
+          max_ejection_percent: 10
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: opinion-market-fault-injection
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  configPatches:
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+      routeConfiguration:
+        vhost:
+          route:
+            name: "api-route"
+    patch:
+      operation: MERGE
+      value:
+        fault:
+          delay:
+            percentage:
+              numerator: 5
+              denominator: HUNDRED
+            fixedDelay: 2s
+          abort:
+            percentage:
+              numerator: 1
+              denominator: HUNDRED
+            httpStatus: 500
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: opinion-market-header-modification
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  configPatches:
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+      routeConfiguration:
+        vhost:
+          route:
+            name: "api-route"
+    patch:
+      operation: MERGE
+      value:
+        request_headers_to_add:
+        - header:
+            key: "x-request-id"
+            value: "%REQ(x-request-id)%"
+        - header:
+            key: "x-forwarded-for"
+            value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"
+        - header:
+            key: "x-envoy-upstream-service-time"
+            value: "%RESPONSE_DURATION%"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: opinion-market-metrics
+  namespace: opinion-market
+spec:
+  workloadSelector:
+    labels:
+      app: opinion-market-api
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.wasm
+        typedConfig:
+          '@type': type.googleapis.com/udpa.type.v1.TypedStruct
+          typeUrl: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+          value:
+            config:
+              vm_config:
+                runtime: envoy.wasm.runtime.v8
+                code:
+                  local:
+                    filename: /etc/istio/extensions/stats-filter.wasm
+              configuration:
+                '@type': type.googleapis.com/google.protobuf.StringValue
+                value: |
+                  {
+                    "metrics": [
+                      {
+                        "name": "requests_total",
+                        "type": "COUNTER",
+                        "tags": ["source_app", "destination_app", "response_code"]
+                      },
+                      {
+                        "name": "request_duration",
+                        "type": "HISTOGRAM",
+                        "tags": ["source_app", "destination_app"]
+                      },
+                      {
+                        "name": "request_size",
+                        "type": "HISTOGRAM",
+                        "tags": ["source_app", "destination_app"]
+                      },
+                      {
+                        "name": "response_size",
+                        "type": "HISTOGRAM",
+                        "tags": ["source_app", "destination_app"]
+                      }
+                    ]
+                  }

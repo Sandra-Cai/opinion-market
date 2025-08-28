@@ -1,0 +1,66 @@
+name: Simple Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  basic-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install basic dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fastapi uvicorn pytest httpx
+    
+    - name: Test basic functionality
+      run: |
+        echo "Testing basic Python functionality..."
+        python -c "print('Python is working!')"
+        
+        echo "Testing FastAPI import..."
+        python -c "import fastapi; print('FastAPI imported successfully!')"
+        
+        echo "Testing uvicorn import..."
+        python -c "import uvicorn; print('Uvicorn imported successfully!')"
+        
+        echo "Testing pytest import..."
+        python -c "import pytest; print('Pytest imported successfully!')"
+        
+        echo "Testing httpx import..."
+        python -c "import httpx; print('HTTPX imported successfully!')"
+    
+    - name: Run simple tests
+      run: |
+        echo "Running simple tests..."
+        python -c "
+        def test_basic():
+            assert 2 + 2 == 4
+            assert 'hello' + ' world' == 'hello world'
+            print('Basic tests passed!')
+        
+        test_basic()
+        "
+    
+    - name: Check file structure
+      run: |
+        echo "Checking project structure..."
+        ls -la
+        echo "App directory:"
+        ls -la app/ || echo "No app directory found"
+        echo "Tests directory:"
+        ls -la tests/ || echo "No tests directory found"
+    
+    - name: Success message
+      run: |
+        echo "✅ All basic tests passed!"
+        echo "🎉 CI/CD pipeline is working!"

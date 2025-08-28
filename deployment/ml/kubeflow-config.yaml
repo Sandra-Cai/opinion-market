@@ -1,0 +1,518 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubeflow
+  labels:
+    istio-injection: enabled
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubeflow-user-example-com
+  labels:
+    istio-injection: enabled
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: opinion-market
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      containers:
+      - name: mlflow
+        image: ghcr.io/mlflow/mlflow:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: sqlite:///mlflow.db
+        - name: MLFLOW_DEFAULT_ARTIFACT_ROOT
+          value: s3://opinion-market-mlflow-artifacts
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-aws-credentials
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-aws-credentials
+              key: secret-access-key
+        - name: AWS_DEFAULT_REGION
+          value: us-east-1
+        command:
+        - mlflow
+        args:
+        - server
+        - --host
+        - 0.0.0.0
+        - --port
+        - "5000"
+        - --backend-store-uri
+        - sqlite:///mlflow.db
+        - --default-artifact-root
+        - s3://opinion-market-mlflow-artifacts
+        volumeMounts:
+        - name: mlflow-data
+          mountPath: /mlflow
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: opinion-market
+spec:
+  ports:
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  selector:
+    app: mlflow
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter-notebook
+  namespace: opinion-market
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter-notebook
+  template:
+    metadata:
+      labels:
+        app: jupyter-notebook
+    spec:
+      containers:
+      - name: jupyter
+        image: jupyter/datascience-notebook:latest
+        ports:
+        - containerPort: 8888
+        env:
+        - name: JUPYTER_ENABLE_LAB
+          value: "yes"
+        - name: JUPYTER_TOKEN
+          value: "opinion-market-jupyter"
+        volumeMounts:
+        - name: jupyter-data
+          mountPath: /home/jovyan/work
+        - name: mlflow-config
+          mountPath: /home/jovyan/.mlflow
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+      volumes:
+      - name: jupyter-data
+        persistentVolumeClaim:
+          claimName: jupyter-data-pvc
+      - name: mlflow-config
+        configMap:
+          name: mlflow-config
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyter-data-pvc
+  namespace: opinion-market
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: gp3
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlflow-config
+  namespace: opinion-market
+data:
+  mlflow.conf: |
+    [core]
+    tracking_uri = http://mlflow:5000
+    default_artifact_root = s3://opinion-market-mlflow-artifacts
+    
+    [aws]
+    region = us-east-1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-notebook
+  namespace: opinion-market
+spec:
+  ports:
+  - port: 8888
+    targetPort: 8888
+    protocol: TCP
+    name: http
+  selector:
+    app: jupyter-notebook
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-serving
+  namespace: opinion-market
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: model-serving
+  template:
+    metadata:
+      labels:
+        app: model-serving
+    spec:
+      containers:
+      - name: model-server
+        image: tensorflow/serving:latest
+        ports:
+        - containerPort: 8501
+        - containerPort: 8500
+        env:
+        - name: MODEL_NAME
+          value: opinion-market-model
+        - name: MODEL_BASE_PATH
+          value: /models
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: model-storage-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-storage-pvc
+  namespace: opinion-market
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: gp3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-serving
+  namespace: opinion-market
+spec:
+  ports:
+  - port: 8501
+    targetPort: 8501
+    protocol: TCP
+    name: grpc
+  - port: 8500
+    targetPort: 8500
+    protocol: TCP
+    name: http
+  selector:
+    app: model-serving
+  type: ClusterIP
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: model-training
+  namespace: opinion-market
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: training
+            image: python:3.11-slim
+            command:
+            - /bin/bash
+            - -c
+            - |
+              pip install mlflow pandas numpy scikit-learn tensorflow
+              
+              # Set MLflow tracking URI
+              export MLFLOW_TRACKING_URI=http://mlflow:5000
+              
+              # Run training script
+              python /training/train_models.py
+            volumeMounts:
+            - name: training-scripts
+              mountPath: /training
+            - name: training-data
+              mountPath: /data
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2000m"
+              limits:
+                memory: "8Gi"
+                cpu: "4000m"
+          volumes:
+          - name: training-scripts
+            configMap:
+              name: training-scripts
+          - name: training-data
+            persistentVolumeClaim:
+              claimName: training-data-pvc
+          restartPolicy: OnFailure
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: training-data-pvc
+  namespace: opinion-market
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 200Gi
+  storageClassName: gp3
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: training-scripts
+  namespace: opinion-market
+data:
+  train_models.py: |
+    import mlflow
+    import pandas as pd
+    import numpy as np
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import mean_squared_error, r2_score
+    import tensorflow as tf
+    from tensorflow import keras
+    
+    # Set MLflow tracking URI
+    mlflow.set_tracking_uri("http://mlflow:5000")
+    
+    # Load and prepare data
+    def load_data():
+        # This would load from your database or data warehouse
+        # For now, we'll create synthetic data
+        np.random.seed(42)
+        n_samples = 10000
+        
+        # Generate synthetic trading data
+        data = {
+            'market_volatility': np.random.normal(0.1, 0.05, n_samples),
+            'user_experience': np.random.normal(5, 2, n_samples),
+            'market_age': np.random.normal(30, 10, n_samples),
+            'participant_count': np.random.poisson(100, n_samples),
+            'price_momentum': np.random.normal(0, 0.02, n_samples),
+            'volume_24h': np.random.lognormal(10, 1, n_samples),
+            'success_probability': np.random.beta(2, 2, n_samples)
+        }
+        
+        df = pd.DataFrame(data)
+        return df
+    
+    # Train Random Forest model
+    def train_random_forest(X, y):
+        with mlflow.start_run(run_name="random_forest_prediction"):
+            # Split data
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42
+            )
+            
+            # Train model
+            rf = RandomForestRegressor(n_estimators=100, random_state=42)
+            rf.fit(X_train, y_train)
+            
+            # Make predictions
+            y_pred = rf.predict(X_test)
+            
+            # Calculate metrics
+            mse = mean_squared_error(y_test, y_pred)
+            r2 = r2_score(y_test, y_pred)
+            
+            # Log parameters
+            mlflow.log_param("n_estimators", 100)
+            mlflow.log_param("random_state", 42)
+            
+            # Log metrics
+            mlflow.log_metric("mse", mse)
+            mlflow.log_metric("r2", r2)
+            
+            # Log model
+            mlflow.sklearn.log_model(rf, "random_forest_model")
+            
+            print(f"Random Forest - MSE: {mse:.4f}, R2: {r2:.4f}")
+    
+    # Train Neural Network model
+    def train_neural_network(X, y):
+        with mlflow.start_run(run_name="neural_network_prediction"):
+            # Split data
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42
+            )
+            
+            # Build model
+            model = keras.Sequential([
+                keras.layers.Dense(64, activation='relu', input_shape=(X.shape[1],)),
+                keras.layers.Dropout(0.2),
+                keras.layers.Dense(32, activation='relu'),
+                keras.layers.Dropout(0.2),
+                keras.layers.Dense(16, activation='relu'),
+                keras.layers.Dense(1)
+            ])
+            
+            model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            
+            # Train model
+            history = model.fit(
+                X_train, y_train,
+                epochs=50,
+                batch_size=32,
+                validation_split=0.2,
+                verbose=0
+            )
+            
+            # Make predictions
+            y_pred = model.predict(X_test)
+            
+            # Calculate metrics
+            mse = mean_squared_error(y_test, y_pred)
+            r2 = r2_score(y_test, y_pred)
+            
+            # Log parameters
+            mlflow.log_param("epochs", 50)
+            mlflow.log_param("batch_size", 32)
+            
+            # Log metrics
+            mlflow.log_metric("mse", mse)
+            mlflow.log_metric("r2", r2)
+            
+            # Log model
+            mlflow.keras.log_model(model, "neural_network_model")
+            
+            print(f"Neural Network - MSE: {mse:.4f}, R2: {r2:.4f}")
+    
+    # Main training function
+    def main():
+        print("Starting model training...")
+        
+        # Load data
+        df = load_data()
+        print(f"Loaded {len(df)} samples")
+        
+        # Prepare features and target
+        feature_cols = ['market_volatility', 'user_experience', 'market_age', 
+                       'participant_count', 'price_momentum', 'volume_24h']
+        X = df[feature_cols]
+        y = df['success_probability']
+        
+        # Train models
+        train_random_forest(X, y)
+        train_neural_network(X, y)
+        
+        print("Model training completed!")
+    
+    if __name__ == "__main__":
+        main()
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mlflow-ingress
+  namespace: opinion-market
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - mlflow.opinionmarket.com
+    secretName: mlflow-tls
+  rules:
+  - host: mlflow.opinionmarket.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mlflow
+            port:
+              number: 5000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jupyter-ingress
+  namespace: opinion-market
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - jupyter.opinionmarket.com
+    secretName: jupyter-tls
+  rules:
+  - host: jupyter.opinionmarket.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jupyter-notebook
+            port:
+              number: 8888

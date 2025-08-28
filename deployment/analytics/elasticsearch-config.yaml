@@ -1,0 +1,264 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: opinion-market-elasticsearch
+  namespace: opinion-market
+spec:
+  version: 8.11.0
+  nodeSets:
+  - name: default
+    count: 3
+    config:
+      node.roles: ["master", "data", "ingest"]
+      node.store.allow_mmap: false
+    podTemplate:
+      spec:
+        containers:
+        - name: elasticsearch
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Gi
+        storageClassName: gp3
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+  settings:
+    index:
+      number_of_shards: 3
+      number_of_replicas: 1
+    cluster:
+      routing:
+        allocation:
+          disk:
+            threshold_enabled: true
+            low:
+              watermark: "85%"
+            high:
+              watermark: "90%"
+            flood_stage:
+              watermark: "95%"
+
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: opinion-market-kibana
+  namespace: opinion-market
+spec:
+  version: 8.11.0
+  count: 2
+  elasticsearchRef:
+    name: opinion-market-elasticsearch
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-indices
+  namespace: opinion-market
+data:
+  indices.json: |
+    {
+      "indices": [
+        {
+          "name": "opinion-market-trades",
+          "settings": {
+            "number_of_shards": 3,
+            "number_of_replicas": 1,
+            "analysis": {
+              "analyzer": {
+                "text_analyzer": {
+                  "type": "custom",
+                  "tokenizer": "standard",
+                  "filter": ["lowercase", "stop", "snowball"]
+                }
+              }
+            }
+          },
+          "mappings": {
+            "properties": {
+              "trade_id": {"type": "keyword"},
+              "user_id": {"type": "keyword"},
+              "market_id": {"type": "keyword"},
+              "amount": {"type": "double"},
+              "price": {"type": "double"},
+              "side": {"type": "keyword"},
+              "timestamp": {"type": "date"},
+              "status": {"type": "keyword"},
+              "metadata": {"type": "object"}
+            }
+          }
+        },
+        {
+          "name": "opinion-market-markets",
+          "settings": {
+            "number_of_shards": 3,
+            "number_of_replicas": 1
+          },
+          "mappings": {
+            "properties": {
+              "market_id": {"type": "keyword"},
+              "title": {"type": "text", "analyzer": "text_analyzer"},
+              "description": {"type": "text", "analyzer": "text_analyzer"},
+              "category": {"type": "keyword"},
+              "status": {"type": "keyword"},
+              "created_at": {"type": "date"},
+              "expires_at": {"type": "date"},
+              "total_volume": {"type": "double"},
+              "participant_count": {"type": "integer"}
+            }
+          }
+        },
+        {
+          "name": "opinion-market-users",
+          "settings": {
+            "number_of_shards": 3,
+            "number_of_replicas": 1
+          },
+          "mappings": {
+            "properties": {
+              "user_id": {"type": "keyword"},
+              "username": {"type": "keyword"},
+              "email": {"type": "keyword"},
+              "created_at": {"type": "date"},
+              "last_login": {"type": "date"},
+              "total_trades": {"type": "integer"},
+              "total_volume": {"type": "double"},
+              "success_rate": {"type": "double"}
+            }
+          }
+        },
+        {
+          "name": "opinion-market-analytics",
+          "settings": {
+            "number_of_shards": 3,
+            "number_of_replicas": 1
+          },
+          "mappings": {
+            "properties": {
+              "timestamp": {"type": "date"},
+              "metric_name": {"type": "keyword"},
+              "metric_value": {"type": "double"},
+              "dimensions": {"type": "object"},
+              "tags": {"type": "keyword"}
+            }
+          }
+        }
+      ]
+    }
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elasticsearch-setup
+  namespace: opinion-market
+spec:
+  template:
+    spec:
+      containers:
+      - name: setup
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Elasticsearch to be ready..."
+          until curl -f http://opinion-market-elasticsearch-es-http:9200/_cluster/health; do
+            sleep 10
+          done
+          
+          echo "Creating indices..."
+          curl -X PUT "http://opinion-market-elasticsearch-es-http:9200/opinion-market-trades" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "settings": {
+                "number_of_shards": 3,
+                "number_of_replicas": 1
+              }
+            }'
+          
+          curl -X PUT "http://opinion-market-elasticsearch-es-http:9200/opinion-market-markets" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "settings": {
+                "number_of_shards": 3,
+                "number_of_replicas": 1
+              }
+            }'
+          
+          curl -X PUT "http://opinion-market-elasticsearch-es-http:9200/opinion-market-users" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "settings": {
+                "number_of_shards": 3,
+                "number_of_replicas": 1
+              }
+            }'
+          
+          curl -X PUT "http://opinion-market-elasticsearch-es-http:9200/opinion-market-analytics" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "settings": {
+                "number_of_shards": 3,
+                "number_of_replicas": 1
+              }
+            }'
+          
+          echo "Indices created successfully"
+      restartPolicy: OnFailure
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kibana-ingress
+  namespace: opinion-market
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - kibana.opinionmarket.com
+    secretName: kibana-tls
+  rules:
+  - host: kibana.opinionmarket.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: opinion-market-kibana-kb-http
+            port:
+              number: 5601

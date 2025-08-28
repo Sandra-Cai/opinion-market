@@ -1,0 +1,850 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ethereum-node
+  namespace: opinion-market
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ethereum-node
+  template:
+    metadata:
+      labels:
+        app: ethereum-node
+    spec:
+      containers:
+      - name: ethereum
+        image: ethereum/client-go:latest
+        ports:
+        - containerPort: 8545
+          name: http
+        - containerPort: 8546
+          name: websocket
+        - containerPort: 30303
+          name: p2p
+        args:
+        - --http
+        - --http.addr=0.0.0.0
+        - --http.port=8545
+        - --http.corsdomain=*
+        - --http.api=eth,net,web3,personal,miner
+        - --ws
+        - --ws.addr=0.0.0.0
+        - --ws.port=8546
+        - --ws.api=eth,net,web3
+        - --ws.origins=*
+        - --networkid=1337
+        - --datadir=/ethereum/data
+        - --mine
+        - --miner.threads=1
+        - --miner.etherbase=0x0000000000000000000000000000000000000000
+        - --allow-insecure-unlock
+        - --unlock=0x0000000000000000000000000000000000000000
+        - --password=/ethereum/password.txt
+        volumeMounts:
+        - name: ethereum-data
+          mountPath: /ethereum/data
+        - name: ethereum-password
+          mountPath: /ethereum/password.txt
+          subPath: password.txt
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ethereum-data-pvc
+  namespace: opinion-market
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: gp3
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ethereum-password
+  namespace: opinion-market
+data:
+  password.txt: |
+    password123
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ethereum-node
+  namespace: opinion-market
+spec:
+  ports:
+  - port: 8545
+    targetPort: 8545
+    protocol: TCP
+    name: http
+  - port: 8546
+    targetPort: 8546
+    protocol: TCP
+    name: websocket
+  - port: 30303
+    targetPort: 30303
+    protocol: TCP
+    name: p2p
+  selector:
+    app: ethereum-node
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-contract-deployer
+  namespace: opinion-market
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smart-contract-deployer
+  template:
+    metadata:
+      labels:
+        app: smart-contract-deployer
+    spec:
+      containers:
+      - name: deployer
+        image: node:18-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache git python3 make g++
+          npm install -g truffle ganache-cli
+          
+          # Wait for Ethereum node
+          until curl -f http://ethereum-node:8545; do
+            sleep 10
+          done
+          
+          # Deploy smart contracts
+          cd /contracts
+          truffle migrate --network development
+          
+          # Keep container running
+          tail -f /dev/null
+        volumeMounts:
+        - name: smart-contracts
+          mountPath: /contracts
+        env:
+        - name: ETHEREUM_NODE_URL
+          value: http://ethereum-node:8545
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: smart-contracts
+        configMap:
+          name: smart-contracts
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smart-contracts
+  namespace: opinion-market
+data:
+  truffle-config.js: |
+    module.exports = {
+      networks: {
+        development: {
+          host: "ethereum-node",
+          port: 8545,
+          network_id: "*",
+          gas: 6721975,
+          gasPrice: 20000000000
+        }
+      },
+      compilers: {
+        solc: {
+          version: "0.8.19",
+          settings: {
+            optimizer: {
+              enabled: true,
+              runs: 200
+            }
+          }
+        }
+      }
+    };
+
+  contracts/OpinionMarket.sol: |
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.19;
+    
+    import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+    import "@openzeppelin/contracts/access/Ownable.sol";
+    import "@openzeppelin/contracts/utils/Counters.sol";
+    
+    contract OpinionMarket is ReentrancyGuard, Ownable {
+        using Counters for Counters.Counter;
+        
+        struct Market {
+            uint256 id;
+            string title;
+            string description;
+            uint256 endTime;
+            uint256 totalVolume;
+            uint256 yesVolume;
+            uint256 noVolume;
+            bool resolved;
+            bool outcome;
+            address creator;
+            mapping(address => uint256) userYesVolume;
+            mapping(address => uint256) userNoVolume;
+        }
+        
+        struct Trade {
+            uint256 id;
+            uint256 marketId;
+            address trader;
+            bool isYes;
+            uint256 amount;
+            uint256 price;
+            uint256 timestamp;
+        }
+        
+        Counters.Counter private _marketIds;
+        Counters.Counter private _tradeIds;
+        
+        mapping(uint256 => Market) public markets;
+        mapping(uint256 => Trade) public trades;
+        mapping(address => uint256) public userBalances;
+        
+        uint256 public platformFee = 25; // 0.25%
+        uint256 public constant FEE_DENOMINATOR = 10000;
+        
+        event MarketCreated(uint256 indexed marketId, string title, address indexed creator);
+        event TradeExecuted(uint256 indexed tradeId, uint256 indexed marketId, address indexed trader, bool isYes, uint256 amount, uint256 price);
+        event MarketResolved(uint256 indexed marketId, bool outcome);
+        event BalanceUpdated(address indexed user, uint256 newBalance);
+        
+        modifier marketExists(uint256 marketId) {
+            require(marketId > 0 && marketId <= _marketIds.current(), "Market does not exist");
+            _;
+        }
+        
+        modifier marketNotResolved(uint256 marketId) {
+            require(!markets[marketId].resolved, "Market already resolved");
+            _;
+        }
+        
+        modifier marketEnded(uint256 marketId) {
+            require(block.timestamp >= markets[marketId].endTime, "Market not ended");
+            _;
+        }
+        
+        constructor() {
+            _marketIds.increment(); // Start from 1
+        }
+        
+        function createMarket(
+            string memory title,
+            string memory description,
+            uint256 duration
+        ) external returns (uint256) {
+            require(bytes(title).length > 0, "Title cannot be empty");
+            require(duration > 0, "Duration must be positive");
+            
+            uint256 marketId = _marketIds.current();
+            Market storage market = markets[marketId];
+            
+            market.id = marketId;
+            market.title = title;
+            market.description = description;
+            market.endTime = block.timestamp + duration;
+            market.creator = msg.sender;
+            
+            _marketIds.increment();
+            
+            emit MarketCreated(marketId, title, msg.sender);
+            return marketId;
+        }
+        
+        function trade(
+            uint256 marketId,
+            bool isYes,
+            uint256 amount
+        ) external nonReentrant marketExists(marketId) marketNotResolved(marketId) {
+            require(amount > 0, "Amount must be positive");
+            require(userBalances[msg.sender] >= amount, "Insufficient balance");
+            
+            uint256 tradeId = _tradeIds.current();
+            Trade storage trade = trades[tradeId];
+            Market storage market = markets[marketId];
+            
+            // Calculate price based on current volumes
+            uint256 price = calculatePrice(marketId, isYes);
+            
+            // Execute trade
+            trade.id = tradeId;
+            trade.marketId = marketId;
+            trade.trader = msg.sender;
+            trade.isYes = isYes;
+            trade.amount = amount;
+            trade.price = price;
+            trade.timestamp = block.timestamp;
+            
+            // Update market volumes
+            if (isYes) {
+                market.yesVolume += amount;
+                market.userYesVolume[msg.sender] += amount;
+            } else {
+                market.noVolume += amount;
+                market.userNoVolume[msg.sender] += amount;
+            }
+            market.totalVolume += amount;
+            
+            // Update user balance
+            uint256 fee = (amount * platformFee) / FEE_DENOMINATOR;
+            userBalances[msg.sender] -= amount;
+            userBalances[owner()] += fee;
+            
+            _tradeIds.increment();
+            
+            emit TradeExecuted(tradeId, marketId, msg.sender, isYes, amount, price);
+            emit BalanceUpdated(msg.sender, userBalances[msg.sender]);
+        }
+        
+        function resolveMarket(uint256 marketId, bool outcome) external onlyOwner marketExists(marketId) marketNotResolved(marketId) marketEnded(marketId) {
+            Market storage market = markets[marketId];
+            market.resolved = true;
+            market.outcome = outcome;
+            
+            emit MarketResolved(marketId, outcome);
+        }
+        
+        function claimWinnings(uint256 marketId) external nonReentrant marketExists(marketId) {
+            Market storage market = markets[marketId];
+            require(market.resolved, "Market not resolved");
+            
+            uint256 yesVolume = market.userYesVolume[msg.sender];
+            uint256 noVolume = market.userNoVolume[msg.sender];
+            
+            if (yesVolume > 0 || noVolume > 0) {
+                uint256 winnings = 0;
+                
+                if (market.outcome && yesVolume > 0) {
+                    // Yes won, calculate winnings
+                    winnings = (yesVolume * market.totalVolume) / market.yesVolume;
+                } else if (!market.outcome && noVolume > 0) {
+                    // No won, calculate winnings
+                    winnings = (noVolume * market.totalVolume) / market.noVolume;
+                }
+                
+                if (winnings > 0) {
+                    userBalances[msg.sender] += winnings;
+                    market.userYesVolume[msg.sender] = 0;
+                    market.userNoVolume[msg.sender] = 0;
+                    
+                    emit BalanceUpdated(msg.sender, userBalances[msg.sender]);
+                }
+            }
+        }
+        
+        function deposit() external payable {
+            require(msg.value > 0, "Must send ETH");
+            userBalances[msg.sender] += msg.value;
+            emit BalanceUpdated(msg.sender, userBalances[msg.sender]);
+        }
+        
+        function withdraw(uint256 amount) external nonReentrant {
+            require(amount > 0, "Amount must be positive");
+            require(userBalances[msg.sender] >= amount, "Insufficient balance");
+            
+            userBalances[msg.sender] -= amount;
+            payable(msg.sender).transfer(amount);
+            
+            emit BalanceUpdated(msg.sender, userBalances[msg.sender]);
+        }
+        
+        function calculatePrice(uint256 marketId, bool isYes) public view marketExists(marketId) returns (uint256) {
+            Market storage market = markets[marketId];
+            
+            if (market.totalVolume == 0) {
+                return 5000; // 50% probability
+            }
+            
+            if (isYes) {
+                return (market.yesVolume * 10000) / market.totalVolume;
+            } else {
+                return (market.noVolume * 10000) / market.totalVolume;
+            }
+        }
+        
+        function getMarket(uint256 marketId) external view marketExists(marketId) returns (
+            uint256 id,
+            string memory title,
+            string memory description,
+            uint256 endTime,
+            uint256 totalVolume,
+            uint256 yesVolume,
+            uint256 noVolume,
+            bool resolved,
+            bool outcome,
+            address creator
+        ) {
+            Market storage market = markets[marketId];
+            return (
+                market.id,
+                market.title,
+                market.description,
+                market.endTime,
+                market.totalVolume,
+                market.yesVolume,
+                market.noVolume,
+                market.resolved,
+                market.outcome,
+                market.creator
+            );
+        }
+        
+        function getTrade(uint256 tradeId) external view returns (
+            uint256 id,
+            uint256 marketId,
+            address trader,
+            bool isYes,
+            uint256 amount,
+            uint256 price,
+            uint256 timestamp
+        ) {
+            Trade storage trade = trades[tradeId];
+            return (
+                trade.id,
+                trade.marketId,
+                trade.trader,
+                trade.isYes,
+                trade.amount,
+                trade.price,
+                trade.timestamp
+            );
+        }
+        
+        function getUserVolume(uint256 marketId, address user) external view marketExists(marketId) returns (uint256 yesVolume, uint256 noVolume) {
+            Market storage market = markets[marketId];
+            return (market.userYesVolume[user], market.userNoVolume[user]);
+        }
+        
+        function setPlatformFee(uint256 newFee) external onlyOwner {
+            require(newFee <= 1000, "Fee too high"); // Max 10%
+            platformFee = newFee;
+        }
+        
+        function getMarketCount() external view returns (uint256) {
+            return _marketIds.current() - 1;
+        }
+        
+        function getTradeCount() external view returns (uint256) {
+            return _tradeIds.current();
+        }
+    }
+
+  migrations/1_initial_migration.js: |
+    const Migrations = artifacts.require("Migrations");
+    
+    module.exports = function(deployer) {
+      deployer.deploy(Migrations);
+    };
+
+  migrations/2_deploy_opinion_market.js: |
+    const OpinionMarket = artifacts.require("OpinionMarket");
+    
+    module.exports = function(deployer) {
+      deployer.deploy(OpinionMarket);
+    };
+
+  package.json: |
+    {
+      "name": "opinion-market-contracts",
+      "version": "1.0.0",
+      "description": "Smart contracts for Opinion Market platform",
+      "main": "truffle-config.js",
+      "scripts": {
+        "compile": "truffle compile",
+        "migrate": "truffle migrate",
+        "test": "truffle test"
+      },
+      "dependencies": {
+        "@openzeppelin/contracts": "^4.9.0"
+      },
+      "devDependencies": {
+        "truffle": "^5.8.0"
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blockchain-api
+  namespace: opinion-market
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: blockchain-api
+  template:
+    metadata:
+      labels:
+        app: blockchain-api
+    spec:
+      containers:
+      - name: api
+        image: node:18-alpine
+        ports:
+        - containerPort: 3000
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache git python3 make g++
+          npm install -g pm2
+          
+          cd /app
+          npm install
+          pm2 start app.js
+          pm2 logs
+        volumeMounts:
+        - name: blockchain-api-code
+          mountPath: /app
+        env:
+        - name: ETHEREUM_NODE_URL
+          value: http://ethereum-node:8545
+        - name: CONTRACT_ADDRESS
+          value: "0x0000000000000000000000000000000000000000"
+        - name: PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ethereum-private-key
+              key: private-key
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: blockchain-api-code
+        configMap:
+          name: blockchain-api
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blockchain-api
+  namespace: opinion-market
+data:
+  package.json: |
+    {
+      "name": "blockchain-api",
+      "version": "1.0.0",
+      "description": "Blockchain API for Opinion Market",
+      "main": "app.js",
+      "scripts": {
+        "start": "node app.js",
+        "dev": "nodemon app.js"
+      },
+      "dependencies": {
+        "express": "^4.18.2",
+        "web3": "^1.10.0",
+        "cors": "^2.8.5",
+        "helmet": "^7.0.0",
+        "dotenv": "^16.0.3"
+      },
+      "devDependencies": {
+        "nodemon": "^2.0.22"
+      }
+    }
+
+  app.js: |
+    const express = require('express');
+    const Web3 = require('web3');
+    const cors = require('cors');
+    const helmet = require('helmet');
+    
+    const app = express();
+    const port = process.env.PORT || 3000;
+    
+    // Middleware
+    app.use(helmet());
+    app.use(cors());
+    app.use(express.json());
+    
+    // Web3 setup
+    const web3 = new Web3(process.env.ETHEREUM_NODE_URL || 'http://ethereum-node:8545');
+    const contractAddress = process.env.CONTRACT_ADDRESS;
+    const privateKey = process.env.PRIVATE_KEY;
+    
+    // Contract ABI (simplified)
+    const contractABI = [
+      {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "uint256",
+            "name": "marketId",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "creator",
+            "type": "address"
+          }
+        ],
+        "name": "MarketCreated",
+        "type": "event"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "duration",
+            "type": "uint256"
+          }
+        ],
+        "name": "createMarket",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "marketId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "isYes",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          }
+        ],
+        "name": "trade",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ];
+    
+    const contract = new web3.eth.Contract(contractABI, contractAddress);
+    
+    // Routes
+    app.get('/health', (req, res) => {
+      res.json({ status: 'healthy', service: 'blockchain-api' });
+    });
+    
+    app.get('/markets', async (req, res) => {
+      try {
+        const marketCount = await contract.methods.getMarketCount().call();
+        const markets = [];
+        
+        for (let i = 1; i <= marketCount; i++) {
+          const market = await contract.methods.getMarket(i).call();
+          markets.push({
+            id: market.id,
+            title: market.title,
+            description: market.description,
+            endTime: market.endTime,
+            totalVolume: market.totalVolume,
+            yesVolume: market.yesVolume,
+            noVolume: market.noVolume,
+            resolved: market.resolved,
+            outcome: market.outcome,
+            creator: market.creator
+          });
+        }
+        
+        res.json(markets);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    
+    app.get('/markets/:id', async (req, res) => {
+      try {
+        const marketId = req.params.id;
+        const market = await contract.methods.getMarket(marketId).call();
+        
+        res.json({
+          id: market.id,
+          title: market.title,
+          description: market.description,
+          endTime: market.endTime,
+          totalVolume: market.totalVolume,
+          yesVolume: market.yesVolume,
+          noVolume: market.noVolume,
+          resolved: market.resolved,
+          outcome: market.outcome,
+          creator: market.creator
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    
+    app.post('/markets', async (req, res) => {
+      try {
+        const { title, description, duration } = req.body;
+        
+        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+        const gasEstimate = await contract.methods.createMarket(title, description, duration).estimateGas({ from: account.address });
+        
+        const tx = await contract.methods.createMarket(title, description, duration).send({
+          from: account.address,
+          gas: gasEstimate
+        });
+        
+        res.json({ transactionHash: tx.transactionHash });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    
+    app.post('/markets/:id/trade', async (req, res) => {
+      try {
+        const marketId = req.params.id;
+        const { isYes, amount } = req.body;
+        
+        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+        const gasEstimate = await contract.methods.trade(marketId, isYes, amount).estimateGas({ from: account.address });
+        
+        const tx = await contract.methods.trade(marketId, isYes, amount).send({
+          from: account.address,
+          gas: gasEstimate
+        });
+        
+        res.json({ transactionHash: tx.transactionHash });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    
+    app.get('/trades', async (req, res) => {
+      try {
+        const tradeCount = await contract.methods.getTradeCount().call();
+        const trades = [];
+        
+        for (let i = 0; i < tradeCount; i++) {
+          const trade = await contract.methods.getTrade(i).call();
+          trades.push({
+            id: trade.id,
+            marketId: trade.marketId,
+            trader: trade.trader,
+            isYes: trade.isYes,
+            amount: trade.amount,
+            price: trade.price,
+            timestamp: trade.timestamp
+          });
+        }
+        
+        res.json(trades);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+    
+    app.listen(port, () => {
+      console.log(`Blockchain API server running on port ${port}`);
+    });
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blockchain-api
+  namespace: opinion-market
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: blockchain-api
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blockchain-api-ingress
+  namespace: opinion-market
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - blockchain-api.opinionmarket.com
+    secretName: blockchain-api-tls
+  rules:
+  - host: blockchain-api.opinionmarket.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: blockchain-api
+            port:
+              number: 3000

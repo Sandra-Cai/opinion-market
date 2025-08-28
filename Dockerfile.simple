@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install only essential dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir fastapi uvicorn pytest httpx
+
+# Copy only the simple app
+COPY app/main_simple.py app/
+COPY app/__init__.py app/
+
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Run the simple application
+CMD ["uvicorn", "app.main_simple:app", "--host", "0.0.0.0", "--port", "8000"]

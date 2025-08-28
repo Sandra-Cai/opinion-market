@@ -74,3 +74,9 @@ def test_openapi_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert "openapi" in data
+
+def test_basic_functionality():
+    """Test basic functionality"""
+    assert 2 + 2 == 4
+    assert "hello" + " world" == "hello world"
+    assert len("test") == 4

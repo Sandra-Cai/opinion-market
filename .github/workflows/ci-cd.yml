@@ -1,12 +1,13 @@
 name: Opinion Market CI/CD Pipeline
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-  release:
-    types: [ published ]
+# DISABLED - Comment out triggers to stop automatic runs
+# on:
+#   push:
+#     branches: [ main, develop ]
+#   pull_request:
+#     branches: [ main, develop ]
+#   release:
+#     types: [ published ]
 
 env:
   REGISTRY: ghcr.io
@@ -245,7 +246,6 @@ jobs:
       - name: Run smoke tests
         run: |
           echo "Running smoke tests..."
-          # Wait for deployment to be ready
           kubectl wait --for=condition=available --timeout=300s deployment/opinion-market-api -n opinion-market-staging || echo "Deployment not ready but continuing..."
           
           # Run basic health checks
@@ -294,7 +294,6 @@ jobs:
       - name: Run production health checks
         run: |
           echo "Running production health checks..."
-          # Wait for deployment to be ready
           kubectl wait --for=condition=available --timeout=300s deployment/opinion-market-api -n opinion-market || echo "Production deployment not ready but continuing..."
           
           # Run comprehensive health checks

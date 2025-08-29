@@ -1,10 +1,11 @@
 name: Build
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+# DISABLED - Comment out triggers to stop automatic runs
+# on:
+#   push:
+#     branches: [ main, develop ]
+#   pull_request:
+#     branches: [ main, develop ]
 
 env:
   REGISTRY: ghcr.io

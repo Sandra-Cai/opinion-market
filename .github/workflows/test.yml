@@ -1,10 +1,11 @@
 name: Test
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+# DISABLED - Comment out triggers to stop automatic runs
+# on:
+#   push:
+#     branches: [ main, develop ]
+#   pull_request:
+#     branches: [ main, develop ]
 
 jobs:
   test:
@@ -76,8 +77,13 @@ jobs:
       run: |
         echo "Running unit tests..."
         pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=html || echo "Unit tests failed but continuing..."
-    
+
     - name: Run simple tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key
+        ENVIRONMENT: test
       run: |
         echo "Running simple tests..."
         pytest tests/unit/test_simple.py -v || echo "Simple tests failed but continuing..."

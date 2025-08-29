@@ -1,10 +1,11 @@
 name: Deploy
 
-on:
-  push:
-    branches: [ develop ]
-  release:
-    types: [ published ]
+# DISABLED - Comment out triggers to stop automatic runs
+# on:
+#   push:
+#     branches: [ develop ]
+#   release:
+#     types: [ published ]
 
 env:
   REGISTRY: ghcr.io

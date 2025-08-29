@@ -85,11 +85,12 @@ def app_source():
     return APP_SOURCE
 
 @pytest.fixture(autouse=True)
-def test_setup():
+def test_setup(request):
     """Setup and teardown for each test"""
-    print(f"\n🧪 Starting test with app source: {APP_SOURCE}")
+    test_name = request.node.name
+    print(f"\n🧪 Starting test: {test_name} with app source: {APP_SOURCE}")
     yield
-    print(f"✅ Test completed")
+    print(f"✅ Test completed: {test_name}")
 
 @pytest.fixture
 def sample_data():

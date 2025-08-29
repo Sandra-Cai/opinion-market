@@ -236,11 +236,12 @@ def robust_app():
     return app
 
 @pytest.fixture(autouse=True)
-def robust_test_setup():
+def robust_test_setup(request):
     """Setup and teardown for each test"""
-    print(f"\n🧪 Starting test: {pytest.current_test}")
+    test_name = request.node.name
+    print(f"\n🧪 Starting test: {test_name}")
     yield
-    print(f"✅ Completed test: {pytest.current_test}")
+    print(f"✅ Completed test: {test_name}")
 
 # Custom pytest markers
 pytestmark = [

@@ -1,371 +1,562 @@
+"""
+Blockchain Integration Service
+Provides smart contract management, transaction monitoring, and decentralized features
+"""
+
 import asyncio
-import json
 import logging
+import json
+import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
-import hashlib
-import hmac
-import time
-from decimal import Decimal
-
-# Note: In a real implementation, you would import actual blockchain libraries
-# from web3 import Web3
-# from eth_account import Account
-# import bitcoinlib
+import aiohttp
+from web3 import Web3
+from web3.middleware import geth_poa_middleware
+from eth_account import Account
+import redis.asyncio as redis
+from sqlalchemy.orm import Session
+import os
 
 logger = logging.getLogger(__name__)
 
-@dataclass
-class BlockchainTransaction:
-    """Represents a blockchain transaction"""
-    tx_hash: str
-    from_address: str
-    to_address: str
-    amount: Decimal
-    currency: str  # ETH, BTC, USDC, etc.
-    status: str  # pending, confirmed, failed
-    block_number: Optional[int]
-    gas_used: Optional[int]
-    gas_price: Optional[int]
-    timestamp: datetime
-    metadata: Dict[str, Any]
 
 @dataclass
 class SmartContract:
-    """Represents a smart contract"""
+    """Smart contract information"""
     contract_address: str
-    contract_type: str  # market_creation, governance, rewards, etc.
-    network: str  # ethereum, polygon, etc.
-    abi: Dict[str, Any]
+    contract_name: str
+    contract_type: str  # 'market', 'token', 'governance', 'oracle'
+    abi: List[Dict]
+    bytecode: str
     deployed_at: datetime
-    owner: str
-    metadata: Dict[str, Any]
+    network: str  # 'ethereum', 'polygon', 'arbitrum'
+    owner_address: str
+    gas_used: int
+    transaction_hash: str
+
 
 @dataclass
-class TokenBalance:
-    """Represents a user's token balance"""
-    user_address: str
-    token_address: str
-    token_symbol: str
-    balance: Decimal
-    decimals: int
-    last_updated: datetime
+class BlockchainTransaction:
+    """Blockchain transaction information"""
+    transaction_hash: str
+    block_number: int
+    from_address: str
+    to_address: str
+    value: float
+    gas_used: int
+    gas_price: int
+    status: str  # 'pending', 'confirmed', 'failed'
+    timestamp: datetime
+    network: str
+    contract_interaction: bool
+    method_name: Optional[str] = None
+    input_data: Optional[str] = None
 
-class BlockchainIntegration:
-    """Blockchain integration service for decentralized features"""
+
+@dataclass
+class MarketToken:
+    """Market-specific token information"""
+    token_address: str
+    market_id: int
+    token_name: str
+    token_symbol: str
+    total_supply: int
+    decimals: int
+    current_price: float
+    market_cap: float
+    holders_count: int
+    network: str
+    created_at: datetime
+
+
+@dataclass
+class OracleData:
+    """Oracle data for market resolution"""
+    oracle_address: str
+    market_id: int
+    data_source: str  # 'chainlink', 'custom', 'api'
+    data_type: str  # 'price', 'event', 'sport', 'politics'
+    data_value: str
+    confidence: float
+    timestamp: datetime
+    transaction_hash: str
+    network: str
+
+
+class BlockchainIntegrationService:
+    """Comprehensive blockchain integration service"""
     
-    def __init__(self):
+    def __init__(self, redis_client: redis.Redis, db_session: Session):
+        self.redis = redis_client
+        self.db = db_session
+        self.web3_connections: Dict[str, Web3] = {}
+        self.contracts: Dict[str, SmartContract] = {}
+        self.tokens: Dict[str, MarketToken] = {}
+        self.oracles: Dict[str, OracleData] = {}
+        
+        # Network configurations
         self.networks = {
             'ethereum': {
-                'rpc_url': 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID',
+                'rpc_url': os.getenv('ETHEREUM_RPC_URL', 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID'),
                 'chain_id': 1,
-                'currency': 'ETH'
+                'explorer': 'https://etherscan.io'
             },
             'polygon': {
-                'rpc_url': 'https://polygon-rpc.com',
+                'rpc_url': os.getenv('POLYGON_RPC_URL', 'https://polygon-rpc.com'),
                 'chain_id': 137,
-                'currency': 'MATIC'
+                'explorer': 'https://polygonscan.com'
             },
             'arbitrum': {
-                'rpc_url': 'https://arb1.arbitrum.io/rpc',
+                'rpc_url': os.getenv('ARBITRUM_RPC_URL', 'https://arb1.arbitrum.io/rpc'),
                 'chain_id': 42161,
-                'currency': 'ETH'
+                'explorer': 'https://arbiscan.io'
             }
         }
         
-        self.smart_contracts = {}
-        self.transaction_cache = {}
-        self.balance_cache = {}
-        
-        # Contract ABIs (simplified)
+        # Smart contract ABIs (simplified versions)
         self.contract_abis = {
-            'market_creation': self._get_market_creation_abi(),
-            'governance': self._get_governance_abi(),
-            'rewards': self._get_rewards_abi(),
-            'liquidity_pool': self._get_liquidity_pool_abi()
+            'market': self._get_market_contract_abi(),
+            'token': self._get_token_contract_abi(),
+            'oracle': self._get_oracle_contract_abi(),
+            'governance': self._get_governance_contract_abi()
         }
-    
+        
     async def initialize(self):
-        """Initialize blockchain integration"""
-        await self._load_smart_contracts()
-        await self._start_blockchain_monitoring()
-        logger.info("Blockchain integration initialized")
-    
-    async def _load_smart_contracts(self):
-        """Load deployed smart contracts"""
-        # In a real implementation, you would load from database or config
-        self.smart_contracts = {
-            'market_creation': SmartContract(
-                contract_address="0x1234567890123456789012345678901234567890",
-                contract_type="market_creation",
-                network="ethereum",
-                abi=self.contract_abis['market_creation'],
-                deployed_at=datetime.utcnow(),
-                owner="0xowner1234567890123456789012345678901234567890",
-                metadata={}
-            ),
-            'governance': SmartContract(
-                contract_address="0x2345678901234567890123456789012345678901",
-                contract_type="governance",
-                network="ethereum",
-                abi=self.contract_abis['governance'],
-                deployed_at=datetime.utcnow(),
-                owner="0xowner1234567890123456789012345678901234567890",
-                metadata={}
-            )
-        }
-    
-    async def _start_blockchain_monitoring(self):
-        """Start monitoring blockchain events"""
+        """Initialize the blockchain integration service"""
+        logger.info("Initializing Blockchain Integration Service")
+        
+        # Initialize Web3 connections
+        await self._initialize_web3_connections()
+        
+        # Deploy or load smart contracts
+        await self._initialize_smart_contracts()
+        
+        # Start monitoring tasks
         asyncio.create_task(self._monitor_transactions())
-        asyncio.create_task(self._monitor_smart_contract_events())
+        asyncio.create_task(self._monitor_gas_prices())
+        asyncio.create_task(self._update_token_prices())
+        asyncio.create_task(self._monitor_oracle_data())
+        
+        logger.info("Blockchain Integration Service initialized successfully")
     
-    async def create_market_on_blockchain(self, market_data: Dict[str, Any]) -> Optional[str]:
-        """Create a market on the blockchain"""
+    async def _initialize_web3_connections(self):
+        """Initialize Web3 connections for different networks"""
         try:
-            # Validate market data
-            if not self._validate_market_data(market_data):
-                raise ValueError("Invalid market data")
+            for network_name, config in self.networks.items():
+                web3 = Web3(Web3.HTTPProvider(config['rpc_url']))
+                
+                # Add middleware for PoA networks
+                if network_name in ['polygon', 'arbitrum']:
+                    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                
+                # Test connection
+                if web3.is_connected():
+                    self.web3_connections[network_name] = web3
+                    logger.info(f"Connected to {network_name} network")
+                else:
+                    logger.warning(f"Failed to connect to {network_name} network")
+                    
+        except Exception as e:
+            logger.error(f"Error initializing Web3 connections: {e}")
+    
+    async def _initialize_smart_contracts(self):
+        """Initialize smart contracts"""
+        try:
+            # Load existing contracts from database or deploy new ones
+            existing_contracts = await self._load_existing_contracts()
             
-            # Prepare transaction data
-            tx_data = self._prepare_market_creation_tx(market_data)
+            for contract in existing_contracts:
+                self.contracts[contract.contract_address] = contract
             
-            # Estimate gas
-            gas_estimate = await self._estimate_gas(tx_data)
+            # Deploy missing contracts
+            await self._deploy_missing_contracts()
             
-            # Send transaction
-            tx_hash = await self._send_transaction(tx_data, gas_estimate)
+        except Exception as e:
+            logger.error(f"Error initializing smart contracts: {e}")
+    
+    def _get_market_contract_abi(self) -> List[Dict]:
+        """Get market contract ABI"""
+        return [
+            {
+                "inputs": [
+                    {"name": "marketId", "type": "uint256"},
+                    {"name": "outcome", "type": "string"},
+                    {"name": "shares", "type": "uint256"}
+                ],
+                "name": "placeTrade",
+                "outputs": [{"name": "", "type": "bool"}],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "marketId", "type": "uint256"}],
+                "name": "getMarketInfo",
+                "outputs": [
+                    {"name": "title", "type": "string"},
+                    {"name": "totalVolume", "type": "uint256"},
+                    {"name": "participantCount", "type": "uint256"},
+                    {"name": "isActive", "type": "bool"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "anonymous": False,
+                "inputs": [
+                    {"indexed": True, "name": "marketId", "type": "uint256"},
+                    {"indexed": True, "name": "trader", "type": "address"},
+                    {"indexed": False, "name": "outcome", "type": "string"},
+                    {"indexed": False, "name": "shares", "type": "uint256"}
+                ],
+                "name": "TradePlaced",
+                "type": "event"
+            }
+        ]
+    
+    def _get_token_contract_abi(self) -> List[Dict]:
+        """Get token contract ABI"""
+        return [
+            {
+                "inputs": [
+                    {"name": "to", "type": "address"},
+                    {"name": "amount", "type": "uint256"}
+                ],
+                "name": "transfer",
+                "outputs": [{"name": "", "type": "bool"}],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "account", "type": "address"}],
+                "name": "balanceOf",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "totalSupply",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ]
+    
+    def _get_oracle_contract_abi(self) -> List[Dict]:
+        """Get oracle contract ABI"""
+        return [
+            {
+                "inputs": [
+                    {"name": "marketId", "type": "uint256"},
+                    {"name": "data", "type": "string"}
+                ],
+                "name": "submitData",
+                "outputs": [{"name": "", "type": "bool"}],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "marketId", "type": "uint256"}],
+                "name": "getData",
+                "outputs": [{"name": "", "type": "string"}],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ]
+    
+    def _get_governance_contract_abi(self) -> List[Dict]:
+        """Get governance contract ABI"""
+        return [
+            {
+                "inputs": [
+                    {"name": "proposalId", "type": "uint256"},
+                    {"name": "support", "type": "bool"}
+                ],
+                "name": "vote",
+                "outputs": [{"name": "", "type": "bool"}],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{"name": "proposalId", "type": "uint256"}],
+                "name": "getProposal",
+                "outputs": [
+                    {"name": "description", "type": "string"},
+                    {"name": "yesVotes", "type": "uint256"},
+                    {"name": "noVotes", "type": "uint256"},
+                    {"name": "isActive", "type": "bool"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ]
+    
+    async def create_market_on_blockchain(self, market_data: Dict[str, Any], 
+                                        network: str = 'ethereum') -> SmartContract:
+        """Create a new market on the blockchain"""
+        try:
+            if network not in self.web3_connections:
+                raise ValueError(f"Network {network} not supported")
             
-            # Store transaction details
-            transaction = BlockchainTransaction(
-                tx_hash=tx_hash,
-                from_address=market_data['creator_address'],
-                to_address=self.smart_contracts['market_creation'].contract_address,
-                amount=Decimal('0'),  # Market creation doesn't transfer tokens
-                currency='ETH',
-                status='pending',
-                block_number=None,
-                gas_used=None,
-                gas_price=None,
-                timestamp=datetime.utcnow(),
-                metadata={
-                    'market_id': market_data['market_id'],
-                    'contract_type': 'market_creation',
-                    'market_data': market_data
-                }
+            web3 = self.web3_connections[network]
+            
+            # Generate market contract
+            contract_address = await self._deploy_market_contract(market_data, web3, network)
+            
+            # Create smart contract object
+            contract = SmartContract(
+                contract_address=contract_address,
+                contract_name=f"Market_{market_data['id']}",
+                contract_type='market',
+                abi=self.contract_abis['market'],
+                bytecode=self._get_market_bytecode(),
+                deployed_at=datetime.utcnow(),
+                network=network,
+                owner_address=market_data.get('owner_address', ''),
+                gas_used=0,  # Will be updated after deployment
+                transaction_hash=''  # Will be updated after deployment
             )
             
-            self.transaction_cache[tx_hash] = transaction
+            self.contracts[contract_address] = contract
+            await self._cache_contract(contract)
             
-            logger.info(f"Market creation transaction sent: {tx_hash}")
-            return tx_hash
+            logger.info(f"Created market contract on {network}: {contract_address}")
+            return contract
             
         except Exception as e:
             logger.error(f"Error creating market on blockchain: {e}")
-            return None
+            raise
     
-    async def execute_trade_on_blockchain(self, trade_data: Dict[str, Any]) -> Optional[str]:
-        """Execute a trade on the blockchain"""
+    async def _deploy_market_contract(self, market_data: Dict[str, Any], 
+                                    web3: Web3, network: str) -> str:
+        """Deploy a market contract"""
         try:
-            # Validate trade data
-            if not self._validate_trade_data(trade_data):
-                raise ValueError("Invalid trade data")
+            # This would be the actual deployment logic
+            # For now, we'll simulate deployment
             
-            # Prepare transaction data
-            tx_data = self._prepare_trade_tx(trade_data)
+            # Generate a mock contract address
+            contract_address = f"0x{hashlib.md5(f'market_{market_data['id']}_{network}'.encode()).hexdigest()[:40]}"
             
-            # Estimate gas
-            gas_estimate = await self._estimate_gas(tx_data)
+            # Simulate deployment transaction
+            deployment_tx = {
+                'from': market_data.get('owner_address', '0x0000000000000000000000000000000000000000'),
+                'to': None,
+                'data': self._get_market_bytecode(),
+                'gas': 2000000,
+                'gasPrice': web3.eth.gas_price
+            }
             
-            # Send transaction
-            tx_hash = await self._send_transaction(tx_data, gas_estimate)
+            # In a real implementation, you would:
+            # 1. Sign the transaction with a private key
+            # 2. Send the transaction to the network
+            # 3. Wait for confirmation
+            # 4. Get the deployed contract address
             
-            # Store transaction details
-            transaction = BlockchainTransaction(
-                tx_hash=tx_hash,
-                from_address=trade_data['buyer_address'],
-                to_address=self.smart_contracts['liquidity_pool'].contract_address,
-                amount=Decimal(str(trade_data['amount'])),
-                currency=trade_data['currency'],
-                status='pending',
-                block_number=None,
-                gas_used=None,
-                gas_price=None,
-                timestamp=datetime.utcnow(),
-                metadata={
-                    'trade_id': trade_data['trade_id'],
-                    'market_id': trade_data['market_id'],
-                    'outcome': trade_data['outcome'],
-                    'price': trade_data['price']
-                }
+            logger.info(f"Simulated deployment of market contract: {contract_address}")
+            return contract_address
+            
+        except Exception as e:
+            logger.error(f"Error deploying market contract: {e}")
+            raise
+    
+    def _get_market_bytecode(self) -> str:
+        """Get market contract bytecode (simplified)"""
+        # This would be the actual compiled bytecode
+        return "0x608060405234801561001057600080fd5b506040516101e83803806101e88339818101604052602081101561003357600080fd5b810190808051906020019092919050505080600081905550506101918061005c6000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80632e1a7d4d1461003b578063a9059cbb14610069575b600080fd5b6100676004803603602081101561005157600080fd5b8101908080359060200190929190505050610097565b005b6100956004803603604081101561007f57600080fd5b8101908080359060200190929190803590602001909291905050506100a1565b005b8060008190555050565b80820190509291505056fea2646970667358221220..."
+    
+    async def place_trade_on_blockchain(self, market_id: int, outcome: str, 
+                                      shares: int, user_address: str, 
+                                      network: str = 'ethereum') -> BlockchainTransaction:
+        """Place a trade on the blockchain"""
+        try:
+            if network not in self.web3_connections:
+                raise ValueError(f"Network {network} not supported")
+            
+            web3 = self.web3_connections[network]
+            
+            # Get market contract
+            contract_address = await self._get_market_contract_address(market_id, network)
+            if not contract_address:
+                raise ValueError(f"Market {market_id} not found on blockchain")
+            
+            # Create transaction
+            contract = web3.eth.contract(
+                address=contract_address,
+                abi=self.contract_abis['market']
             )
             
-            self.transaction_cache[tx_hash] = transaction
+            # Build transaction
+            transaction = contract.functions.placeTrade(
+                market_id,
+                outcome,
+                shares
+            ).build_transaction({
+                'from': user_address,
+                'gas': 200000,
+                'gasPrice': web3.eth.gas_price,
+                'nonce': web3.eth.get_transaction_count(user_address)
+            })
             
-            logger.info(f"Trade transaction sent: {tx_hash}")
+            # In a real implementation, you would:
+            # 1. Sign the transaction with user's private key
+            # 2. Send the transaction to the network
+            # 3. Wait for confirmation
+            
+            # Simulate transaction
+            tx_hash = f"0x{hashlib.md5(f'trade_{market_id}_{user_address}_{datetime.utcnow().isoformat()}'.encode()).hexdigest()[:64]}"
+            
+            blockchain_tx = BlockchainTransaction(
+                transaction_hash=tx_hash,
+                block_number=web3.eth.block_number + 1,
+                from_address=user_address,
+                to_address=contract_address,
+                value=0.0,
+                gas_used=150000,
+                gas_price=web3.eth.gas_price,
+                status='confirmed',
+                timestamp=datetime.utcnow(),
+                network=network,
+                contract_interaction=True,
+                method_name='placeTrade',
+                input_data=transaction['data'].hex()
+            )
+            
+            await self._cache_transaction(blockchain_tx)
+            logger.info(f"Placed trade on blockchain: {tx_hash}")
+            
+            return blockchain_tx
+            
+        except Exception as e:
+            logger.error(f"Error placing trade on blockchain: {e}")
+            raise
+    
+    async def create_market_token(self, market_id: int, token_name: str, 
+                                token_symbol: str, total_supply: int,
+                                network: str = 'ethereum') -> MarketToken:
+        """Create a token for a market"""
+        try:
+            if network not in self.web3_connections:
+                raise ValueError(f"Network {network} not supported")
+            
+            web3 = self.web3_connections[network]
+            
+            # Deploy token contract
+            token_address = await self._deploy_token_contract(
+                token_name, token_symbol, total_supply, web3, network
+            )
+            
+            # Create token object
+            token = MarketToken(
+                token_address=token_address,
+                market_id=market_id,
+                token_name=token_name,
+                token_symbol=token_symbol,
+                total_supply=total_supply,
+                decimals=18,
+                current_price=0.0,
+                market_cap=0.0,
+                holders_count=0,
+                network=network,
+                created_at=datetime.utcnow()
+            )
+            
+            self.tokens[token_address] = token
+            await self._cache_token(token)
+            
+            logger.info(f"Created market token: {token_address}")
+            return token
+            
+        except Exception as e:
+            logger.error(f"Error creating market token: {e}")
+            raise
+    
+    async def _deploy_token_contract(self, token_name: str, token_symbol: str,
+                                   total_supply: int, web3: Web3, network: str) -> str:
+        """Deploy a token contract"""
+        try:
+            # Generate mock token address
+            token_address = f"0x{hashlib.md5(f'token_{token_name}_{token_symbol}_{network}'.encode()).hexdigest()[:40]}"
+            
+            logger.info(f"Simulated deployment of token contract: {token_address}")
+            return token_address
+            
+        except Exception as e:
+            logger.error(f"Error deploying token contract: {e}")
+            raise
+    
+    async def submit_oracle_data(self, market_id: int, data_source: str,
+                               data_type: str, data_value: str,
+                               network: str = 'ethereum') -> OracleData:
+        """Submit oracle data for market resolution"""
+        try:
+            if network not in self.web3_connections:
+                raise ValueError(f"Network {network} not supported")
+            
+            web3 = self.web3_connections[network]
+            
+            # Get oracle contract
+            oracle_address = await self._get_oracle_contract_address(network)
+            
+            # Submit data to oracle
+            tx_hash = await self._submit_oracle_data_transaction(
+                oracle_address, market_id, data_value, web3, network
+            )
+            
+            # Create oracle data object
+            oracle_data = OracleData(
+                oracle_address=oracle_address,
+                market_id=market_id,
+                data_source=data_source,
+                data_type=data_type,
+                data_value=data_value,
+                confidence=0.95,  # Would be calculated based on data source
+                timestamp=datetime.utcnow(),
+                transaction_hash=tx_hash,
+                network=network
+            )
+            
+            self.oracles[f"{market_id}_{network}"] = oracle_data
+            await self._cache_oracle_data(oracle_data)
+            
+            logger.info(f"Submitted oracle data for market {market_id}: {data_value}")
+            return oracle_data
+            
+        except Exception as e:
+            logger.error(f"Error submitting oracle data: {e}")
+            raise
+    
+    async def _submit_oracle_data_transaction(self, oracle_address: str,
+                                            market_id: int, data_value: str,
+                                            web3: Web3, network: str) -> str:
+        """Submit oracle data transaction"""
+        try:
+            # Simulate transaction
+            tx_hash = f"0x{hashlib.md5(f'oracle_{market_id}_{data_value}_{datetime.utcnow().isoformat()}'.encode()).hexdigest()[:64]}"
+            
+            logger.info(f"Simulated oracle data submission: {tx_hash}")
             return tx_hash
             
         except Exception as e:
-            logger.error(f"Error executing trade on blockchain: {e}")
-            return None
-    
-    async def get_token_balance(self, user_address: str, token_address: str) -> Optional[TokenBalance]:
-        """Get user's token balance"""
-        try:
-            # Check cache first
-            cache_key = f"{user_address}_{token_address}"
-            if cache_key in self.balance_cache:
-                cached_balance = self.balance_cache[cache_key]
-                if (datetime.utcnow() - cached_balance.last_updated).seconds < 300:  # 5 minutes
-                    return cached_balance
-            
-            # Query blockchain for balance
-            balance_data = await self._query_token_balance(user_address, token_address)
-            
-            if balance_data:
-                token_balance = TokenBalance(
-                    user_address=user_address,
-                    token_address=token_address,
-                    token_symbol=balance_data['symbol'],
-                    balance=Decimal(str(balance_data['balance'])),
-                    decimals=balance_data['decimals'],
-                    last_updated=datetime.utcnow()
-                )
-                
-                # Cache balance
-                self.balance_cache[cache_key] = token_balance
-                
-                return token_balance
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error getting token balance: {e}")
-            return None
-    
-    async def get_transaction_status(self, tx_hash: str) -> Optional[Dict[str, Any]]:
-        """Get transaction status and details"""
-        try:
-            # Check cache first
-            if tx_hash in self.transaction_cache:
-                transaction = self.transaction_cache[tx_hash]
-                
-                # If transaction is still pending, check blockchain
-                if transaction.status == 'pending':
-                    tx_status = await self._query_transaction_status(tx_hash)
-                    if tx_status:
-                        # Update transaction
-                        transaction.status = tx_status['status']
-                        transaction.block_number = tx_status.get('block_number')
-                        transaction.gas_used = tx_status.get('gas_used')
-                        transaction.gas_price = tx_status.get('gas_price')
-                
-                return {
-                    'tx_hash': transaction.tx_hash,
-                    'status': transaction.status,
-                    'block_number': transaction.block_number,
-                    'gas_used': transaction.gas_used,
-                    'gas_price': transaction.gas_price,
-                    'timestamp': transaction.timestamp.isoformat(),
-                    'metadata': transaction.metadata
-                }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error getting transaction status: {e}")
-            return None
-    
-    async def create_governance_proposal(self, proposal_data: Dict[str, Any]) -> Optional[str]:
-        """Create a governance proposal on the blockchain"""
-        try:
-            # Validate proposal data
-            if not self._validate_proposal_data(proposal_data):
-                raise ValueError("Invalid proposal data")
-            
-            # Prepare transaction data
-            tx_data = self._prepare_governance_proposal_tx(proposal_data)
-            
-            # Estimate gas
-            gas_estimate = await self._estimate_gas(tx_data)
-            
-            # Send transaction
-            tx_hash = await self._send_transaction(tx_data, gas_estimate)
-            
-            logger.info(f"Governance proposal transaction sent: {tx_hash}")
-            return tx_hash
-            
-        except Exception as e:
-            logger.error(f"Error creating governance proposal: {e}")
-            return None
-    
-    async def vote_on_governance_proposal(self, vote_data: Dict[str, Any]) -> Optional[str]:
-        """Vote on a governance proposal"""
-        try:
-            # Validate vote data
-            if not self._validate_vote_data(vote_data):
-                raise ValueError("Invalid vote data")
-            
-            # Prepare transaction data
-            tx_data = self._prepare_governance_vote_tx(vote_data)
-            
-            # Estimate gas
-            gas_estimate = await self._estimate_gas(tx_data)
-            
-            # Send transaction
-            tx_hash = await self._send_transaction(tx_data, gas_estimate)
-            
-            logger.info(f"Governance vote transaction sent: {tx_hash}")
-            return tx_hash
-            
-        except Exception as e:
-            logger.error(f"Error voting on governance proposal: {e}")
-            return None
-    
-    async def distribute_rewards(self, rewards_data: Dict[str, Any]) -> Optional[str]:
-        """Distribute rewards to users"""
-        try:
-            # Validate rewards data
-            if not self._validate_rewards_data(rewards_data):
-                raise ValueError("Invalid rewards data")
-            
-            # Prepare transaction data
-            tx_data = self._prepare_rewards_distribution_tx(rewards_data)
-            
-            # Estimate gas
-            gas_estimate = await self._estimate_gas(tx_data)
-            
-            # Send transaction
-            tx_hash = await self._send_transaction(tx_data, gas_estimate)
-            
-            logger.info(f"Rewards distribution transaction sent: {tx_hash}")
-            return tx_hash
-            
-        except Exception as e:
-            logger.error(f"Error distributing rewards: {e}")
-            return None
+            logger.error(f"Error submitting oracle data transaction: {e}")
+            raise
     
     async def _monitor_transactions(self):
-        """Monitor pending transactions"""
+        """Monitor blockchain transactions"""
         while True:
             try:
-                # Check pending transactions
-                pending_txs = [
-                    tx for tx in self.transaction_cache.values() 
-                    if tx.status == 'pending'
-                ]
-                
-                for transaction in pending_txs:
-                    # Check if transaction is confirmed
-                    status = await self._query_transaction_status(transaction.tx_hash)
-                    if status and status['status'] != 'pending':
-                        transaction.status = status['status']
-                        transaction.block_number = status.get('block_number')
-                        transaction.gas_used = status.get('gas_used')
-                        transaction.gas_price = status.get('gas_price')
+                for network_name, web3 in self.web3_connections.items():
+                    # Get latest block
+                    latest_block = web3.eth.block_number
+                    
+                    # Monitor recent transactions
+                    for block_number in range(latest_block - 10, latest_block + 1):
+                        block = web3.eth.get_block(block_number, full_transactions=True)
                         
-                        logger.info(f"Transaction {transaction.tx_hash} status: {status['status']}")
+                        for tx in block.transactions:
+                            if tx.to and tx.to in self.contracts:
+                                # Process contract transaction
+                                await self._process_contract_transaction(tx, network_name)
                 
                 await asyncio.sleep(30)  # Check every 30 seconds
                 
@@ -373,233 +564,246 @@ class BlockchainIntegration:
                 logger.error(f"Error monitoring transactions: {e}")
                 await asyncio.sleep(60)
     
-    async def _monitor_smart_contract_events(self):
-        """Monitor smart contract events"""
+    async def _monitor_gas_prices(self):
+        """Monitor gas prices across networks"""
         while True:
             try:
-                # Monitor market creation events
-                await self._monitor_market_creation_events()
+                for network_name, web3 in self.web3_connections.items():
+                    gas_price = web3.eth.gas_price
+                    await self._record_metric(f'gas_price_{network_name}', 
+                                            web3.from_wei(gas_price, 'gwei'), 'gwei')
                 
-                # Monitor trade events
-                await self._monitor_trade_events()
-                
-                # Monitor governance events
-                await self._monitor_governance_events()
-                
-                await asyncio.sleep(60)  # Check every minute
+                await asyncio.sleep(300)  # Check every 5 minutes
                 
             except Exception as e:
-                logger.error(f"Error monitoring smart contract events: {e}")
-                await asyncio.sleep(60)
+                logger.error(f"Error monitoring gas prices: {e}")
+                await asyncio.sleep(600)
     
-    def _validate_market_data(self, market_data: Dict[str, Any]) -> bool:
-        """Validate market creation data"""
-        required_fields = ['market_id', 'title', 'creator_address', 'outcome_a', 'outcome_b']
-        return all(field in market_data for field in required_fields)
+    async def _update_token_prices(self):
+        """Update token prices"""
+        while True:
+            try:
+                for token_address, token in self.tokens.items():
+                    # Get token price from DEX or price feed
+                    price = await self._get_token_price(token_address, token.network)
+                    token.current_price = price
+                    token.market_cap = price * token.total_supply / (10 ** token.decimals)
+                    
+                    # Update holders count
+                    holders = await self._get_token_holders(token_address, token.network)
+                    token.holders_count = holders
+                    
+                    await self._cache_token(token)
+                
+                await asyncio.sleep(600)  # Update every 10 minutes
+                
+            except Exception as e:
+                logger.error(f"Error updating token prices: {e}")
+                await asyncio.sleep(1200)
     
-    def _validate_trade_data(self, trade_data: Dict[str, Any]) -> bool:
-        """Validate trade data"""
-        required_fields = ['trade_id', 'market_id', 'buyer_address', 'amount', 'outcome', 'price']
-        return all(field in trade_data for field in required_fields)
+    async def _monitor_oracle_data(self):
+        """Monitor oracle data updates"""
+        while True:
+            try:
+                for oracle_key, oracle_data in self.oracles.items():
+                    # Check for new oracle data
+                    latest_data = await self._get_latest_oracle_data(
+                        oracle_data.oracle_address, oracle_data.market_id, oracle_data.network
+                    )
+                    
+                    if latest_data and latest_data != oracle_data.data_value:
+                        # Update oracle data
+                        oracle_data.data_value = latest_data
+                        oracle_data.timestamp = datetime.utcnow()
+                        await self._cache_oracle_data(oracle_data)
+                        
+                        logger.info(f"Updated oracle data for market {oracle_data.market_id}")
+                
+                await asyncio.sleep(300)  # Check every 5 minutes
+                
+            except Exception as e:
+                logger.error(f"Error monitoring oracle data: {e}")
+                await asyncio.sleep(600)
     
-    def _validate_proposal_data(self, proposal_data: Dict[str, Any]) -> bool:
-        """Validate governance proposal data"""
-        required_fields = ['proposal_id', 'creator_address', 'title', 'description']
-        return all(field in proposal_data for field in required_fields)
+    async def _process_contract_transaction(self, tx, network_name: str):
+        """Process a contract transaction"""
+        try:
+            # Parse transaction data
+            contract_address = tx.to
+            contract = self.contracts.get(contract_address)
+            
+            if contract:
+                # Decode transaction input
+                decoded_input = self._decode_transaction_input(tx.input, contract.abi)
+                
+                if decoded_input:
+                    # Create transaction record
+                    blockchain_tx = BlockchainTransaction(
+                        transaction_hash=tx.hash.hex(),
+                        block_number=tx.blockNumber,
+                        from_address=tx['from'],
+                        to_address=tx.to,
+                        value=web3.from_wei(tx.value, 'ether'),
+                        gas_used=tx.gas,
+                        gas_price=tx.gasPrice,
+                        status='confirmed',
+                        timestamp=datetime.utcnow(),
+                        network=network_name,
+                        contract_interaction=True,
+                        method_name=decoded_input.get('method_name'),
+                        input_data=tx.input.hex()
+                    )
+                    
+                    await self._cache_transaction(blockchain_tx)
+                    
+        except Exception as e:
+            logger.error(f"Error processing contract transaction: {e}")
     
-    def _validate_vote_data(self, vote_data: Dict[str, Any]) -> bool:
-        """Validate governance vote data"""
-        required_fields = ['proposal_id', 'voter_address', 'vote_type', 'voting_power']
-        return all(field in vote_data for field in required_fields)
+    def _decode_transaction_input(self, input_data: bytes, abi: List[Dict]) -> Optional[Dict]:
+        """Decode transaction input data"""
+        try:
+            # This would use web3.py's contract.decode_function_input
+            # For now, return a simplified structure
+            return {
+                'method_name': 'placeTrade',
+                'params': ['market_id', 'outcome', 'shares']
+            }
+        except Exception as e:
+            logger.error(f"Error decoding transaction input: {e}")
+            return None
     
-    def _validate_rewards_data(self, rewards_data: Dict[str, Any]) -> bool:
-        """Validate rewards distribution data"""
-        required_fields = ['rewards_id', 'recipients', 'amounts', 'token_address']
-        return all(field in rewards_data for field in required_fields)
+    # Helper methods
+    async def _get_market_contract_address(self, market_id: int, network: str) -> Optional[str]:
+        """Get market contract address"""
+        # Implementation would query database or cache
+        return f"0x{hashlib.md5(f'market_{market_id}_{network}'.encode()).hexdigest()[:40]}"
     
-    def _prepare_market_creation_tx(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare market creation transaction data"""
-        return {
-            'to': self.smart_contracts['market_creation'].contract_address,
-            'data': self._encode_market_creation_function(market_data),
-            'value': 0
-        }
+    async def _get_oracle_contract_address(self, network: str) -> str:
+        """Get oracle contract address"""
+        return f"0x{hashlib.md5(f'oracle_{network}'.encode()).hexdigest()[:40]}"
     
-    def _prepare_trade_tx(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare trade transaction data"""
-        return {
-            'to': self.smart_contracts['liquidity_pool'].contract_address,
-            'data': self._encode_trade_function(trade_data),
-            'value': trade_data['amount']
-        }
+    async def _get_token_price(self, token_address: str, network: str) -> float:
+        """Get token price from DEX or price feed"""
+        # Implementation would query DEX APIs or price feeds
+        return 0.5 + (hash(token_address) % 100) / 1000  # Simulated price
     
-    def _prepare_governance_proposal_tx(self, proposal_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare governance proposal transaction data"""
-        return {
-            'to': self.smart_contracts['governance'].contract_address,
-            'data': self._encode_proposal_function(proposal_data),
-            'value': 0
-        }
+    async def _get_token_holders(self, token_address: str, network: str) -> int:
+        """Get number of token holders"""
+        # Implementation would query blockchain or indexer
+        return hash(token_address) % 1000  # Simulated holder count
     
-    def _prepare_governance_vote_tx(self, vote_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare governance vote transaction data"""
-        return {
-            'to': self.smart_contracts['governance'].contract_address,
-            'data': self._encode_vote_function(vote_data),
-            'value': 0
-        }
+    async def _get_latest_oracle_data(self, oracle_address: str, market_id: int, network: str) -> Optional[str]:
+        """Get latest oracle data"""
+        # Implementation would query oracle contract
+        return f"data_{market_id}_{datetime.utcnow().timestamp()}"
     
-    def _prepare_rewards_distribution_tx(self, rewards_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Prepare rewards distribution transaction data"""
-        return {
-            'to': self.smart_contracts['rewards'].contract_address,
-            'data': self._encode_rewards_function(rewards_data),
-            'value': 0
-        }
+    async def _load_existing_contracts(self) -> List[SmartContract]:
+        """Load existing contracts from database"""
+        # Implementation would query database
+        return []
     
-    async def _estimate_gas(self, tx_data: Dict[str, Any]) -> int:
-        """Estimate gas for transaction"""
-        # In a real implementation, you would call the blockchain RPC
-        return 200000  # Placeholder
-    
-    async def _send_transaction(self, tx_data: Dict[str, Any], gas_estimate: int) -> str:
-        """Send transaction to blockchain"""
-        # In a real implementation, you would sign and send the transaction
-        tx_hash = hashlib.sha256(f"{time.time()}".encode()).hexdigest()
-        return tx_hash
-    
-    async def _query_transaction_status(self, tx_hash: str) -> Optional[Dict[str, Any]]:
-        """Query transaction status from blockchain"""
-        # In a real implementation, you would query the blockchain
-        return {
-            'status': 'confirmed',
-            'block_number': 12345678,
-            'gas_used': 150000,
-            'gas_price': 20000000000
-        }
-    
-    async def _query_token_balance(self, user_address: str, token_address: str) -> Optional[Dict[str, Any]]:
-        """Query token balance from blockchain"""
-        # In a real implementation, you would query the token contract
-        return {
-            'balance': '1000000000000000000000',  # 1000 tokens with 18 decimals
-            'symbol': 'OPINION',
-            'decimals': 18
-        }
-    
-    async def _monitor_market_creation_events(self):
-        """Monitor market creation events"""
-        # In a real implementation, you would listen to contract events
+    async def _deploy_missing_contracts(self):
+        """Deploy missing contracts"""
+        # Implementation would deploy contracts that don't exist
         pass
     
-    async def _monitor_trade_events(self):
-        """Monitor trade events"""
-        # In a real implementation, you would listen to contract events
-        pass
+    async def _record_metric(self, metric_name: str, value: float, unit: str):
+        """Record a metric"""
+        try:
+            cache_key = f"blockchain_metric:{metric_name}"
+            await self.redis.setex(
+                cache_key,
+                3600,  # 1 hour TTL
+                json.dumps({
+                    'value': value,
+                    'unit': unit,
+                    'timestamp': datetime.utcnow().isoformat()
+                })
+            )
+        except Exception as e:
+            logger.error(f"Error recording metric: {e}")
     
-    async def _monitor_governance_events(self):
-        """Monitor governance events"""
-        # In a real implementation, you would listen to contract events
-        pass
+    # Caching methods
+    async def _cache_contract(self, contract: SmartContract):
+        """Cache contract in Redis"""
+        try:
+            cache_key = f"contract:{contract.contract_address}"
+            await self.redis.setex(
+                cache_key,
+                86400,  # 24 hours TTL
+                json.dumps({
+                    'contract_name': contract.contract_name,
+                    'contract_type': contract.contract_type,
+                    'network': contract.network,
+                    'owner_address': contract.owner_address,
+                    'deployed_at': contract.deployed_at.isoformat()
+                })
+            )
+        except Exception as e:
+            logger.error(f"Error caching contract: {e}")
     
-    def _encode_market_creation_function(self, market_data: Dict[str, Any]) -> str:
-        """Encode market creation function call"""
-        # In a real implementation, you would encode the function call
-        return "0x" + "a" * 64
+    async def _cache_transaction(self, transaction: BlockchainTransaction):
+        """Cache transaction in Redis"""
+        try:
+            cache_key = f"transaction:{transaction.transaction_hash}"
+            await self.redis.setex(
+                cache_key,
+                86400,  # 24 hours TTL
+                json.dumps({
+                    'block_number': transaction.block_number,
+                    'from_address': transaction.from_address,
+                    'to_address': transaction.to_address,
+                    'value': transaction.value,
+                    'status': transaction.status,
+                    'network': transaction.network,
+                    'timestamp': transaction.timestamp.isoformat()
+                })
+            )
+        except Exception as e:
+            logger.error(f"Error caching transaction: {e}")
     
-    def _encode_trade_function(self, trade_data: Dict[str, Any]) -> str:
-        """Encode trade function call"""
-        # In a real implementation, you would encode the function call
-        return "0x" + "b" * 64
+    async def _cache_token(self, token: MarketToken):
+        """Cache token in Redis"""
+        try:
+            cache_key = f"token:{token.token_address}"
+            await self.redis.setex(
+                cache_key,
+                3600,  # 1 hour TTL
+                json.dumps({
+                    'market_id': token.market_id,
+                    'token_name': token.token_name,
+                    'token_symbol': token.token_symbol,
+                    'current_price': token.current_price,
+                    'market_cap': token.market_cap,
+                    'holders_count': token.holders_count,
+                    'network': token.network
+                })
+            )
+        except Exception as e:
+            logger.error(f"Error caching token: {e}")
     
-    def _encode_proposal_function(self, proposal_data: Dict[str, Any]) -> str:
-        """Encode governance proposal function call"""
-        # In a real implementation, you would encode the function call
-        return "0x" + "c" * 64
-    
-    def _encode_vote_function(self, vote_data: Dict[str, Any]) -> str:
-        """Encode governance vote function call"""
-        # In a real implementation, you would encode the function call
-        return "0x" + "d" * 64
-    
-    def _encode_rewards_function(self, rewards_data: Dict[str, Any]) -> str:
-        """Encode rewards distribution function call"""
-        # In a real implementation, you would encode the function call
-        return "0x" + "e" * 64
-    
-    def _get_market_creation_abi(self) -> Dict[str, Any]:
-        """Get market creation contract ABI"""
-        return {
-            "abi": [
-                {
-                    "inputs": [
-                        {"name": "title", "type": "string"},
-                        {"name": "outcomeA", "type": "string"},
-                        {"name": "outcomeB", "type": "string"}
-                    ],
-                    "name": "createMarket",
-                    "outputs": [{"name": "", "type": "uint256"}],
-                    "stateMutability": "nonpayable",
-                    "type": "function"
-                }
-            ]
-        }
-    
-    def _get_governance_abi(self) -> Dict[str, Any]:
-        """Get governance contract ABI"""
-        return {
-            "abi": [
-                {
-                    "inputs": [
-                        {"name": "title", "type": "string"},
-                        {"name": "description", "type": "string"}
-                    ],
-                    "name": "createProposal",
-                    "outputs": [{"name": "", "type": "uint256"}],
-                    "stateMutability": "nonpayable",
-                    "type": "function"
-                }
-            ]
-        }
-    
-    def _get_rewards_abi(self) -> Dict[str, Any]:
-        """Get rewards contract ABI"""
-        return {
-            "abi": [
-                {
-                    "inputs": [
-                        {"name": "recipients", "type": "address[]"},
-                        {"name": "amounts", "type": "uint256[]"}
-                    ],
-                    "name": "distributeRewards",
-                    "outputs": [],
-                    "stateMutability": "nonpayable",
-                    "type": "function"
-                }
-            ]
-        }
-    
-    def _get_liquidity_pool_abi(self) -> Dict[str, Any]:
-        """Get liquidity pool contract ABI"""
-        return {
-            "abi": [
-                {
-                    "inputs": [
-                        {"name": "marketId", "type": "uint256"},
-                        {"name": "outcome", "type": "uint8"},
-                        {"name": "amount", "type": "uint256"}
-                    ],
-                    "name": "trade",
-                    "outputs": [{"name": "", "type": "uint256"}],
-                    "stateMutability": "payable",
-                    "type": "function"
-                }
-            ]
-        }
+    async def _cache_oracle_data(self, oracle_data: OracleData):
+        """Cache oracle data in Redis"""
+        try:
+            cache_key = f"oracle:{oracle_data.market_id}:{oracle_data.network}"
+            await self.redis.setex(
+                cache_key,
+                3600,  # 1 hour TTL
+                json.dumps({
+                    'data_source': oracle_data.data_source,
+                    'data_type': oracle_data.data_type,
+                    'data_value': oracle_data.data_value,
+                    'confidence': oracle_data.confidence,
+                    'timestamp': oracle_data.timestamp.isoformat()
+                })
+            )
+        except Exception as e:
+            logger.error(f"Error caching oracle data: {e}")
 
-# Global blockchain integration instance
-blockchain_integration = BlockchainIntegration()
 
-def get_blockchain_integration() -> BlockchainIntegration:
-    """Get the global blockchain integration instance"""
-    return blockchain_integration
+# Factory function
+async def get_blockchain_integration_service(redis_client: redis.Redis, db_session: Session) -> BlockchainIntegrationService:
+    """Get blockchain integration service instance"""
+    service = BlockchainIntegrationService(redis_client, db_session)
+    await service.initialize()
+    return service

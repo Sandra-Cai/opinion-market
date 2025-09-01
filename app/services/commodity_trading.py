@@ -87,7 +87,7 @@ class PhysicalDelivery:
 
 
 @dataclass
- class CommodityInventory:
+class CommodityInventory:
     """Commodity inventory information"""
     inventory_id: str
     user_id: int

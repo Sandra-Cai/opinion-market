@@ -9,6 +9,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import json
 import logging
+import asyncio
 from sqlalchemy.orm import Session
 
 from app.services.forex_trading import (

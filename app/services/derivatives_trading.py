@@ -1,12 +1,12 @@
 """
 Derivatives Trading Service
-Provides futures, forwards, swaps, and exotic derivatives trading capabilities
+Advanced derivatives trading, pricing, and risk management
 """
 
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Union
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
@@ -15,75 +15,105 @@ import redis.asyncio as redis
 from sqlalchemy.orm import Session
 import json
 import math
+from enum import Enum
+import uuid
+from scipy.stats import norm
+from scipy.optimize import minimize_scalar
+import warnings
+warnings.filterwarnings('ignore')
 
 logger = logging.getLogger(__name__)
 
 
+class DerivativeType(Enum):
+    """Derivative types"""
+    OPTION = "option"
+    FUTURE = "future"
+    FORWARD = "forward"
+    SWAP = "swap"
+    WARRANT = "warrant"
+    CONVERTIBLE = "convertible"
+    STRUCTURED_PRODUCT = "structured_product"
+
+
+class OptionType(Enum):
+    """Option types"""
+    CALL = "call"
+    PUT = "put"
+
+
+class ExerciseStyle(Enum):
+    """Exercise styles"""
+    AMERICAN = "american"
+    EUROPEAN = "european"
+    BERMUDAN = "bermudan"
+
+
+class SwapType(Enum):
+    """Swap types"""
+    INTEREST_RATE = "interest_rate"
+    CURRENCY = "currency"
+    COMMODITY = "commodity"
+    EQUITY = "equity"
+    CREDIT_DEFAULT = "credit_default"
+    TOTAL_RETURN = "total_return"
+
+
 @dataclass
-class DerivativeContract:
-    """Derivative contract information"""
-    contract_id: str
-    contract_type: str  # 'futures', 'forwards', 'swaps', 'exotic'
+class Derivative:
+    """Derivative instrument"""
+    derivative_id: str
+    symbol: str
+    derivative_type: DerivativeType
     underlying_asset: str
+    strike_price: Optional[float]
+    expiration_date: Optional[datetime]
+    option_type: Optional[OptionType]
+    exercise_style: Optional[ExerciseStyle]
     contract_size: float
-    tick_size: float
-    margin_requirement: float
-    initial_margin: float
-    maintenance_margin: float
-    settlement_type: str  # 'physical', 'cash'
-    settlement_date: datetime
-    last_trading_date: datetime
-    current_price: float
-    underlying_price: float
-    open_interest: int
-    volume: int
-    bid_price: float
-    ask_price: float
+    multiplier: float
+    currency: str
+    exchange: str
+    is_active: bool
     created_at: datetime
     last_updated: datetime
 
 
 @dataclass
-class FuturesContract(DerivativeContract):
-    """Futures contract specific information"""
-    exchange: str
-    contract_month: str
-    delivery_location: Optional[str]
-    delivery_terms: Optional[str]
-    price_limit_up: Optional[float]
-    price_limit_down: Optional[float]
+class OptionGreeks:
+    """Option Greeks"""
+    delta: float
+    gamma: float
+    theta: float
+    vega: float
+    rho: float
+    vanna: float
+    volga: float
+    charm: float
+    veta: float
+    speed: float
+    zomma: float
+    color: float
+    ultima: float
+    dual_delta: float
+    dual_gamma: float
 
 
 @dataclass
-class ForwardContract(DerivativeContract):
-    """Forward contract specific information"""
-    counterparty: str
-    delivery_price: float
-    delivery_location: str
-    quality_specifications: Dict[str, Any]
-
-
-@dataclass
-class SwapContract(DerivativeContract):
-    """Swap contract specific information"""
-    swap_type: str  # 'interest_rate', 'currency', 'commodity', 'credit'
-    notional_amount: float
-    fixed_rate: float
-    floating_rate_index: str
-    payment_frequency: str
-    next_payment_date: datetime
-    last_reset_date: datetime
-
-
-@dataclass
-class ExoticDerivative(DerivativeContract):
-    """Exotic derivative contract information"""
-    exotic_type: str  # 'barrier', 'binary', 'asian', 'lookback', 'spread'
-    payoff_function: str
-    barrier_levels: Optional[List[float]]
-    knock_in_out: Optional[str]
-    averaging_period: Optional[int]
-    lookback_period: Optional[int]
+class DerivativePrice:
+    """Derivative price"""
+    derivative_id: str
+    timestamp: datetime
+    bid_price: float
+    ask_price: float
+    mid_price: float
+    last_price: float
+    volume: float
+    open_interest: float
+    implied_volatility: Optional[float]
+    greeks: Optional[OptionGreeks]
+    theoretical_price: float
+    price_source: str
 
 
 @dataclass
@@ -91,769 +121,784 @@ class DerivativePosition:
     """Derivative position"""
     position_id: str
     user_id: int
-    contract_id: str
-    position_type: str  # 'long', 'short'
-    quantity: int
-    entry_price: float
+    derivative_id: str
+    quantity: float
+    average_price: float
     current_price: float
     unrealized_pnl: float
     realized_pnl: float
-    margin_used: float
-    margin_available: float
-    leverage: float
-    mark_to_market: float
+    margin_required: float
+    delta_exposure: float
+    gamma_exposure: float
+    theta_exposure: float
+    vega_exposure: float
     created_at: datetime
     last_updated: datetime
 
 
 @dataclass
-class MarginAccount:
-    """Margin account information"""
-    account_id: str
+class DerivativeOrder:
+    """Derivative order"""
+    order_id: str
     user_id: int
-    total_equity: float
-    total_margin: float
-    available_margin: float
-    used_margin: float
-    margin_ratio: float
-    margin_call_level: float
-    liquidation_level: float
-    risk_level: str  # 'low', 'medium', 'high', 'critical'
-    last_updated: datetime
+    derivative_id: str
+    order_type: str  # 'market', 'limit', 'stop', 'stop_limit'
+    side: str  # 'buy', 'sell'
+    quantity: float
+    price: Optional[float]
+    stop_price: Optional[float]
+    time_in_force: str  # 'GTC', 'IOC', 'FOK', 'DAY'
+    status: str  # 'pending', 'filled', 'cancelled', 'rejected'
+    filled_quantity: float
+    average_fill_price: float
+    commission: float
+    created_at: datetime
+    updated_at: datetime
 
 
 @dataclass
-class SettlementInstruction:
-    """Settlement instruction"""
-    instruction_id: str
-    contract_id: str
-    user_id: int
-    settlement_type: str  # 'delivery', 'cash'
-    settlement_amount: float
-    settlement_date: datetime
-    delivery_location: Optional[str]
-    delivery_instructions: Optional[str]
-    status: str  # 'pending', 'confirmed', 'completed', 'failed'
-    created_at: datetime
+class VolatilitySurface:
+    """Volatility surface"""
+    underlying_asset: str
+    timestamp: datetime
+    strikes: List[float]
+    expirations: List[datetime]
+    implied_volatilities: List[List[float]]
+    risk_free_rate: float
+    dividend_yield: float
 
 
 class DerivativesTradingService:
-    """Comprehensive derivatives trading service"""
+    """Comprehensive Derivatives Trading Service"""
     
     def __init__(self, redis_client: redis.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
-        self.derivative_contracts: Dict[str, DerivativeContract] = {}
-        self.derivative_positions: Dict[str, DerivativePosition] = {}
-        self.margin_accounts: Dict[str, MarginAccount] = {}
-        self.settlement_instructions: Dict[str, SettlementInstruction] = {}
         
-        # Market data
-        self.price_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
-        self.volume_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
-        self.open_interest_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
+        # Derivatives management
+        self.derivatives: Dict[str, Derivative] = {}
+        self.derivative_prices: Dict[str, List[DerivativePrice]] = defaultdict(list)
+        self.derivative_positions: Dict[str, List[DerivativePosition]] = defaultdict(list)
+        self.derivative_orders: Dict[str, List[DerivativeOrder]] = defaultdict(list)
+        self.volatility_surfaces: Dict[str, VolatilitySurface] = {}
+        
+        # Pricing models
+        self.pricing_models: Dict[str, Any] = {}
         
         # Risk management
-        self.position_limits: Dict[str, Dict[str, float]] = defaultdict(dict)
-        self.margin_requirements: Dict[str, float] = {}
+        self.risk_limits: Dict[str, Dict[str, float]] = defaultdict(dict)
+        self.portfolio_greeks: Dict[str, Dict[str, float]] = defaultdict(dict)
+        
+        # Market data
+        self.underlying_prices: Dict[str, float] = {}
+        self.risk_free_rates: Dict[str, float] = {}
+        self.dividend_yields: Dict[str, float] = {}
+        
+        # Background tasks
+        self.background_tasks: List[asyncio.Task] = []
         
     async def initialize(self):
-        """Initialize the derivatives trading service"""
+        """Initialize the Derivatives Trading Service"""
         logger.info("Initializing Derivatives Trading Service")
         
-        # Load existing data
-        await self._load_derivative_contracts()
-        await self._load_margin_accounts()
-        await self._load_settlement_instructions()
+        # Load derivatives
+        await self._load_derivatives()
+        
+        # Initialize pricing models
+        await self._initialize_pricing_models()
         
         # Start background tasks
-        asyncio.create_task(self._update_market_data())
-        asyncio.create_task(self._monitor_positions())
-        asyncio.create_task(self._monitor_margin_accounts())
-        asyncio.create_task(self._process_settlements())
+        self.background_tasks = [
+            asyncio.create_task(self._update_derivative_prices()),
+            asyncio.create_task(self._update_volatility_surfaces()),
+            asyncio.create_task(self._calculate_portfolio_greeks()),
+            asyncio.create_task(self._monitor_risk_limits()),
+            asyncio.create_task(self._process_derivative_orders())
+        ]
         
         logger.info("Derivatives Trading Service initialized successfully")
     
-    async def create_futures_contract(self, underlying_asset: str, contract_size: float, tick_size: float,
-                                    margin_requirement: float, settlement_type: str, settlement_date: datetime,
-                                    exchange: str, contract_month: str, delivery_location: Optional[str] = None) -> FuturesContract:
-        """Create a new futures contract"""
+    async def create_derivative(self, symbol: str, derivative_type: DerivativeType,
+                              underlying_asset: str, strike_price: Optional[float] = None,
+                              expiration_date: Optional[datetime] = None,
+                              option_type: Optional[OptionType] = None,
+                              exercise_style: Optional[ExerciseStyle] = None,
+                              contract_size: float = 1.0, multiplier: float = 1.0,
+                              currency: str = 'USD', exchange: str = 'CBOE') -> Derivative:
+        """Create a new derivative instrument"""
         try:
-            contract_id = f"futures_{underlying_asset}_{contract_month}_{exchange}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            derivative_id = f"DERIV_{uuid.uuid4().hex[:8]}"
             
-            # Calculate dates
-            last_trading_date = settlement_date - timedelta(days=1)
-            
-            contract = FuturesContract(
-                contract_id=contract_id,
-                contract_type='futures',
+            derivative = Derivative(
+                derivative_id=derivative_id,
+                symbol=symbol,
+                derivative_type=derivative_type,
                 underlying_asset=underlying_asset,
+                strike_price=strike_price,
+                expiration_date=expiration_date,
+                option_type=option_type,
+                exercise_style=exercise_style,
                 contract_size=contract_size,
-                tick_size=tick_size,
-                margin_requirement=margin_requirement,
-                initial_margin=margin_requirement,
-                maintenance_margin=margin_requirement * 0.8,
-                settlement_type=settlement_type,
-                settlement_date=settlement_date,
-                last_trading_date=last_trading_date,
-                current_price=0.0,
-                underlying_price=0.0,
-                open_interest=0,
-                volume=0,
-                bid_price=0.0,
-                ask_price=0.0,
+                multiplier=multiplier,
+                currency=currency,
                 exchange=exchange,
-                contract_month=contract_month,
-                delivery_location=delivery_location,
-                delivery_terms=None,
-                price_limit_up=None,
-                price_limit_down=None,
+                is_active=True,
                 created_at=datetime.utcnow(),
                 last_updated=datetime.utcnow()
             )
             
-            self.derivative_contracts[contract_id] = contract
-            await self._cache_derivative_contract(contract)
+            self.derivatives[derivative_id] = derivative
             
-            logger.info(f"Created futures contract {contract_id}")
-            return contract
-            
-        except Exception as e:
-            logger.error(f"Error creating futures contract: {e}")
-            raise
-    
-    async def create_forward_contract(self, underlying_asset: str, contract_size: float, delivery_price: float,
-                                    settlement_date: datetime, counterparty: str, delivery_location: str,
-                                    quality_specifications: Dict[str, Any]) -> ForwardContract:
-        """Create a new forward contract"""
-        try:
-            contract_id = f"forward_{underlying_asset}_{counterparty}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-            
-            contract = ForwardContract(
-                contract_id=contract_id,
-                contract_type='forwards',
-                underlying_asset=underlying_asset,
-                contract_size=contract_size,
-                tick_size=0.01,
-                margin_requirement=0.0,  # Forwards typically don't require margin
-                initial_margin=0.0,
-                maintenance_margin=0.0,
-                settlement_type='physical',
-                settlement_date=settlement_date,
-                last_trading_date=settlement_date,
-                current_price=delivery_price,
-                underlying_price=0.0,
-                open_interest=1,
-                volume=0,
-                bid_price=delivery_price,
-                ask_price=delivery_price,
-                counterparty=counterparty,
-                delivery_price=delivery_price,
-                delivery_location=delivery_location,
-                quality_specifications=quality_specifications,
-                created_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
-            )
-            
-            self.derivative_contracts[contract_id] = contract
-            await self._cache_derivative_contract(contract)
-            
-            logger.info(f"Created forward contract {contract_id}")
-            return contract
+            logger.info(f"Created derivative {derivative_id}")
+            return derivative
             
         except Exception as e:
-            logger.error(f"Error creating forward contract: {e}")
+            logger.error(f"Error creating derivative: {e}")
             raise
     
-    async def create_swap_contract(self, underlying_asset: str, swap_type: str, notional_amount: float,
-                                 fixed_rate: float, floating_rate_index: str, payment_frequency: str,
-                                 settlement_date: datetime, maturity_date: datetime) -> SwapContract:
-        """Create a new swap contract"""
+    async def get_derivative_price(self, derivative_id: str) -> Optional[DerivativePrice]:
+        """Get current derivative price"""
         try:
-            contract_id = f"swap_{swap_type}_{underlying_asset}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-            
-            # Calculate payment dates
-            next_payment_date = self._calculate_next_payment_date(settlement_date, payment_frequency)
-            
-            contract = SwapContract(
-                contract_id=contract_id,
-                contract_type='swaps',
-                underlying_asset=underlying_asset,
-                contract_size=notional_amount,
-                tick_size=0.0001,
-                margin_requirement=0.0,  # Swaps typically don't require margin
-                initial_margin=0.0,
-                maintenance_margin=0.0,
-                settlement_type='cash',
-                settlement_date=settlement_date,
-                last_trading_date=maturity_date,
-                current_price=0.0,
-                underlying_price=0.0,
-                open_interest=1,
-                volume=0,
-                bid_price=0.0,
-                ask_price=0.0,
-                swap_type=swap_type,
-                notional_amount=notional_amount,
-                fixed_rate=fixed_rate,
-                floating_rate_index=floating_rate_index,
-                payment_frequency=payment_frequency,
-                next_payment_date=next_payment_date,
-                last_reset_date=settlement_date,
-                created_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
-            )
-            
-            self.derivative_contracts[contract_id] = contract_id
-            await self._cache_derivative_contract(contract)
-            
-            logger.info(f"Created swap contract {contract_id}")
-            return contract
+            prices = self.derivative_prices.get(derivative_id, [])
+            return prices[-1] if prices else None
             
         except Exception as e:
-            logger.error(f"Error creating swap contract: {e}")
-            raise
+            logger.error(f"Error getting derivative price: {e}")
+            return None
     
-    async def create_exotic_derivative(self, underlying_asset: str, exotic_type: str, payoff_function: str,
-                                     contract_size: float, settlement_date: datetime, barrier_levels: Optional[List[float]] = None,
-                                     knock_in_out: Optional[str] = None, averaging_period: Optional[int] = None,
-                                     lookback_period: Optional[int] = None) -> ExoticDerivative:
-        """Create a new exotic derivative contract"""
+    async def calculate_option_price(self, derivative_id: str, underlying_price: float,
+                                   risk_free_rate: float, dividend_yield: float = 0.0,
+                                   volatility: Optional[float] = None) -> Dict[str, Any]:
+        """Calculate option price using Black-Scholes model"""
         try:
-            contract_id = f"exotic_{exotic_type}_{underlying_asset}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            derivative = self.derivatives.get(derivative_id)
+            if not derivative or derivative.derivative_type != DerivativeType.OPTION:
+                raise ValueError("Invalid option derivative")
             
-            contract = ExoticDerivative(
-                contract_id=contract_id,
-                contract_type='exotic',
-                underlying_asset=underlying_asset,
-                contract_size=contract_size,
-                tick_size=0.01,
-                margin_requirement=0.05,  # Higher margin for exotic derivatives
-                initial_margin=0.05,
-                maintenance_margin=0.04,
-                settlement_type='cash',
-                settlement_date=settlement_date,
-                last_trading_date=settlement_date,
-                current_price=0.0,
-                underlying_price=0.0,
-                open_interest=0,
-                volume=0,
-                bid_price=0.0,
-                ask_price=0.0,
-                exotic_type=exotic_type,
-                payoff_function=payoff_function,
-                barrier_levels=barrier_levels,
-                knock_in_out=knock_in_out,
-                averaging_period=averaging_period,
-                lookback_period=lookback_period,
-                created_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
-            )
+            if not derivative.strike_price or not derivative.expiration_date:
+                raise ValueError("Missing strike price or expiration date")
             
-            self.derivative_contracts[contract_id] = contract
-            await self._cache_derivative_contract(contract)
+            # Calculate time to expiration
+            time_to_expiry = (derivative.expiration_date - datetime.utcnow()).days / 365.0
             
-            logger.info(f"Created exotic derivative {contract_id}")
-            return contract
+            if time_to_expiry <= 0:
+                return {'error': 'Option has expired'}
+            
+            # Use provided volatility or calculate implied volatility
+            if volatility is None:
+                volatility = await self._get_implied_volatility(derivative_id, underlying_price)
+            
+            # Calculate option price using Black-Scholes
+            if derivative.exercise_style == ExerciseStyle.EUROPEAN:
+                price, greeks = self._black_scholes_european(
+                    underlying_price, derivative.strike_price, time_to_expiry,
+                    risk_free_rate, dividend_yield, volatility, derivative.option_type
+                )
+            else:
+                # American option - use binomial model approximation
+                price, greeks = self._black_scholes_american_approximation(
+                    underlying_price, derivative.strike_price, time_to_expiry,
+                    risk_free_rate, dividend_yield, volatility, derivative.option_type
+                )
+            
+            return {
+                'derivative_id': derivative_id,
+                'theoretical_price': price,
+                'greeks': greeks,
+                'underlying_price': underlying_price,
+                'strike_price': derivative.strike_price,
+                'time_to_expiry': time_to_expiry,
+                'risk_free_rate': risk_free_rate,
+                'dividend_yield': dividend_yield,
+                'volatility': volatility,
+                'option_type': derivative.option_type.value,
+                'exercise_style': derivative.exercise_style.value
+            }
             
         except Exception as e:
-            logger.error(f"Error creating exotic derivative: {e}")
-            raise
+            logger.error(f"Error calculating option price: {e}")
+            return {'error': str(e)}
     
-    async def open_position(self, user_id: int, contract_id: str, position_type: str, quantity: int,
-                           entry_price: float, leverage: float = 1.0) -> DerivativePosition:
-        """Open a derivative position"""
+    async def create_derivative_position(self, user_id: int, derivative_id: str,
+                                       quantity: float, average_price: float) -> DerivativePosition:
+        """Create a derivative position"""
         try:
-            contract = self.derivative_contracts.get(contract_id)
-            if not contract:
-                raise ValueError(f"Derivative contract {contract_id} not found")
+            position_id = f"POS_{uuid.uuid4().hex[:8]}"
             
-            position_id = f"pos_{user_id}_{contract_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-            
-            # Calculate margin requirements
-            position_value = quantity * entry_price * contract.contract_size
-            required_margin = position_value * contract.margin_requirement / leverage
-            
-            # Check margin availability
-            margin_account = await self._get_margin_account(user_id)
-            if margin_account.available_margin < required_margin:
-                raise ValueError(f"Insufficient margin. Required: {required_margin}, Available: {margin_account.available_margin}")
+            # Get current price
+            current_price = await self._get_current_price(derivative_id)
             
             position = DerivativePosition(
                 position_id=position_id,
                 user_id=user_id,
-                contract_id=contract_id,
-                position_type=position_type,
+                derivative_id=derivative_id,
                 quantity=quantity,
-                entry_price=entry_price,
-                current_price=entry_price,
-                unrealized_pnl=0.0,
+                average_price=average_price,
+                current_price=current_price,
+                unrealized_pnl=(current_price - average_price) * quantity,
                 realized_pnl=0.0,
-                margin_used=required_margin,
-                margin_available=margin_account.available_margin - required_margin,
-                leverage=leverage,
-                mark_to_market=position_value,
+                margin_required=0.0,
+                delta_exposure=0.0,
+                gamma_exposure=0.0,
+                theta_exposure=0.0,
+                vega_exposure=0.0,
                 created_at=datetime.utcnow(),
                 last_updated=datetime.utcnow()
             )
             
-            self.derivative_positions[position_id] = position
-            await self._cache_derivative_position(position)
+            # Calculate Greeks exposure
+            await self._calculate_position_greeks(position)
             
-            # Update margin account
-            await self._update_margin_account(user_id, required_margin, True)
+            # Calculate margin requirement
+            await self._calculate_margin_requirement(position)
             
-            logger.info(f"Opened derivative position {position_id}")
+            self.derivative_positions[user_id].append(position)
+            
+            logger.info(f"Created derivative position {position_id}")
             return position
             
         except Exception as e:
-            logger.error(f"Error opening position: {e}")
+            logger.error(f"Error creating derivative position: {e}")
             raise
     
-    async def close_position(self, position_id: str, exit_price: float) -> DerivativePosition:
-        """Close a derivative position"""
+    async def place_derivative_order(self, user_id: int, derivative_id: str,
+                                   order_type: str, side: str, quantity: float,
+                                   price: Optional[float] = None,
+                                   stop_price: Optional[float] = None,
+                                   time_in_force: str = 'GTC') -> DerivativeOrder:
+        """Place a derivative order"""
         try:
-            position = self.derivative_positions.get(position_id)
-            if not position:
-                raise ValueError(f"Position {position_id} not found")
+            order_id = f"ORDER_{uuid.uuid4().hex[:8]}"
             
-            contract = self.derivative_contracts.get(position.contract_id)
-            if not contract:
-                raise ValueError(f"Contract {position.contract_id} not found")
-            
-            # Calculate P&L
-            if position.position_type == 'long':
-                pnl = (exit_price - position.entry_price) * position.quantity * contract.contract_size
-            else:  # short
-                pnl = (position.entry_price - exit_price) * position.quantity * contract.contract_size
-            
-            # Update position
-            position.current_price = exit_price
-            position.realized_pnl = pnl
-            position.unrealized_pnl = 0.0
-            position.last_updated = datetime.utcnow()
-            
-            # Release margin
-            await self._update_margin_account(position.user_id, position.margin_used, False)
-            
-            # Update position
-            await self._cache_derivative_position(position)
-            
-            logger.info(f"Closed derivative position {position_id} with P&L: {pnl}")
-            return position
-            
-        except Exception as e:
-            logger.error(f"Error closing position: {e}")
-            raise
-    
-    async def calculate_mark_to_market(self, position_id: str) -> float:
-        """Calculate mark to market value for a position"""
-        try:
-            position = self.derivative_positions.get(position_id)
-            if not position:
-                return 0.0
-            
-            contract = self.derivative_contracts.get(position.contract_id)
-            if not contract:
-                return 0.0
-            
-            # Get current market price
-            current_price = contract.current_price
-            if current_price == 0:
-                current_price = contract.underlying_price
-            
-            # Calculate mark to market
-            position_value = position.quantity * current_price * contract.contract_size
-            
-            # Calculate unrealized P&L
-            if position.position_type == 'long':
-                unrealized_pnl = (current_price - position.entry_price) * position.quantity * contract.contract_size
-            else:  # short
-                unrealized_pnl = (position.entry_price - current_price) * position.quantity * contract.contract_size
-            
-            position.unrealized_pnl = unrealized_pnl
-            position.mark_to_market = position_value
-            position.last_updated = datetime.utcnow()
-            
-            await self._cache_derivative_position(position)
-            
-            return position_value
-            
-        except Exception as e:
-            logger.error(f"Error calculating mark to market: {e}")
-            return 0.0
-    
-    async def calculate_margin_requirements(self, user_id: int) -> Dict[str, float]:
-        """Calculate margin requirements for a user"""
-        try:
-            user_positions = [
-                pos for pos in self.derivative_positions.values()
-                if pos.user_id == user_id
-            ]
-            
-            total_margin_used = sum(pos.margin_used for pos in user_positions)
-            total_unrealized_pnl = sum(pos.unrealized_pnl for pos in user_positions)
-            
-            # Calculate margin ratio
-            margin_account = await self._get_margin_account(user_id)
-            margin_ratio = total_margin_used / margin_account.total_equity if margin_account.total_equity > 0 else 0
-            
-            # Determine risk level
-            if margin_ratio <= 0.3:
-                risk_level = 'low'
-            elif margin_ratio <= 0.6:
-                risk_level = 'medium'
-            elif margin_ratio <= 0.8:
-                risk_level = 'high'
-            else:
-                risk_level = 'critical'
-            
-            return {
-                'total_margin_used': total_margin_used,
-                'total_unrealized_pnl': total_unrealized_pnl,
-                'margin_ratio': margin_ratio,
-                'risk_level': risk_level,
-                'available_margin': margin_account.available_margin,
-                'total_equity': margin_account.total_equity
-            }
-            
-        except Exception as e:
-            logger.error(f"Error calculating margin requirements: {e}")
-            raise
-    
-    async def create_settlement_instruction(self, contract_id: str, user_id: int, settlement_type: str,
-                                          settlement_amount: float, settlement_date: datetime,
-                                          delivery_location: Optional[str] = None,
-                                          delivery_instructions: Optional[str] = None) -> SettlementInstruction:
-        """Create a settlement instruction"""
-        try:
-            instruction_id = f"settlement_{contract_id}_{user_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-            
-            instruction = SettlementInstruction(
-                instruction_id=instruction_id,
-                contract_id=contract_id,
+            order = DerivativeOrder(
+                order_id=order_id,
                 user_id=user_id,
-                settlement_type=settlement_type,
-                settlement_amount=settlement_amount,
-                settlement_date=settlement_date,
-                delivery_location=delivery_location,
-                delivery_instructions=delivery_instructions,
+                derivative_id=derivative_id,
+                order_type=order_type,
+                side=side,
+                quantity=quantity,
+                price=price,
+                stop_price=stop_price,
+                time_in_force=time_in_force,
                 status='pending',
-                created_at=datetime.utcnow()
+                filled_quantity=0.0,
+                average_fill_price=0.0,
+                commission=0.0,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
             )
             
-            self.settlement_instructions[instruction_id] = instruction
-            await self._cache_settlement_instruction(instruction)
+            # Validate order
+            await self._validate_derivative_order(order)
             
-            logger.info(f"Created settlement instruction {instruction_id}")
-            return instruction
+            self.derivative_orders[user_id].append(order)
+            
+            logger.info(f"Placed derivative order {order_id}")
+            return order
             
         except Exception as e:
-            logger.error(f"Error creating settlement instruction: {e}")
+            logger.error(f"Error placing derivative order: {e}")
             raise
     
-    async def get_derivatives_chain(self, underlying_asset: str, contract_type: Optional[str] = None) -> Dict[str, Any]:
-        """Get derivatives chain for an underlying asset"""
+    async def get_volatility_surface(self, underlying_asset: str) -> Optional[VolatilitySurface]:
+        """Get volatility surface for underlying asset"""
         try:
-            contracts = []
-            for contract in self.derivative_contracts.values():
-                if contract.underlying_asset == underlying_asset:
-                    if contract_type is None or contract.contract_type == contract_type:
-                        contracts.append({
-                            'contract_id': contract.contract_id,
-                            'contract_type': contract.contract_type,
-                            'contract_size': contract.contract_size,
-                            'settlement_date': contract.settlement_date.isoformat(),
-                            'current_price': contract.current_price,
-                            'underlying_price': contract.underlying_price,
-                            'open_interest': contract.open_interest,
-                            'volume': contract.volume,
-                            'bid_price': contract.bid_price,
-                            'ask_price': contract.ask_price,
-                            'margin_requirement': contract.margin_requirement
-                        })
+            return self.volatility_surfaces.get(underlying_asset)
             
-            # Sort by settlement date
-            contracts.sort(key=lambda x: x['settlement_date'])
+        except Exception as e:
+            logger.error(f"Error getting volatility surface: {e}")
+            return None
+    
+    async def calculate_portfolio_greeks(self, user_id: int) -> Dict[str, float]:
+        """Calculate portfolio Greeks"""
+        try:
+            positions = self.derivative_positions.get(user_id, [])
             
-            return {
-                'underlying_asset': underlying_asset,
-                'contract_type': contract_type,
-                'contracts': contracts,
-                'total_contracts': len(contracts)
+            total_delta = 0.0
+            total_gamma = 0.0
+            total_theta = 0.0
+            total_vega = 0.0
+            
+            for position in positions:
+                derivative = self.derivatives.get(position.derivative_id)
+                if not derivative:
+                    continue
+                
+                if derivative.derivative_type == DerivativeType.OPTION:
+                    # Get option Greeks
+                    price_data = await self.get_derivative_price(position.derivative_id)
+                    if price_data and price_data.greeks:
+                        total_delta += position.delta_exposure
+                        total_gamma += position.gamma_exposure
+                        total_theta += position.theta_exposure
+                        total_vega += position.vega_exposure
+            
+            portfolio_greeks = {
+                'delta': total_delta,
+                'gamma': total_gamma,
+                'theta': total_theta,
+                'vega': total_vega,
+                'timestamp': datetime.utcnow()
             }
             
+            self.portfolio_greeks[user_id] = portfolio_greeks
+            
+            return portfolio_greeks
+            
         except Exception as e:
-            logger.error(f"Error getting derivatives chain: {e}")
-            raise
+            logger.error(f"Error calculating portfolio Greeks: {e}")
+            return {}
     
-    def _calculate_next_payment_date(self, start_date: datetime, frequency: str) -> datetime:
-        """Calculate next payment date based on frequency"""
-        if frequency == 'monthly':
-            return start_date + timedelta(days=30)
-        elif frequency == 'quarterly':
-            return start_date + timedelta(days=90)
-        elif frequency == 'semi_annual':
-            return start_date + timedelta(days=180)
-        elif frequency == 'annual':
-            return start_date + timedelta(days=365)
-        else:
-            return start_date + timedelta(days=30)
+    # Pricing models
+    def _black_scholes_european(self, S: float, K: float, T: float, r: float,
+                              q: float, sigma: float, option_type: OptionType) -> Tuple[float, OptionGreeks]:
+        """Black-Scholes European option pricing"""
+        try:
+            # Calculate d1 and d2
+            d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+            d2 = d1 - sigma * np.sqrt(T)
+            
+            # Calculate option price
+            if option_type == OptionType.CALL:
+                price = S * np.exp(-q * T) * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+            else:
+                price = K * np.exp(-r * T) * norm.cdf(-d2) - S * np.exp(-q * T) * norm.cdf(-d1)
+            
+            # Calculate Greeks
+            greeks = self._calculate_black_scholes_greeks(S, K, T, r, q, sigma, d1, d2, option_type)
+            
+            return price, greeks
+            
+        except Exception as e:
+            logger.error(f"Error in Black-Scholes pricing: {e}")
+            return 0.0, OptionGreeks(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     
-    async def _get_margin_account(self, user_id: int) -> MarginAccount:
-        """Get margin account for a user"""
-        account_id = f"margin_{user_id}"
-        
-        if account_id not in self.margin_accounts:
-            # Create default margin account
-            account = MarginAccount(
-                account_id=account_id,
-                user_id=user_id,
-                total_equity=100000.0,  # Default starting equity
-                total_margin=0.0,
-                available_margin=100000.0,
-                used_margin=0.0,
-                margin_ratio=0.0,
-                margin_call_level=0.8,
-                liquidation_level=0.9,
-                risk_level='low',
-                last_updated=datetime.utcnow()
+    def _black_scholes_american_approximation(self, S: float, K: float, T: float, r: float,
+                                            q: float, sigma: float, option_type: OptionType) -> Tuple[float, OptionGreeks]:
+        """American option approximation using Barone-Adesi and Whaley"""
+        try:
+            # For simplicity, use European price as approximation
+            # In practice, would implement Barone-Adesi and Whaley or binomial model
+            return self._black_scholes_european(S, K, T, r, q, sigma, option_type)
+            
+        except Exception as e:
+            logger.error(f"Error in American option pricing: {e}")
+            return 0.0, OptionGreeks(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    
+    def _calculate_black_scholes_greeks(self, S: float, K: float, T: float, r: float,
+                                      q: float, sigma: float, d1: float, d2: float,
+                                      option_type: OptionType) -> OptionGreeks:
+        """Calculate Black-Scholes Greeks"""
+        try:
+            # Delta
+            if option_type == OptionType.CALL:
+                delta = np.exp(-q * T) * norm.cdf(d1)
+            else:
+                delta = -np.exp(-q * T) * norm.cdf(-d1)
+            
+            # Gamma
+            gamma = np.exp(-q * T) * norm.pdf(d1) / (S * sigma * np.sqrt(T))
+            
+            # Theta
+            theta1 = -S * np.exp(-q * T) * norm.pdf(d1) * sigma / (2 * np.sqrt(T))
+            theta2 = -r * K * np.exp(-r * T) * norm.cdf(d2) if option_type == OptionType.CALL else r * K * np.exp(-r * T) * norm.cdf(-d2)
+            theta3 = q * S * np.exp(-q * T) * norm.cdf(d1) if option_type == OptionType.CALL else -q * S * np.exp(-q * T) * norm.cdf(-d1)
+            theta = theta1 + theta2 + theta3
+            
+            # Vega
+            vega = S * np.exp(-q * T) * norm.pdf(d1) * np.sqrt(T)
+            
+            # Rho
+            if option_type == OptionType.CALL:
+                rho = K * T * np.exp(-r * T) * norm.cdf(d2)
+            else:
+                rho = -K * T * np.exp(-r * T) * norm.cdf(-d2)
+            
+            # Higher-order Greeks (simplified)
+            vanna = -np.exp(-q * T) * norm.pdf(d1) * d2 / sigma
+            volga = S * np.exp(-q * T) * norm.pdf(d1) * np.sqrt(T) * d1 * d2 / sigma
+            charm = -q * np.exp(-q * T) * norm.cdf(d1) + np.exp(-q * T) * norm.pdf(d1) * (2 * (r - q) * T - d2 * sigma * np.sqrt(T)) / (2 * T * sigma * np.sqrt(T))
+            
+            return OptionGreeks(
+                delta=delta, gamma=gamma, theta=theta, vega=vega, rho=rho,
+                vanna=vanna, volga=volga, charm=charm,
+                veta=0, speed=0, zomma=0, color=0, ultima=0, dual_delta=0, dual_gamma=0
             )
             
-            self.margin_accounts[account_id] = account
-            await self._cache_margin_account(account)
-        
-        return self.margin_accounts[account_id]
-    
-    async def _update_margin_account(self, user_id: int, margin_amount: float, is_using: bool):
-        """Update margin account"""
-        try:
-            account = await self._get_margin_account(user_id)
-            
-            if is_using:
-                account.used_margin += margin_amount
-                account.available_margin -= margin_amount
-            else:
-                account.used_margin -= margin_amount
-                account.available_margin += margin_amount
-            
-            account.total_margin = account.used_margin
-            account.margin_ratio = account.total_margin / account.total_equity if account.total_equity > 0 else 0
-            
-            # Update risk level
-            if account.margin_ratio <= 0.3:
-                account.risk_level = 'low'
-            elif account.margin_ratio <= 0.6:
-                account.risk_level = 'medium'
-            elif account.margin_ratio <= 0.8:
-                account.risk_level = 'high'
-            else:
-                account.risk_level = 'critical'
-            
-            account.last_updated = datetime.utcnow()
-            await self._cache_margin_account(account)
-            
         except Exception as e:
-            logger.error(f"Error updating margin account: {e}")
+            logger.error(f"Error calculating Greeks: {e}")
+            return OptionGreeks(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     
     # Background tasks
-    async def _update_market_data(self):
-        """Update market data periodically"""
+    async def _update_derivative_prices(self):
+        """Update derivative prices"""
         while True:
             try:
-                # Update market data for all contracts
-                for contract in self.derivative_contracts.values():
-                    # Simulate market data updates
-                    if contract.contract_type == 'futures':
-                        # Update futures prices based on underlying
-                        contract.current_price = contract.underlying_price * (1 + np.random.normal(0, 0.01))
-                        contract.bid_price = contract.current_price * 0.999
-                        contract.ask_price = contract.current_price * 1.001
-                        contract.volume += np.random.randint(0, 100)
-                        contract.open_interest += np.random.randint(-10, 10)
-                    
-                    contract.last_updated = datetime.utcnow()
-                    await self._cache_derivative_contract(contract)
+                for derivative_id, derivative in self.derivatives.items():
+                    if derivative.is_active:
+                        await self._update_derivative_price(derivative)
                 
                 await asyncio.sleep(60)  # Update every minute
                 
             except Exception as e:
-                logger.error(f"Error updating market data: {e}")
-                await asyncio.sleep(120)
+                logger.error(f"Error updating derivative prices: {e}")
+                await asyncio.sleep(300)
     
-    async def _monitor_positions(self):
-        """Monitor derivative positions"""
+    async def _update_derivative_price(self, derivative: Derivative):
+        """Update price for a derivative"""
+        try:
+            # Get underlying price
+            underlying_price = self.underlying_prices.get(derivative.underlying_asset, 100.0)
+            
+            # Calculate theoretical price
+            if derivative.derivative_type == DerivativeType.OPTION:
+                price_result = await self.calculate_option_price(
+                    derivative.derivative_id, underlying_price, 0.05, 0.02
+                )
+                theoretical_price = price_result.get('theoretical_price', 0.0)
+                greeks = price_result.get('greeks')
+            else:
+                theoretical_price = underlying_price
+                greeks = None
+            
+            # Add bid-ask spread
+            spread = theoretical_price * 0.01  # 1% spread
+            bid_price = theoretical_price - spread / 2
+            ask_price = theoretical_price + spread / 2
+            
+            # Create price data
+            price_data = DerivativePrice(
+                derivative_id=derivative.derivative_id,
+                timestamp=datetime.utcnow(),
+                bid_price=bid_price,
+                ask_price=ask_price,
+                mid_price=theoretical_price,
+                last_price=theoretical_price,
+                volume=np.random.uniform(100, 1000),
+                open_interest=np.random.uniform(1000, 10000),
+                implied_volatility=0.2,
+                greeks=greeks,
+                theoretical_price=theoretical_price,
+                price_source='theoretical'
+            )
+            
+            self.derivative_prices[derivative.derivative_id].append(price_data)
+            
+            # Keep only recent prices
+            if len(self.derivative_prices[derivative.derivative_id]) > 1000:
+                self.derivative_prices[derivative.derivative_id] = self.derivative_prices[derivative.derivative_id][-1000:]
+            
+        except Exception as e:
+            logger.error(f"Error updating derivative price: {e}")
+    
+    async def _update_volatility_surfaces(self):
+        """Update volatility surfaces"""
         while True:
             try:
-                for position in self.derivative_positions.values():
-                    # Update mark to market
-                    await self.calculate_mark_to_market(position.position_id)
+                # Get unique underlying assets
+                underlying_assets = set()
+                for derivative in self.derivatives.values():
+                    if derivative.derivative_type == DerivativeType.OPTION:
+                        underlying_assets.add(derivative.underlying_asset)
                 
-                await asyncio.sleep(30)  # Update every 30 seconds
+                for underlying in underlying_assets:
+                    await self._update_volatility_surface(underlying)
                 
-            except Exception as e:
-                logger.error(f"Error monitoring positions: {e}")
-                await asyncio.sleep(60)
-    
-    async def _monitor_margin_accounts(self):
-        """Monitor margin accounts"""
-        while True:
-            try:
-                for account in self.margin_accounts.values():
-                    # Check for margin calls
-                    if account.margin_ratio >= account.margin_call_level:
-                        logger.warning(f"Margin call for account {account.account_id}")
-                    
-                    # Check for liquidation
-                    if account.margin_ratio >= account.liquidation_level:
-                        logger.critical(f"Liquidation required for account {account.account_id}")
-                
-                await asyncio.sleep(300)  # Check every 5 minutes
+                await asyncio.sleep(3600)  # Update every hour
                 
             except Exception as e:
-                logger.error(f"Error monitoring margin accounts: {e}")
-                await asyncio.sleep(600)
-    
-    async def _process_settlements(self):
-        """Process settlement instructions"""
-        while True:
-            try:
-                current_time = datetime.utcnow()
-                
-                for instruction in self.settlement_instructions.values():
-                    if instruction.status == 'pending' and instruction.settlement_date <= current_time:
-                        # Process settlement
-                        instruction.status = 'completed'
-                        instruction.created_at = current_time
-                        await self._cache_settlement_instruction(instruction)
-                        
-                        logger.info(f"Processed settlement instruction {instruction.instruction_id}")
-                
-                await asyncio.sleep(3600)  # Process every hour
-                
-            except Exception as e:
-                logger.error(f"Error processing settlements: {e}")
+                logger.error(f"Error updating volatility surfaces: {e}")
                 await asyncio.sleep(7200)
     
-    # Helper methods (implementations would depend on your data models)
-    async def _load_derivative_contracts(self):
-        """Load derivative contracts from database"""
-        pass
-    
-    async def _load_margin_accounts(self):
-        """Load margin accounts from database"""
-        pass
-    
-    async def _load_settlement_instructions(self):
-        """Load settlement instructions from database"""
-        pass
-    
-    # Caching methods
-    async def _cache_derivative_contract(self, contract: DerivativeContract):
-        """Cache derivative contract"""
+    async def _update_volatility_surface(self, underlying_asset: str):
+        """Update volatility surface for underlying asset"""
         try:
-            cache_key = f"derivative_contract:{contract.contract_id}"
-            await self.redis.setex(
-                cache_key,
-                1800,  # 30 minutes TTL
-                json.dumps({
-                    'contract_type': contract.contract_type,
-                    'underlying_asset': contract.underlying_asset,
-                    'contract_size': contract.contract_size,
-                    'tick_size': contract.tick_size,
-                    'margin_requirement': contract.margin_requirement,
-                    'settlement_type': contract.settlement_type,
-                    'settlement_date': contract.settlement_date.isoformat(),
-                    'last_trading_date': contract.last_trading_date.isoformat(),
-                    'current_price': contract.current_price,
-                    'underlying_price': contract.underlying_price,
-                    'open_interest': contract.open_interest,
-                    'volume': contract.volume,
-                    'bid_price': contract.bid_price,
-                    'ask_price': contract.ask_price,
-                    'created_at': contract.created_at.isoformat(),
-                    'last_updated': contract.last_updated.isoformat()
-                })
+            # Generate sample volatility surface
+            strikes = np.linspace(80, 120, 9)  # 80% to 120% of current price
+            expirations = [datetime.utcnow() + timedelta(days=d) for d in [7, 14, 30, 60, 90, 180, 365]]
+            
+            # Generate implied volatilities (simplified)
+            implied_vols = []
+            for exp in expirations:
+                time_to_exp = (exp - datetime.utcnow()).days / 365.0
+                vol_row = []
+                for strike in strikes:
+                    # Simple volatility smile
+                    moneyness = strike / 100.0  # Assuming current price is 100
+                    vol = 0.2 + 0.1 * (moneyness - 1) ** 2 + 0.05 * time_to_exp
+                    vol_row.append(vol)
+                implied_vols.append(vol_row)
+            
+            volatility_surface = VolatilitySurface(
+                underlying_asset=underlying_asset,
+                timestamp=datetime.utcnow(),
+                strikes=strikes.tolist(),
+                expirations=expirations,
+                implied_volatilities=implied_vols,
+                risk_free_rate=0.05,
+                dividend_yield=0.02
             )
+            
+            self.volatility_surfaces[underlying_asset] = volatility_surface
+            
         except Exception as e:
-            logger.error(f"Error caching derivative contract: {e}")
+            logger.error(f"Error updating volatility surface: {e}")
     
-    async def _cache_derivative_position(self, position: DerivativePosition):
-        """Cache derivative position"""
-        try:
-            cache_key = f"derivative_position:{position.position_id}"
-            await self.redis.setex(
-                cache_key,
-                1800,  # 30 minutes TTL
-                json.dumps({
-                    'user_id': position.user_id,
-                    'contract_id': position.contract_id,
-                    'position_type': position.position_type,
-                    'quantity': position.quantity,
-                    'entry_price': position.entry_price,
-                    'current_price': position.current_price,
-                    'unrealized_pnl': position.unrealized_pnl,
-                    'realized_pnl': position.realized_pnl,
-                    'margin_used': position.margin_used,
-                    'margin_available': position.margin_available,
-                    'leverage': position.leverage,
-                    'mark_to_market': position.mark_to_market,
-                    'created_at': position.created_at.isoformat(),
-                    'last_updated': position.last_updated.isoformat()
-                })
-            )
-        except Exception as e:
-            logger.error(f"Error caching derivative position: {e}")
+    async def _calculate_portfolio_greeks(self):
+        """Calculate portfolio Greeks for all users"""
+        while True:
+            try:
+                for user_id in self.derivative_positions.keys():
+                    await self.calculate_portfolio_greeks(user_id)
+                
+                await asyncio.sleep(300)  # Calculate every 5 minutes
+                
+            except Exception as e:
+                logger.error(f"Error calculating portfolio Greeks: {e}")
+                await asyncio.sleep(600)
     
-    async def _cache_margin_account(self, account: MarginAccount):
-        """Cache margin account"""
-        try:
-            cache_key = f"margin_account:{account.account_id}"
-            await self.redis.setex(
-                cache_key,
-                1800,  # 30 minutes TTL
-                json.dumps({
-                    'user_id': account.user_id,
-                    'total_equity': account.total_equity,
-                    'total_margin': account.total_margin,
-                    'available_margin': account.available_margin,
-                    'used_margin': account.used_margin,
-                    'margin_ratio': account.margin_ratio,
-                    'margin_call_level': account.margin_call_level,
-                    'liquidation_level': account.liquidation_level,
-                    'risk_level': account.risk_level,
-                    'last_updated': account.last_updated.isoformat()
-                })
-            )
-        except Exception as e:
-            logger.error(f"Error caching margin account: {e}")
+    async def _monitor_risk_limits(self):
+        """Monitor risk limits"""
+        while True:
+            try:
+                for user_id, positions in self.derivative_positions.items():
+                    await self._check_user_risk_limits(user_id, positions)
+                
+                await asyncio.sleep(60)  # Check every minute
+                
+            except Exception as e:
+                logger.error(f"Error monitoring risk limits: {e}")
+                await asyncio.sleep(300)
     
-    async def _cache_settlement_instruction(self, instruction: SettlementInstruction):
-        """Cache settlement instruction"""
+    async def _check_user_risk_limits(self, user_id: int, positions: List[DerivativePosition]):
+        """Check risk limits for a user"""
         try:
-            cache_key = f"settlement_instruction:{instruction.instruction_id}"
-            await self.redis.setex(
-                cache_key,
-                7200,  # 2 hours TTL
-                json.dumps({
-                    'contract_id': instruction.contract_id,
-                    'user_id': instruction.user_id,
-                    'settlement_type': instruction.settlement_type,
-                    'settlement_amount': instruction.settlement_amount,
-                    'settlement_date': instruction.settlement_date.isoformat(),
-                    'delivery_location': instruction.delivery_location,
-                    'delivery_instructions': instruction.delivery_instructions,
-                    'status': instruction.status,
-                    'created_at': instruction.created_at.isoformat()
-                })
-            )
+            # Calculate total exposure
+            total_exposure = sum(abs(pos.quantity * pos.current_price) for pos in positions)
+            
+            # Check exposure limit
+            exposure_limit = self.risk_limits[user_id].get('max_exposure', 1000000.0)
+            if total_exposure > exposure_limit:
+                logger.warning(f"User {user_id} exceeded exposure limit: {total_exposure} > {exposure_limit}")
+            
+            # Check Greeks limits
+            portfolio_greeks = self.portfolio_greeks.get(user_id, {})
+            delta_limit = self.risk_limits[user_id].get('max_delta', 10000.0)
+            if abs(portfolio_greeks.get('delta', 0)) > delta_limit:
+                logger.warning(f"User {user_id} exceeded delta limit: {portfolio_greeks.get('delta', 0)} > {delta_limit}")
+            
         except Exception as e:
-            logger.error(f"Error caching settlement instruction: {e}")
+            logger.error(f"Error checking user risk limits: {e}")
+    
+    async def _process_derivative_orders(self):
+        """Process derivative orders"""
+        while True:
+            try:
+                for user_id, orders in self.derivative_orders.items():
+                    for order in orders:
+                        if order.status == 'pending':
+                            await self._process_derivative_order(order)
+                
+                await asyncio.sleep(10)  # Process every 10 seconds
+                
+            except Exception as e:
+                logger.error(f"Error processing derivative orders: {e}")
+                await asyncio.sleep(30)
+    
+    async def _process_derivative_order(self, order: DerivativeOrder):
+        """Process a derivative order"""
+        try:
+            # Get current price
+            current_price = await self._get_current_price(order.derivative_id)
+            
+            # Check if order can be filled
+            can_fill = False
+            fill_price = 0.0
+            
+            if order.order_type == 'market':
+                can_fill = True
+                fill_price = current_price
+            elif order.order_type == 'limit':
+                if order.side == 'buy' and current_price <= order.price:
+                    can_fill = True
+                    fill_price = order.price
+                elif order.side == 'sell' and current_price >= order.price:
+                    can_fill = True
+                    fill_price = order.price
+            
+            if can_fill:
+                # Fill order
+                order.status = 'filled'
+                order.filled_quantity = order.quantity
+                order.average_fill_price = fill_price
+                order.commission = order.quantity * fill_price * 0.001  # 0.1% commission
+                order.updated_at = datetime.utcnow()
+                
+                # Create position
+                await self.create_derivative_position(
+                    order.user_id, order.derivative_id, order.quantity, fill_price
+                )
+                
+                logger.info(f"Filled derivative order {order.order_id}")
+            
+        except Exception as e:
+            logger.error(f"Error processing derivative order: {e}")
+    
+    # Helper methods
+    async def _get_implied_volatility(self, derivative_id: str, underlying_price: float) -> float:
+        """Get implied volatility for derivative"""
+        try:
+            # Simplified - return market volatility
+            return 0.2
+            
+        except Exception as e:
+            logger.error(f"Error getting implied volatility: {e}")
+            return 0.2
+    
+    async def _get_current_price(self, derivative_id: str) -> float:
+        """Get current price for derivative"""
+        try:
+            price_data = await self.get_derivative_price(derivative_id)
+            return price_data.mid_price if price_data else 0.0
+            
+        except Exception as e:
+            logger.error(f"Error getting current price: {e}")
+            return 0.0
+    
+    async def _calculate_position_greeks(self, position: DerivativePosition):
+        """Calculate Greeks for a position"""
+        try:
+            derivative = self.derivatives.get(position.derivative_id)
+            if not derivative or derivative.derivative_type != DerivativeType.OPTION:
+                return
+            
+            price_data = await self.get_derivative_price(position.derivative_id)
+            if not price_data or not price_data.greeks:
+                return
+            
+            # Calculate position Greeks
+            position.delta_exposure = position.quantity * price_data.greeks.delta
+            position.gamma_exposure = position.quantity * price_data.greeks.gamma
+            position.theta_exposure = position.quantity * price_data.greeks.theta
+            position.vega_exposure = position.quantity * price_data.greeks.vega
+            
+        except Exception as e:
+            logger.error(f"Error calculating position Greeks: {e}")
+    
+    async def _calculate_margin_requirement(self, position: DerivativePosition):
+        """Calculate margin requirement for position"""
+        try:
+            derivative = self.derivatives.get(position.derivative_id)
+            if not derivative:
+                return
+            
+            if derivative.derivative_type == DerivativeType.OPTION:
+                # Option margin calculation (simplified)
+                position.margin_required = position.quantity * position.current_price * 0.1  # 10% margin
+            else:
+                # Future margin calculation (simplified)
+                position.margin_required = position.quantity * position.current_price * 0.05  # 5% margin
+            
+        except Exception as e:
+            logger.error(f"Error calculating margin requirement: {e}")
+    
+    async def _validate_derivative_order(self, order: DerivativeOrder):
+        """Validate derivative order"""
+        try:
+            # Check if derivative exists
+            derivative = self.derivatives.get(order.derivative_id)
+            if not derivative or not derivative.is_active:
+                raise ValueError("Invalid or inactive derivative")
+            
+            # Check order parameters
+            if order.quantity <= 0:
+                raise ValueError("Invalid quantity")
+            
+            if order.order_type == 'limit' and not order.price:
+                raise ValueError("Limit order requires price")
+            
+            if order.order_type == 'stop_limit' and (not order.price or not order.stop_price):
+                raise ValueError("Stop-limit order requires both price and stop price")
+            
+        except Exception as e:
+            logger.error(f"Error validating derivative order: {e}")
+            raise
+    
+    async def _load_derivatives(self):
+        """Load sample derivatives"""
+        try:
+            # Create sample options
+            sample_options = [
+                {
+                    'symbol': 'AAPL_C_150_20241220',
+                    'derivative_type': DerivativeType.OPTION,
+                    'underlying_asset': 'AAPL',
+                    'strike_price': 150.0,
+                    'expiration_date': datetime.utcnow() + timedelta(days=30),
+                    'option_type': OptionType.CALL,
+                    'exercise_style': ExerciseStyle.AMERICAN
+                },
+                {
+                    'symbol': 'AAPL_P_150_20241220',
+                    'derivative_type': DerivativeType.OPTION,
+                    'underlying_asset': 'AAPL',
+                    'strike_price': 150.0,
+                    'expiration_date': datetime.utcnow() + timedelta(days=30),
+                    'option_type': OptionType.PUT,
+                    'exercise_style': ExerciseStyle.AMERICAN
+                },
+                {
+                    'symbol': 'GOOGL_C_2800_20250117',
+                    'derivative_type': DerivativeType.OPTION,
+                    'underlying_asset': 'GOOGL',
+                    'strike_price': 2800.0,
+                    'expiration_date': datetime.utcnow() + timedelta(days=60),
+                    'option_type': OptionType.CALL,
+                    'exercise_style': ExerciseStyle.EUROPEAN
+                }
+            ]
+            
+            for option_data in sample_options:
+                await self.create_derivative(**option_data)
+            
+            logger.info("Loaded sample derivatives")
+            
+        except Exception as e:
+            logger.error(f"Error loading derivatives: {e}")
+    
+    async def _initialize_pricing_models(self):
+        """Initialize pricing models"""
+        try:
+            # Initialize market data
+            self.underlying_prices = {
+                'AAPL': 150.0,
+                'GOOGL': 2800.0,
+                'MSFT': 400.0,
+                'TSLA': 250.0
+            }
+            
+            self.risk_free_rates = {
+                'USD': 0.05,
+                'EUR': 0.03,
+                'GBP': 0.04
+            }
+            
+            self.dividend_yields = {
+                'AAPL': 0.005,
+                'GOOGL': 0.0,
+                'MSFT': 0.007,
+                'TSLA': 0.0
+            }
+            
+            logger.info("Initialized pricing models")
+            
+        except Exception as e:
+            logger.error(f"Error initializing pricing models: {e}")
 
 
 # Factory function
 async def get_derivatives_trading_service(redis_client: redis.Redis, db_session: Session) -> DerivativesTradingService:
-    """Get derivatives trading service instance"""
+    """Get Derivatives Trading Service instance"""
     service = DerivativesTradingService(redis_client, db_session)
     await service.initialize()
     return service

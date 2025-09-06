@@ -73,7 +73,7 @@ class GovernanceProposal(Base):
     execution_notes = Column(Text)
 
     # Additional data
-    metadata = Column(JSON, default=dict)  # Additional proposal data
+    additional_data = Column(JSON, default=dict)  # Additional proposal data
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

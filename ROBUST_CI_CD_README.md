@@ -185,7 +185,7 @@ fi
 ### 1. **Multi-Stage Dockerfile**
 ```dockerfile
 # Base stage with core dependencies
-FROM python:3.11-slim as base
+FROM python
 # Development stage with dev tools
 FROM base as development
 # Production stage with optimizations

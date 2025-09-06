@@ -49,7 +49,7 @@ class Trade(Base):
     # Trade metadata
     trade_hash = Column(String, unique=True)  # Unique trade identifier
     gas_fee = Column(Float, default=0.0)  # For future blockchain integration
-    metadata = Column(JSON, default=dict)  # Additional trade metadata
+    additional_data = Column(JSON, default=dict)  # Additional trade metadata
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

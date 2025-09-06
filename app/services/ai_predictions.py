@@ -353,7 +353,8 @@ class AIPredictionService:
         
         if cached_data:
             try:
-                data = eval(cached_data)  # In production, use proper JSON parsing
+                import json
+                data = json.loads(cached_data)  # Safe JSON parsing instead of eval()
                 return PredictionResult(
                     market_id=market_id,
                     predicted_outcome=data['predicted_outcome'],

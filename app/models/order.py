@@ -67,7 +67,7 @@ class Order(Base):
 
     # Additional metadata
     order_hash = Column(String, unique=True)  # Unique order identifier
-    metadata = Column(JSON, default=dict)  # Additional order data
+    additional_data = Column(JSON, default=dict)  # Additional order data
 
     # Relationships
     user = relationship("User")

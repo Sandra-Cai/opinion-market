@@ -106,6 +106,9 @@ jobs:
             echo "Installing from requirements-dev.txt..."
             pip install -r requirements-dev.txt || echo "⚠️  Some dev requirements failed (continuing...)"
           fi
+          
+          # Install optional blockchain dependencies with fallback
+          pip install web3 eth-account || echo "⚠️  Blockchain dependencies failed (continuing...)"
 
       - name: Install Node.js dependencies
         run: |

@@ -1019,7 +1019,9 @@ class QuantitativeResearchService:
             
             for symbol in symbols:
                 # Generate realistic price data
-                base_price = 100 + hash(symbol) % 1000
+                # Use hashlib for deterministic hash instead of built-in hash()
+                deterministic_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
+                base_price = 100 + deterministic_hash % 1000
                 returns = np.random.normal(0, 0.02, len(date_range))
                 prices = [base_price]
                 

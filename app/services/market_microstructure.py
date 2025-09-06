@@ -956,7 +956,9 @@ class MarketMicrostructureService:
         try:
             # Initialize price history with some sample data
             for symbol in ['AAPL', 'GOOGL', 'MSFT', 'TSLA']:
-                base_price = 100.0 + hash(symbol) % 1000
+                # Use hashlib for deterministic hash instead of built-in hash()
+                deterministic_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
+                base_price = 100.0 + deterministic_hash % 1000
                 for i in range(100):
                     price = base_price + np.random.normal(0, 2)
                     self.price_history[symbol].append(price)

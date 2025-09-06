@@ -633,6 +633,12 @@ class BlockchainIntegrationService:
             contract = self.contracts.get(contract_address)
             
             if contract:
+                # Get web3 instance for the network
+                web3 = self.web3_connections.get(network_name)
+                if not web3:
+                    logger.error(f"No web3 connection for network {network_name}")
+                    return
+                
                 # Decode transaction input
                 decoded_input = self._decode_transaction_input(tx.input, contract.abi)
                 
@@ -641,7 +647,7 @@ class BlockchainIntegrationService:
                     blockchain_tx = BlockchainTransaction(
                         transaction_hash=tx.hash.hex(),
                         block_number=tx.blockNumber,
-                        from_address=tx['from'],
+                        from_address=tx['from'] if hasattr(tx, '__getitem__') else getattr(tx, 'from_address', ''),
                         to_address=tx.to,
                         value=web3.from_wei(tx.value, 'ether'),
                         gas_used=tx.gas,
@@ -685,12 +691,16 @@ class BlockchainIntegrationService:
     async def _get_token_price(self, token_address: str, network: str) -> float:
         """Get token price from DEX or price feed"""
         # Implementation would query DEX APIs or price feeds
-        return 0.5 + (hash(token_address) % 100) / 1000  # Simulated price
+        # Use hashlib for deterministic hash instead of built-in hash()
+        deterministic_hash = int(hashlib.md5(token_address.encode()).hexdigest()[:8], 16)
+        return 0.5 + (deterministic_hash % 100) / 1000  # Simulated price
     
     async def _get_token_holders(self, token_address: str, network: str) -> int:
         """Get number of token holders"""
         # Implementation would query blockchain or indexer
-        return hash(token_address) % 1000  # Simulated holder count
+        # Use hashlib for deterministic hash instead of built-in hash()
+        deterministic_hash = int(hashlib.md5(token_address.encode()).hexdigest()[:8], 16)
+        return deterministic_hash % 1000  # Simulated holder count
     
     async def _get_latest_oracle_data(self, oracle_address: str, market_id: int, network: str) -> Optional[str]:
         """Get latest oracle data"""

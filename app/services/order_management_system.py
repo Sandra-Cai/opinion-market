@@ -956,7 +956,9 @@ class OrderManagementSystem:
         """Simulate market data update"""
         try:
             # Generate random market data
-            base_price = 100.0 + hash(symbol) % 1000
+            # Use hashlib for deterministic hash instead of built-in hash()
+            deterministic_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
+            base_price = 100.0 + deterministic_hash % 1000
             
             market_data = MarketData(
                 symbol=symbol,

@@ -138,7 +138,7 @@ class ConditionalMarketResponse(ConditionalMarketBase):
 
 class SpreadMarketBase(BaseModel):
     market_id: int
-    spread_type: str = Field(..., regex="^(binary|range|index)$")
+    spread_type: str = Field(..., pattern="^(binary|range|index)$")
     min_value: float
     max_value: float = Field(..., gt=0)
     tick_size: float = Field(0.1, gt=0)

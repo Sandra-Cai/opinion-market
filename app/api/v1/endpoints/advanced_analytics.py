@@ -16,6 +16,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import json
 import logging
+import numpy as np
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db

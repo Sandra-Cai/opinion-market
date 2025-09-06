@@ -9,6 +9,7 @@ from app.core.database import SessionLocal
 from app.models.user import User
 from app.models.market import Market
 from app.models.trade import Trade
+from app.models.position import Position
 from app.models.notification import Notification, NotificationType
 from app.services.rewards_system import get_rewards_system
 

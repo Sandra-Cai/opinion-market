@@ -12,7 +12,7 @@ import redis.asyncio as redis
 from app.core.database import SessionLocal
 from app.models.market import Market, MarketStatus
 from app.models.trade import Trade
-from app.services.price_feed import get_price_feed_manager
+from app.services.price_feed import price_feed_manager
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class MarketDataFeed:
 
     def __init__(self):
         self.redis_client: Optional[redis.Redis] = None
-        self.price_feed_manager = get_price_feed_manager()
+        self.price_feed_manager = price_feed_manager
         self.subscribers: Dict[str, List[Callable]] = {}
         self.market_alerts: List[MarketAlert] = []
         self.data_cache: Dict[int, MarketDataPoint] = {}

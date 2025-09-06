@@ -245,14 +245,14 @@ class DerivativeOrderCreate(BaseModel):
     user_id: int = Field(..., description="User ID", gt=0)
     derivative_id: str = Field(..., description="Derivative ID")
     order_type: str = Field(
-        ..., description="Order type", regex="^(market|limit|stop|stop_limit)$"
+        ..., description="Order type", pattern="^(market|limit|stop|stop_limit)$"
     )
-    side: str = Field(..., description="Order side", regex="^(buy|sell)$")
+    side: str = Field(..., description="Order side", pattern="^(buy|sell)$")
     quantity: float = Field(..., description="Order quantity", gt=0)
     price: Optional[float] = Field(None, description="Limit price", gt=0)
     stop_price: Optional[float] = Field(None, description="Stop price", gt=0)
     time_in_force: str = Field(
-        "GTC", description="Time in force", regex="^(GTC|IOC|FOK|DAY)$"
+        "GTC", description="Time in force", pattern="^(GTC|IOC|FOK|DAY)$"
     )
 
     @validator("price")
@@ -297,10 +297,10 @@ class RiskLimitCreate(BaseModel):
     limit_name: str = Field(..., description="Limit name")
     limit_value: float = Field(..., description="Limit value", gt=0)
     limit_type: str = Field(
-        "absolute", description="Limit type", regex="^(absolute|percentage|var)$"
+        "absolute", description="Limit type", pattern="^(absolute|percentage|var)$"
     )
     time_horizon: str = Field(
-        "daily", description="Time horizon", regex="^(intraday|daily|weekly|monthly)$"
+        "daily", description="Time horizon", pattern="^(intraday|daily|weekly|monthly)$"
     )
 
 

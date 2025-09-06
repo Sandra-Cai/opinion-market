@@ -4,6 +4,7 @@ Comprehensive order management, routing, and execution for institutional trading
 """
 
 import asyncio
+import hashlib
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple, Union

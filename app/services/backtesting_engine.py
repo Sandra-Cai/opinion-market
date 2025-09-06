@@ -4,6 +4,7 @@ Advanced backtesting engine for quantitative strategies
 """
 
 import asyncio
+import hashlib
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple, Union

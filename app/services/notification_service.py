@@ -10,6 +10,9 @@ from app.models.notification import (
     NotificationPriority,
 )
 from app.models.user import User
+from app.models.market import Market
+from app.models.trade import Trade
+from app.models.dispute import MarketDispute
 
 
 class NotificationService:

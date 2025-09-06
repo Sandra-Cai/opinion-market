@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.redis_client import get_redis_client
 from app.services.quantitative_trading import (
     get_quantitative_trading_service,
     TradingSignal, TradingStrategy, BacktestResult, PortfolioOptimization
@@ -42,7 +43,7 @@ async def create_trading_strategy(
     Create a new trading strategy
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         strategy = await quant_service.create_trading_strategy(
@@ -86,7 +87,7 @@ async def get_trading_strategies(
     Get trading strategies with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         strategies = []
@@ -129,7 +130,7 @@ async def get_trading_strategy(
     Get trading strategy by ID
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         strategy = quant_service.trading_strategies.get(strategy_id)
@@ -167,7 +168,7 @@ async def generate_signal(
     Generate trading signal for a strategy and market
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         signal = await quant_service.generate_signal(strategy_id, market_id)
@@ -206,7 +207,7 @@ async def get_trading_signals(
     Get trading signals with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         signals = []
@@ -265,7 +266,7 @@ async def run_backtest(
     Run backtest for a trading strategy
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         backtest_result = await quant_service.run_backtest(
@@ -314,7 +315,7 @@ async def get_backtest_results(
     Get backtest results with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         backtests = []
@@ -371,7 +372,7 @@ async def optimize_portfolio(
     Optimize portfolio allocation
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         optimization = await quant_service.optimize_portfolio(
@@ -413,7 +414,7 @@ async def calculate_technical_indicators(
     Calculate technical indicators for a market
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         # Get market data (this would be implemented based on your data source)
@@ -453,7 +454,7 @@ async def get_portfolio_greeks(
     Get portfolio Greeks for the current user
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         # This would be implemented to get actual portfolio Greeks
@@ -585,7 +586,7 @@ async def get_quantitative_trading_stats(
     Get quantitative trading statistics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         quant_service = await get_quantitative_trading_service(redis_client, db)
 
         stats = {

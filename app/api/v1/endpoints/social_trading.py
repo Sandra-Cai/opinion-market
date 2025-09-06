@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.redis_client import get_redis_client
 from app.services.social_trading import (
     get_social_trading_service,
     TraderProfile, SocialSignal, CopyTrade, LeaderboardEntry, CommunityPost
@@ -43,7 +44,7 @@ async def create_trader_profile(
     Create a new trader profile
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         profile = await social_service.create_trader_profile(
@@ -89,7 +90,7 @@ async def get_trader_profile(
     Get trader profile by user ID
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         profile = social_service.trader_profiles.get(user_id)
@@ -130,7 +131,7 @@ async def create_social_signal(
     Create a social trading signal
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         signal = await social_service.create_social_signal(
@@ -177,7 +178,7 @@ async def get_social_signal(
     Get social signal by ID
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         signal = social_service.social_signals.get(signal_id)
@@ -219,7 +220,7 @@ async def get_social_signals(
     Get social signals with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         signals = []
@@ -278,7 +279,7 @@ async def follow_trader(
     Follow a trader
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         success = await social_service.follow_trader(current_user.id, leader_id)
@@ -308,7 +309,7 @@ async def unfollow_trader(
     Unfollow a trader
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         success = await social_service.unfollow_trader(current_user.id, leader_id)
@@ -338,7 +339,7 @@ async def create_copy_trade(
     Create a copy trade
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         copy_trade = await social_service.create_copy_trade(
@@ -382,7 +383,7 @@ async def get_copy_trades(
     Get copy trades with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         copy_trades = []
@@ -440,7 +441,7 @@ async def get_leaderboard(
     Get leaderboard for a specific period
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         leaderboard = await social_service.get_leaderboard(period, limit)
@@ -478,7 +479,7 @@ async def create_community_post(
     Create a community post
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         post = await social_service.create_community_post(
@@ -525,7 +526,7 @@ async def get_community_posts(
     Get community posts with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         posts = []
@@ -585,7 +586,7 @@ async def get_trader_feed(
     Get personalized feed for the current trader
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         feed_items = await social_service.get_trader_feed(current_user.id, limit)
@@ -612,7 +613,7 @@ async def get_trader_analytics(
     Get comprehensive analytics for a trader
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         analytics = await social_service.get_trader_analytics(user_id)
@@ -744,7 +745,7 @@ async def get_social_trading_stats(
     Get social trading statistics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         social_service = await get_social_trading_service(redis_client, db)
         
         stats = {

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.redis_client import get_redis_client
 from app.services.risk_management import (
     get_risk_management_service,
     RiskProfile, PositionRisk, PortfolioRisk, RiskAlert
@@ -42,7 +43,7 @@ async def create_risk_profile(
     Create a new risk profile for the user
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         profile = await risk_service.create_risk_profile(
@@ -86,7 +87,7 @@ async def get_risk_profile(
     Get risk profile by user ID
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         profile = risk_service.risk_profiles.get(user_id)
@@ -122,7 +123,7 @@ async def calculate_position_risk(
     Calculate risk metrics for a position
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         position_risk = await risk_service.calculate_position_risk(
@@ -168,7 +169,7 @@ async def get_portfolio_risk(
     Get comprehensive portfolio risk metrics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         portfolio_risk = await risk_service.calculate_portfolio_risk(user_id)
@@ -210,7 +211,7 @@ async def check_position_limits(
     Check if a position meets risk limits
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         result = await risk_service.check_position_limits(
@@ -242,7 +243,7 @@ async def get_risk_dashboard(
     Get comprehensive risk dashboard for a user
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         dashboard = await risk_service.get_risk_dashboard(user_id)
@@ -277,7 +278,7 @@ async def get_risk_alerts(
     Get risk alerts with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         alerts = []
@@ -337,7 +338,7 @@ async def resolve_risk_alert(
     Resolve a risk alert
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         alert = risk_service.risk_alerts.get(alert_id)
@@ -375,7 +376,7 @@ async def get_var_analytics(
     Get Value at Risk (VaR) analytics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         portfolio_risk = await risk_service.calculate_portfolio_risk(user_id)
@@ -422,7 +423,7 @@ async def get_drawdown_analytics(
     Get drawdown analytics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         portfolio_risk = await risk_service.calculate_portfolio_risk(user_id)
@@ -457,7 +458,7 @@ async def get_correlation_analytics(
     Get correlation analytics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         portfolio_risk = await risk_service.calculate_portfolio_risk(user_id)
@@ -491,7 +492,7 @@ async def get_volatility_analytics(
     Get volatility analytics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         portfolio_risk = await risk_service.calculate_portfolio_risk(user_id)
@@ -625,7 +626,7 @@ async def get_risk_management_stats(
     Get risk management statistics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         risk_service = await get_risk_management_service(redis_client, db)
         
         stats = {

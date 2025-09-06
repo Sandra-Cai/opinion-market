@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.redis_client import get_redis_client
 from app.services.crypto_trading import (
     get_crypto_trading_service,
     Cryptocurrency, CryptoPrice, CryptoPosition, DeFiProtocol, CryptoOrder
@@ -44,7 +45,7 @@ async def create_cryptocurrency(
     Create a new cryptocurrency
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         crypto = await crypto_service.create_cryptocurrency(
@@ -87,7 +88,7 @@ async def get_cryptocurrencies(
     Get cryptocurrencies with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         cryptocurrencies = []
@@ -130,7 +131,7 @@ async def get_cryptocurrency(
     Get cryptocurrency by ID
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         crypto = crypto_service.cryptocurrencies.get(crypto_id)
@@ -168,7 +169,7 @@ async def add_crypto_price(
     Add a new cryptocurrency price
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         price = await crypto_service.add_crypto_price(
@@ -217,7 +218,7 @@ async def get_crypto_prices(
     Get cryptocurrency prices
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         prices = crypto_service.crypto_prices.get(crypto_id, [])
@@ -263,7 +264,7 @@ async def create_crypto_position(
     Create a new cryptocurrency position
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         position = await crypto_service.create_crypto_position(
@@ -311,7 +312,7 @@ async def get_crypto_positions(
     Get cryptocurrency positions with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         positions = []
@@ -366,7 +367,7 @@ async def create_defi_protocol(
     Create a new DeFi protocol
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         protocol = await crypto_service.create_defi_protocol(
@@ -408,7 +409,7 @@ async def get_defi_protocols(
     Get DeFi protocols with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         protocols = []
@@ -451,7 +452,7 @@ async def create_crypto_order(
     Create a new cryptocurrency order
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         order = await crypto_service.create_crypto_order(
@@ -502,7 +503,7 @@ async def get_crypto_orders(
     Get cryptocurrency orders with optional filtering
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         orders = []
@@ -562,7 +563,7 @@ async def get_crypto_metrics(
     Get comprehensive metrics for a cryptocurrency
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         metrics = await crypto_service.calculate_crypto_metrics(crypto_id)
@@ -583,7 +584,7 @@ async def get_defi_analytics(
     Get comprehensive DeFi analytics
     """
     try:
-        redis_client = None  # You'll need to get this from your Redis connection
+        redis_client = await get_redis_client()
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         analytics = await crypto_service.get_defi_analytics()

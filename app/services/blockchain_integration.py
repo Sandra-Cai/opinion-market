@@ -633,6 +633,12 @@ class BlockchainIntegrationService:
             contract = self.contracts.get(contract_address)
             
             if contract:
+                # Get web3 instance for the network
+                web3 = self.web3_connections.get(network_name)
+                if not web3:
+                    logger.warning(f"No web3 connection for network {network_name}")
+                    return
+                
                 # Decode transaction input
                 decoded_input = self._decode_transaction_input(tx.input, contract.abi)
                 

@@ -1,0 +1,32 @@
+{
+  "name": "opinion-market",
+  "version": "2.0.0",
+  "description": "A comprehensive prediction market platform with advanced features",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No Node.js tests specified\" && exit 0",
+    "build": "echo \"No Node.js build process specified\" && exit 0",
+    "start": "echo \"No Node.js start process specified\" && exit 0",
+    "lint": "echo \"No Node.js linting specified\" && exit 0"
+  },
+  "keywords": [
+    "prediction-market",
+    "trading",
+    "blockchain",
+    "ai",
+    "analytics"
+  ],
+  "author": "Sandra Cai",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

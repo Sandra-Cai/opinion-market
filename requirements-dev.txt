@@ -30,7 +30,6 @@ sphinx-autodoc-typehints==1.25.0
 
 # Performance testing
 locust==2.17.0
-k6==0.0.0
 
 # Security
 safety==2.3.5

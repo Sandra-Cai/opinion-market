@@ -3,7 +3,14 @@ Forex Trading API Endpoints
 Provides endpoints for spot FX, forwards, swaps, and comprehensive FX analytics
 """
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    Query,
+)
 from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -13,14 +20,30 @@ import asyncio
 from sqlalchemy.orm import Session
 
 from app.services.forex_trading import (
-    ForexTradingService, CurrencyPair, FXPrice, FXPosition,
-    ForwardContract, SwapContract, FXOrder
+    ForexTradingService,
+    CurrencyPair,
+    FXPrice,
+    FXPosition,
+    ForwardContract,
+    SwapContract,
+    FXOrder,
 )
 from app.schemas.forex_trading import (
-    CurrencyPairCreate, CurrencyPairResponse, FXPriceCreate, FXPriceResponse,
-    FXPositionCreate, FXPositionResponse, ForwardContractCreate, ForwardContractResponse,
-    SwapContractCreate, SwapContractResponse, FXOrderCreate, FXOrderResponse,
-    FXMetricsResponse, CrossCurrencyRatesResponse, ForwardPointsResponse
+    CurrencyPairCreate,
+    CurrencyPairResponse,
+    FXPriceCreate,
+    FXPriceResponse,
+    FXPositionCreate,
+    FXPositionResponse,
+    ForwardContractCreate,
+    ForwardContractResponse,
+    SwapContractCreate,
+    SwapContractResponse,
+    FXOrderCreate,
+    FXOrderResponse,
+    FXMetricsResponse,
+    CrossCurrencyRatesResponse,
+    ForwardPointsResponse,
 )
 from app.core.database import get_db
 from app.core.redis import get_redis
@@ -35,7 +58,7 @@ websocket_connections: Dict[str, WebSocket] = {}
 async def create_currency_pair(
     pair_data: CurrencyPairCreate,
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Create a new currency pair"""
     try:
@@ -49,9 +72,9 @@ async def create_currency_pair(
             max_trade_size=pair_data.max_trade_size,
             margin_requirement=pair_data.margin_requirement,
             swap_long=pair_data.swap_long,
-            swap_short=pair_data.swap_short
+            swap_short=pair_data.swap_short,
         )
-        
+
         return CurrencyPairResponse(
             pair_id=pair.pair_id,
             base_currency=pair.base_currency,
@@ -67,9 +90,9 @@ async def create_currency_pair(
             is_active=pair.is_active,
             trading_hours=pair.trading_hours,
             created_at=pair.created_at,
-            last_updated=pair.last_updated
+            last_updated=pair.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating currency pair: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -79,16 +102,16 @@ async def create_currency_pair(
 async def get_currency_pairs(
     active_only: bool = Query(True, description="Return only active currency pairs"),
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Get all currency pairs"""
     try:
         service = await get_forex_trading_service(redis_client, db)
         pairs = list(service.currency_pairs.values())
-        
+
         if active_only:
             pairs = [p for p in pairs if p.is_active]
-        
+
         return [
             CurrencyPairResponse(
                 pair_id=pair.pair_id,
@@ -105,11 +128,11 @@ async def get_currency_pairs(
                 is_active=bond.is_active,
                 trading_hours=bond.trading_hours,
                 created_at=bond.created_at,
-                last_updated=bond.last_updated
+                last_updated=bond.last_updated,
             )
             for bond in pairs
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting currency pairs: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -117,19 +140,17 @@ async def get_currency_pairs(
 
 @router.get("/currency-pairs/{pair_id}", response_model=CurrencyPairResponse)
 async def get_currency_pair(
-    pair_id: str,
-    db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    pair_id: str, db: Session = Depends(get_db), redis_client=Depends(get_redis)
 ):
     """Get a specific currency pair"""
     try:
         service = await get_forex_trading_service(redis_client, db)
-        
+
         if pair_id not in service.currency_pairs:
             raise HTTPException(status_code=404, detail="Currency pair not found")
-        
+
         pair = service.currency_pairs[pair_id]
-        
+
         return CurrencyPairResponse(
             pair_id=pair.pair_id,
             base_currency=pair.base_currency,
@@ -145,9 +166,9 @@ async def get_currency_pair(
             is_active=pair.is_active,
             trading_hours=pair.trading_hours,
             created_at=pair.created_at,
-            last_updated=pair.last_updated
+            last_updated=pair.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error getting currency pair: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -157,7 +178,7 @@ async def get_currency_pair(
 async def add_fx_price(
     price_data: FXPriceCreate,
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Add a new FX price"""
     try:
@@ -170,9 +191,9 @@ async def add_fx_price(
             high_24h=price_data.high_24h,
             low_24h=price_data.low_24h,
             change_24h=price_data.change_24h,
-            source=price_data.source
+            source=price_data.source,
         )
-        
+
         return FXPriceResponse(
             price_id=price.price_id,
             pair_id=price.pair_id,
@@ -187,9 +208,9 @@ async def add_fx_price(
             high_24h=price.high_24h,
             low_24h=price.low_24h,
             change_24h=price.change_24h,
-            change_pct_24h=price.change_pct_24h
+            change_pct_24h=price.change_pct_24h,
         )
-        
+
     except Exception as e:
         logger.error(f"Error adding FX price: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -200,18 +221,18 @@ async def get_fx_prices(
     pair_id: str,
     limit: int = Query(100, description="Number of prices to return"),
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Get FX prices for a currency pair"""
     try:
         service = await get_forex_trading_service(redis_client, db)
-        
+
         if pair_id not in service.currency_pairs:
             raise HTTPException(status_code=404, detail="Currency pair not found")
-        
+
         prices = service.fx_prices.get(pair_id, [])
         prices = prices[-limit:] if prices else []
-        
+
         return [
             FXPriceResponse(
                 price_id=price.price_id,
@@ -227,11 +248,11 @@ async def get_fx_prices(
                 high_24h=price.high_24h,
                 low_24h=price.low_24h,
                 change_24h=price.change_24h,
-                change_pct_24h=price.change_pct_24h
+                change_pct_24h=price.change_pct_24h,
             )
             for price in prices
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting FX prices: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -241,7 +262,7 @@ async def get_fx_prices(
 async def create_fx_position(
     position_data: FXPositionCreate,
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Create a new FX position"""
     try:
@@ -254,9 +275,9 @@ async def create_fx_position(
             entry_price=position_data.entry_price,
             leverage=position_data.leverage,
             stop_loss=position_data.stop_loss,
-            take_profit=position_data.take_profit
+            take_profit=position_data.take_profit,
         )
-        
+
         return FXPositionResponse(
             position_id=position.position_id,
             user_id=position.user_id,
@@ -274,9 +295,9 @@ async def create_fx_position(
             stop_loss=position.stop_loss,
             take_profit=position.take_profit,
             created_at=position.created_at,
-            last_updated=position.last_updated
+            last_updated=position.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating FX position: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -284,15 +305,13 @@ async def create_fx_position(
 
 @router.get("/positions/{user_id}", response_model=List[FXPositionResponse])
 async def get_user_positions(
-    user_id: int,
-    db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis)
 ):
     """Get FX positions for a user"""
     try:
         service = await get_forex_trading_service(redis_client, db)
         positions = [p for p in service.fx_positions.values() if p.user_id == user_id]
-        
+
         return [
             FXPositionResponse(
                 position_id=position.position_id,
@@ -311,11 +330,11 @@ async def get_user_positions(
                 stop_loss=position.stop_loss,
                 take_profit=position.take_profit,
                 created_at=position.created_at,
-                last_updated=position.last_updated
+                last_updated=position.last_updated,
             )
             for position in positions
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting user positions: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -325,7 +344,7 @@ async def get_user_positions(
 async def create_forward_contract(
     contract_data: ForwardContractCreate,
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Create a new FX forward contract"""
     try:
@@ -339,9 +358,9 @@ async def create_forward_contract(
             value_date=contract_data.value_date,
             maturity_date=contract_data.maturity_date,
             contract_type=contract_data.contract_type,
-            is_deliverable=contract_data.is_deliverable
+            is_deliverable=contract_data.is_deliverable,
         )
-        
+
         return ForwardContractResponse(
             contract_id=contract.contract_id,
             pair_id=contract.pair_id,
@@ -355,25 +374,27 @@ async def create_forward_contract(
             contract_type=contract.contract_type,
             is_deliverable=contract.is_deliverable,
             created_at=contract.created_at,
-            last_updated=contract.last_updated
+            last_updated=contract.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating forward contract: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/forward-contracts/{user_id}", response_model=List[ForwardContractResponse])
+@router.get(
+    "/forward-contracts/{user_id}", response_model=List[ForwardContractResponse]
+)
 async def get_user_forward_contracts(
-    user_id: int,
-    db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis)
 ):
     """Get forward contracts for a user"""
     try:
         service = await get_forex_trading_service(redis_client, db)
-        contracts = [c for c in service.forward_contracts.values() if c.user_id == user_id]
-        
+        contracts = [
+            c for c in service.forward_contracts.values() if c.user_id == user_id
+        ]
+
         return [
             ForwardContractResponse(
                 contract_id=contract.contract_id,
@@ -388,11 +409,11 @@ async def get_user_forward_contracts(
                 contract_type=contract.contract_type,
                 is_deliverable=contract.is_deliverable,
                 created_at=contract.created_at,
-                last_updated=contract.last_updated
+                last_updated=contract.last_updated,
             )
             for contract in contracts
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting user forward contracts: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -402,7 +423,7 @@ async def get_user_forward_contracts(
 async def create_swap_contract(
     swap_data: SwapContractCreate,
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Create a new FX swap contract"""
     try:
@@ -414,9 +435,9 @@ async def create_swap_contract(
             far_leg=swap_data.far_leg,
             swap_rate=swap_data.swap_rate,
             value_date=swap_data.value_date,
-            maturity_date=swap_data.maturity_date
+            maturity_date=swap_data.maturity_date,
         )
-        
+
         return SwapContractResponse(
             swap_id=swap.swap_id,
             pair_id=swap.pair_id,
@@ -428,9 +449,9 @@ async def create_swap_contract(
             value_date=swap.value_date,
             maturity_date=swap.maturity_date,
             created_at=swap.created_at,
-            last_updated=swap.last_updated
+            last_updated=swap.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating swap contract: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -438,15 +459,13 @@ async def create_swap_contract(
 
 @router.get("/swap-contracts/{user_id}", response_model=List[SwapContractResponse])
 async def get_user_swap_contracts(
-    user_id: int,
-    db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis)
 ):
     """Get swap contracts for a user"""
     try:
         service = await get_forex_trading_service(redis_client, db)
         swaps = [s for s in service.swap_contracts.values() if s.user_id == user_id]
-        
+
         return [
             SwapContractResponse(
                 swap_id=swap.swap_id,
@@ -459,11 +478,11 @@ async def get_user_swap_contracts(
                 value_date=swap.value_date,
                 maturity_date=swap.maturity_date,
                 created_at=swap.created_at,
-                last_updated=swap.last_updated
+                last_updated=swap.last_updated,
             )
             for swap in swaps
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting user swap contracts: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -473,7 +492,7 @@ async def get_user_swap_contracts(
 async def place_fx_order(
     order_data: FXOrderCreate,
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Place a new FX order"""
     try:
@@ -487,9 +506,9 @@ async def place_fx_order(
             price=order_data.price,
             stop_price=order_data.stop_price,
             limit_price=order_data.limit_price,
-            time_in_force=order_data.time_in_force
+            time_in_force=order_data.time_in_force,
         )
-        
+
         return FXOrderResponse(
             order_id=order.order_id,
             user_id=order.user_id,
@@ -505,9 +524,9 @@ async def place_fx_order(
             filled_quantity=order.filled_quantity,
             filled_price=order.filled_price,
             created_at=order.created_at,
-            last_updated=order.last_updated
+            last_updated=order.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error placing FX order: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -518,16 +537,16 @@ async def get_user_orders(
     user_id: int,
     status: Optional[str] = Query(None, description="Filter by order status"),
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Get FX orders for a user"""
     try:
         service = await get_forex_trading_service(redis_client, db)
         orders = [o for o in service.fx_orders.values() if o.user_id == user_id]
-        
+
         if status:
             orders = [o for o in orders if o.status == status]
-        
+
         return [
             FXOrderResponse(
                 order_id=order.order_id,
@@ -544,11 +563,11 @@ async def get_user_orders(
                 filled_quantity=order.filled_quantity,
                 filled_price=order.filled_price,
                 created_at=order.created_at,
-                last_updated=order.last_updated
+                last_updated=order.last_updated,
             )
             for order in orders
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting user orders: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -556,17 +575,15 @@ async def get_user_orders(
 
 @router.get("/metrics/{pair_id}", response_model=FXMetricsResponse)
 async def get_fx_metrics(
-    pair_id: str,
-    db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    pair_id: str, db: Session = Depends(get_db), redis_client=Depends(get_redis)
 ):
     """Get comprehensive metrics for a currency pair"""
     try:
         service = await get_forex_trading_service(redis_client, db)
         metrics = await service.calculate_fx_metrics(pair_id)
-        
+
         return FXMetricsResponse(**metrics)
-        
+
     except Exception as e:
         logger.error(f"Error getting FX metrics: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -574,17 +591,15 @@ async def get_fx_metrics(
 
 @router.get("/cross-rates/{base_currency}", response_model=CrossCurrencyRatesResponse)
 async def get_cross_currency_rates(
-    base_currency: str,
-    db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    base_currency: str, db: Session = Depends(get_db), redis_client=Depends(get_redis)
 ):
     """Get cross currency rates for a base currency"""
     try:
         service = await get_forex_trading_service(redis_client, db)
         cross_rates = await service.get_cross_currency_rates(base_currency)
-        
+
         return CrossCurrencyRatesResponse(**cross_rates)
-        
+
     except Exception as e:
         logger.error(f"Error getting cross currency rates: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -598,7 +613,7 @@ async def calculate_forward_points(
     interest_rate_quote: float,
     days_to_maturity: int,
     db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    redis_client=Depends(get_redis),
 ):
     """Calculate forward points using interest rate parity"""
     try:
@@ -608,11 +623,11 @@ async def calculate_forward_points(
             spot_rate=spot_rate,
             interest_rate_base=interest_rate_base,
             interest_rate_quote=interest_rate_quote,
-            days_to_maturity=days_to_maturity
+            days_to_maturity=days_to_maturity,
         )
-        
+
         return ForwardPointsResponse(**forward_points)
-        
+
     except Exception as e:
         logger.error(f"Error calculating forward points: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -620,36 +635,35 @@ async def calculate_forward_points(
 
 @router.get("/trading-sessions")
 async def get_trading_sessions(
-    db: Session = Depends(get_db),
-    redis_client = Depends(get_redis)
+    db: Session = Depends(get_db), redis_client=Depends(get_redis)
 ):
     """Get current trading sessions status"""
     try:
         service = await get_forex_trading_service(redis_client, db)
-        
+
         # Get current time in UTC
         current_time = datetime.utcnow()
         current_hour = current_time.hour
         current_minute = current_time.minute
         current_time_str = f"{current_hour:02d}:{current_minute:02d}"
-        
+
         # Check which sessions are currently active
         active_sessions = []
         for session_name, session_times in service.trading_sessions.items():
-            start_time = session_times['start']
-            end_time = session_times['end']
-            
+            start_time = session_times["start"]
+            end_time = session_times["end"]
+
             # Simple time comparison (in practice, this would be more sophisticated)
             if start_time <= current_time_str <= end_time:
                 active_sessions.append(session_name)
-        
+
         return {
             "current_time_utc": current_time_str,
             "trading_sessions": service.trading_sessions,
             "active_sessions": active_sessions,
-            "next_session": "london" if "london" not in active_sessions else "new_york"
+            "next_session": "london" if "london" not in active_sessions else "new_york",
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting trading sessions: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -661,19 +675,23 @@ async def websocket_fx_updates(websocket: WebSocket, pair_id: str):
     await websocket.accept()
     connection_id = f"fx_{pair_id}_{id(websocket)}"
     websocket_connections[connection_id] = websocket
-    
+
     try:
         while True:
             # Send periodic updates (in practice, this would be real-time data)
-            await websocket.send_text(json.dumps({
-                "type": "fx_update",
-                "pair_id": pair_id,
-                "timestamp": datetime.utcnow().isoformat(),
-                "message": "FX price update"
-            }))
-            
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "fx_update",
+                        "pair_id": pair_id,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "message": "FX price update",
+                    }
+                )
+            )
+
             await asyncio.sleep(5)  # Send update every 5 seconds
-            
+
     except WebSocketDisconnect:
         if connection_id in websocket_connections:
             del websocket_connections[connection_id]

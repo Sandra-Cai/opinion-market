@@ -3,7 +3,14 @@ Cryptocurrency Trading API Endpoints
 Provides spot trading, DeFi integration, and crypto-specific analytics
 """
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    Query,
+)
 from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -16,15 +23,25 @@ from app.core.auth import get_current_user
 from app.core.redis_client import get_redis_client
 from app.services.crypto_trading import (
     get_crypto_trading_service,
-    Cryptocurrency, CryptoPrice, CryptoPosition, DeFiProtocol, CryptoOrder
+    Cryptocurrency,
+    CryptoPrice,
+    CryptoPosition,
+    DeFiProtocol,
+    CryptoOrder,
 )
 from app.schemas.crypto_trading import (
-    CryptocurrencyRequest, CryptocurrencyResponse,
-    CryptoPriceRequest, CryptoPriceResponse,
-    CryptoPositionRequest, CryptoPositionResponse,
-    DeFiProtocolRequest, DeFiProtocolResponse,
-    CryptoOrderRequest, CryptoOrderResponse,
-    CryptoMetricsResponse, DeFiAnalyticsResponse
+    CryptocurrencyRequest,
+    CryptocurrencyResponse,
+    CryptoPriceRequest,
+    CryptoPriceResponse,
+    CryptoPositionRequest,
+    CryptoPositionResponse,
+    DeFiProtocolRequest,
+    DeFiProtocolResponse,
+    CryptoOrderRequest,
+    CryptoOrderResponse,
+    CryptoMetricsResponse,
+    DeFiAnalyticsResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +56,7 @@ websocket_connections: Dict[str, WebSocket] = {}
 async def create_cryptocurrency(
     request: CryptocurrencyRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Create a new cryptocurrency
@@ -54,7 +71,7 @@ async def create_cryptocurrency(
             blockchain=request.blockchain,
             contract_address=request.contract_address,
             decimals=request.decimals,
-            total_supply=request.total_supply
+            total_supply=request.total_supply,
         )
 
         return CryptocurrencyResponse(
@@ -69,7 +86,7 @@ async def create_cryptocurrency(
             market_cap=crypto.market_cap,
             is_active=crypto.is_active,
             created_at=crypto.created_at,
-            last_updated=crypto.last_updated
+            last_updated=crypto.last_updated,
         )
 
     except Exception as e:
@@ -82,7 +99,7 @@ async def get_cryptocurrencies(
     blockchain: Optional[str] = Query(None, description="Filter by blockchain"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Get cryptocurrencies with optional filtering
@@ -99,20 +116,22 @@ async def get_cryptocurrencies(
             if is_active is not None and crypto.is_active != is_active:
                 continue
 
-            cryptocurrencies.append(CryptocurrencyResponse(
-                crypto_id=crypto.crypto_id,
-                symbol=crypto.symbol,
-                name=crypto.name,
-                blockchain=crypto.blockchain,
-                contract_address=crypto.contract_address,
-                decimals=crypto.decimals,
-                total_supply=crypto.total_supply,
-                circulating_supply=crypto.circulating_supply,
-                market_cap=crypto.market_cap,
-                is_active=crypto.is_active,
-                created_at=crypto.created_at,
-                last_updated=crypto.last_updated
-            ))
+            cryptocurrencies.append(
+                CryptocurrencyResponse(
+                    crypto_id=crypto.crypto_id,
+                    symbol=crypto.symbol,
+                    name=crypto.name,
+                    blockchain=crypto.blockchain,
+                    contract_address=crypto.contract_address,
+                    decimals=crypto.decimals,
+                    total_supply=crypto.total_supply,
+                    circulating_supply=crypto.circulating_supply,
+                    market_cap=crypto.market_cap,
+                    is_active=crypto.is_active,
+                    created_at=crypto.created_at,
+                    last_updated=crypto.last_updated,
+                )
+            )
 
         return cryptocurrencies
 
@@ -125,7 +144,7 @@ async def get_cryptocurrencies(
 async def get_cryptocurrency(
     crypto_id: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Get cryptocurrency by ID
@@ -150,7 +169,7 @@ async def get_cryptocurrency(
             market_cap=crypto.market_cap,
             is_active=crypto.is_active,
             created_at=crypto.created_at,
-            last_updated=crypto.last_updated
+            last_updated=crypto.last_updated,
         )
 
     except Exception as e:
@@ -163,7 +182,7 @@ async def add_crypto_price(
     crypto_id: str,
     request: CryptoPriceRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Add a new cryptocurrency price
@@ -183,7 +202,7 @@ async def add_crypto_price(
             price_change_percent_24h=request.price_change_percent_24h,
             high_24h=request.high_24h,
             low_24h=request.low_24h,
-            source=request.source
+            source=request.source,
         )
 
         return CryptoPriceResponse(
@@ -199,7 +218,7 @@ async def add_crypto_price(
             high_24h=price.high_24h,
             low_24h=price.low_24h,
             timestamp=price.timestamp,
-            source=price.source
+            source=price.source,
         )
 
     except Exception as e:
@@ -212,7 +231,7 @@ async def get_crypto_prices(
     crypto_id: str,
     limit: int = Query(100, description="Number of prices to return"),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Get cryptocurrency prices
@@ -222,32 +241,34 @@ async def get_crypto_prices(
         crypto_service = await get_crypto_trading_service(redis_client, db)
 
         prices = crypto_service.crypto_prices.get(crypto_id, [])
-        
+
         # Sort by timestamp and limit
         prices.sort(key=lambda x: x.timestamp, reverse=True)
         prices = prices[:limit]
 
-        return JSONResponse(content={
-            'crypto_id': crypto_id,
-            'prices': [
-                {
-                    'price_id': price.price_id,
-                    'price_usd': price.price_usd,
-                    'price_btc': price.price_btc,
-                    'price_eth': price.price_eth,
-                    'volume_24h': price.volume_24h,
-                    'market_cap': price.market_cap,
-                    'price_change_24h': price.price_change_24h,
-                    'price_change_percent_24h': price.price_change_percent_24h,
-                    'high_24h': price.high_24h,
-                    'low_24h': price.low_24h,
-                    'timestamp': price.timestamp.isoformat(),
-                    'source': price.source
-                }
-                for price in prices
-            ],
-            'count': len(prices)
-        })
+        return JSONResponse(
+            content={
+                "crypto_id": crypto_id,
+                "prices": [
+                    {
+                        "price_id": price.price_id,
+                        "price_usd": price.price_usd,
+                        "price_btc": price.price_btc,
+                        "price_eth": price.price_eth,
+                        "volume_24h": price.volume_24h,
+                        "market_cap": price.market_cap,
+                        "price_change_24h": price.price_change_24h,
+                        "price_change_percent_24h": price.price_change_percent_24h,
+                        "high_24h": price.high_24h,
+                        "low_24h": price.low_24h,
+                        "timestamp": price.timestamp.isoformat(),
+                        "source": price.source,
+                    }
+                    for price in prices
+                ],
+                "count": len(prices),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting crypto prices: {e}")
@@ -258,7 +279,7 @@ async def get_crypto_prices(
 async def create_crypto_position(
     request: CryptoPositionRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Create a new cryptocurrency position
@@ -275,7 +296,7 @@ async def create_crypto_position(
             entry_price=request.entry_price,
             leverage=request.leverage,
             stop_loss=request.stop_loss,
-            take_profit=request.take_profit
+            take_profit=request.take_profit,
         )
 
         return CryptoPositionResponse(
@@ -293,7 +314,7 @@ async def create_crypto_position(
             stop_loss=position.stop_loss,
             take_profit=position.take_profit,
             created_at=position.created_at,
-            last_updated=position.last_updated
+            last_updated=position.last_updated,
         )
 
     except Exception as e:
@@ -306,7 +327,7 @@ async def get_crypto_positions(
     crypto_id: Optional[str] = Query(None, description="Filter by cryptocurrency ID"),
     position_type: Optional[str] = Query(None, description="Filter by position type"),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Get cryptocurrency positions with optional filtering
@@ -326,31 +347,32 @@ async def get_crypto_positions(
             if position_type and position.position_type != position_type:
                 continue
 
-            positions.append({
-                'position_id': position.position_id,
-                'crypto_id': position.crypto_id,
-                'position_type': position.position_type,
-                'size': position.size,
-                'entry_price': position.entry_price,
-                'current_price': position.current_price,
-                'unrealized_pnl': position.unrealized_pnl,
-                'realized_pnl': position.realized_pnl,
-                'margin_used': position.margin_used,
-                'leverage': position.leverage,
-                'stop_loss': position.stop_loss,
-                'take_profit': position.take_profit,
-                'created_at': position.created_at.isoformat(),
-                'last_updated': position.last_updated.isoformat()
-            })
+            positions.append(
+                {
+                    "position_id": position.position_id,
+                    "crypto_id": position.crypto_id,
+                    "position_type": position.position_type,
+                    "size": position.size,
+                    "entry_price": position.entry_price,
+                    "current_price": position.current_price,
+                    "unrealized_pnl": position.unrealized_pnl,
+                    "realized_pnl": position.realized_pnl,
+                    "margin_used": position.margin_used,
+                    "leverage": position.leverage,
+                    "stop_loss": position.stop_loss,
+                    "take_profit": position.take_profit,
+                    "created_at": position.created_at.isoformat(),
+                    "last_updated": position.last_updated.isoformat(),
+                }
+            )
 
-        return JSONResponse(content={
-            'positions': positions,
-            'count': len(positions),
-            'filters': {
-                'crypto_id': crypto_id,
-                'position_type': position_type
+        return JSONResponse(
+            content={
+                "positions": positions,
+                "count": len(positions),
+                "filters": {"crypto_id": crypto_id, "position_type": position_type},
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"Error getting crypto positions: {e}")
@@ -361,7 +383,7 @@ async def get_crypto_positions(
 async def create_defi_protocol(
     request: DeFiProtocolRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Create a new DeFi protocol
@@ -376,7 +398,7 @@ async def create_defi_protocol(
             blockchain=request.blockchain,
             tvl=request.tvl,
             apy=request.apy,
-            risk_score=request.risk_score
+            risk_score=request.risk_score,
         )
 
         return DeFiProtocolResponse(
@@ -389,7 +411,7 @@ async def create_defi_protocol(
             risk_score=protocol.risk_score,
             is_active=protocol.is_active,
             created_at=protocol.created_at,
-            last_updated=protocol.last_updated
+            last_updated=protocol.last_updated,
         )
 
     except Exception as e:
@@ -403,7 +425,7 @@ async def get_defi_protocols(
     blockchain: Optional[str] = Query(None, description="Filter by blockchain"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Get DeFi protocols with optional filtering
@@ -422,18 +444,20 @@ async def get_defi_protocols(
             if is_active is not None and protocol.is_active != is_active:
                 continue
 
-            protocols.append(DeFiProtocolResponse(
-                protocol_id=protocol.protocol_id,
-                name=protocol.name,
-                protocol_type=protocol.protocol_type,
-                blockchain=protocol.blockchain,
-                tvl=protocol.tvl,
-                apy=protocol.apy,
-                risk_score=protocol.risk_score,
-                is_active=protocol.is_active,
-                created_at=protocol.created_at,
-                last_updated=protocol.last_updated
-            ))
+            protocols.append(
+                DeFiProtocolResponse(
+                    protocol_id=protocol.protocol_id,
+                    name=protocol.name,
+                    protocol_type=protocol.protocol_type,
+                    blockchain=protocol.blockchain,
+                    tvl=protocol.tvl,
+                    apy=protocol.apy,
+                    risk_score=protocol.risk_score,
+                    is_active=protocol.is_active,
+                    created_at=protocol.created_at,
+                    last_updated=protocol.last_updated,
+                )
+            )
 
         return protocols
 
@@ -446,7 +470,7 @@ async def get_defi_protocols(
 async def create_crypto_order(
     request: CryptoOrderRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Create a new cryptocurrency order
@@ -464,7 +488,7 @@ async def create_crypto_order(
             price=request.price,
             stop_price=request.stop_price,
             limit_price=request.limit_price,
-            time_in_force=request.time_in_force
+            time_in_force=request.time_in_force,
         )
 
         return CryptoOrderResponse(
@@ -483,7 +507,7 @@ async def create_crypto_order(
             filled_price=order.filled_price,
             commission=order.commission,
             created_at=order.created_at,
-            last_updated=order.last_updated
+            last_updated=order.last_updated,
         )
 
     except Exception as e:
@@ -497,7 +521,7 @@ async def get_crypto_orders(
     status: Optional[str] = Query(None, description="Filter by order status"),
     limit: int = Query(50, description="Number of orders to return"),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Get cryptocurrency orders with optional filtering
@@ -517,47 +541,50 @@ async def get_crypto_orders(
             if status and order.status != status:
                 continue
 
-            orders.append({
-                'order_id': order.order_id,
-                'crypto_id': order.crypto_id,
-                'order_type': order.order_type,
-                'side': order.side,
-                'size': order.size,
-                'price': order.price,
-                'stop_price': order.stop_price,
-                'limit_price': order.limit_price,
-                'time_in_force': order.time_in_force,
-                'status': order.status,
-                'filled_size': order.filled_size,
-                'filled_price': order.filled_price,
-                'commission': order.commission,
-                'created_at': order.created_at.isoformat(),
-                'last_updated': order.last_updated.isoformat()
-            })
+            orders.append(
+                {
+                    "order_id": order.order_id,
+                    "crypto_id": order.crypto_id,
+                    "order_type": order.order_type,
+                    "side": order.side,
+                    "size": order.size,
+                    "price": order.price,
+                    "stop_price": order.stop_price,
+                    "limit_price": order.limit_price,
+                    "time_in_force": order.time_in_force,
+                    "status": order.status,
+                    "filled_size": order.filled_size,
+                    "filled_price": order.filled_price,
+                    "commission": order.commission,
+                    "created_at": order.created_at.isoformat(),
+                    "last_updated": order.last_updated.isoformat(),
+                }
+            )
 
         # Sort by creation date and limit
-        orders.sort(key=lambda x: x['created_at'], reverse=True)
+        orders.sort(key=lambda x: x["created_at"], reverse=True)
         orders = orders[:limit]
 
-        return JSONResponse(content={
-            'orders': orders,
-            'count': len(orders),
-            'filters': {
-                'crypto_id': crypto_id,
-                'status': status
+        return JSONResponse(
+            content={
+                "orders": orders,
+                "count": len(orders),
+                "filters": {"crypto_id": crypto_id, "status": status},
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"Error getting crypto orders: {e}")
         raise HTTPException(status_code=500, detail="Error getting crypto orders")
 
 
-@router.get("/cryptocurrencies/{crypto_id}/metrics", response_model=CryptoMetricsResponse)
+@router.get(
+    "/cryptocurrencies/{crypto_id}/metrics", response_model=CryptoMetricsResponse
+)
 async def get_crypto_metrics(
     crypto_id: str,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Get comprehensive metrics for a cryptocurrency
@@ -577,8 +604,7 @@ async def get_crypto_metrics(
 
 @router.get("/defi/analytics", response_model=DeFiAnalyticsResponse)
 async def get_defi_analytics(
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user=Depends(get_current_user)
 ):
     """
     Get comprehensive DeFi analytics
@@ -604,19 +630,23 @@ async def websocket_crypto_updates(websocket: WebSocket, crypto_id: str):
     await websocket.accept()
     connection_id = f"crypto_{crypto_id}_{id(websocket)}"
     websocket_connections[connection_id] = websocket
-    
+
     try:
         while True:
             # Send periodic updates
-            await websocket.send_text(json.dumps({
-                'type': 'crypto_update',
-                'crypto_id': crypto_id,
-                'timestamp': datetime.utcnow().isoformat(),
-                'message': 'Cryptocurrency data updated'
-            }))
-            
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "crypto_update",
+                        "crypto_id": crypto_id,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "message": "Cryptocurrency data updated",
+                    }
+                )
+            )
+
             await asyncio.sleep(30)  # Update every 30 seconds
-            
+
     except WebSocketDisconnect:
         del websocket_connections[connection_id]
     except Exception as e:

@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
+
 class PositionBase(BaseModel):
     market_id: int
     outcome: str
@@ -9,9 +10,11 @@ class PositionBase(BaseModel):
     average_price: float
     total_invested: float
 
+
 class PositionCreate(BaseModel):
     market_id: int
     outcome: str
+
 
 class PositionResponse(PositionBase):
     id: int
@@ -25,15 +28,17 @@ class PositionResponse(PositionBase):
     is_profitable: bool
     is_active: bool
     last_updated: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class PositionListResponse(BaseModel):
     positions: List[PositionResponse]
     total: int
     page: int
     per_page: int
+
 
 class PortfolioSummary(BaseModel):
     total_positions: int

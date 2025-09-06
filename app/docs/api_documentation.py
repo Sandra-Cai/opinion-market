@@ -2,14 +2,15 @@ from typing import Dict, List, Any
 from datetime import datetime
 import json
 
+
 class APIDocumentation:
     """Comprehensive API documentation system"""
-    
+
     def __init__(self):
         self.base_url = "http://localhost:8000"
         self.api_version = "v1"
         self.api_base = f"{self.base_url}/api/{self.api_version}"
-    
+
     def get_api_overview(self) -> Dict:
         """Get API overview and general information"""
         return {
@@ -20,25 +21,25 @@ class APIDocumentation:
             "authentication": {
                 "type": "Bearer Token",
                 "description": "All authenticated endpoints require a Bearer token in the Authorization header",
-                "example": "Authorization: Bearer <your_jwt_token>"
+                "example": "Authorization: Bearer <your_jwt_token>",
             },
             "rate_limits": {
                 "auth": "5 requests per 5 minutes",
                 "trades": "100 requests per minute",
                 "orders": "50 requests per minute",
-                "default": "1000 requests per minute"
+                "default": "1000 requests per minute",
             },
             "response_format": {
                 "success": {
                     "status": "HTTP status code",
                     "data": "Response data",
-                    "message": "Success message (optional)"
+                    "message": "Success message (optional)",
                 },
                 "error": {
                     "status": "HTTP status code",
                     "error": "Error type",
-                    "detail": "Error description"
-                }
+                    "detail": "Error description",
+                },
             },
             "features": [
                 "User Authentication & Authorization",
@@ -51,10 +52,10 @@ class APIDocumentation:
                 "Advanced Market Types",
                 "Rewards & Gamification",
                 "Mobile API Support",
-                "Security & Fraud Detection"
-            ]
+                "Security & Fraud Detection",
+            ],
         }
-    
+
     def get_endpoint_documentation(self) -> Dict:
         """Get detailed endpoint documentation"""
         return {
@@ -68,44 +69,44 @@ class APIDocumentation:
                             "email": "string (required, valid email)",
                             "password": "string (required, min 8 chars)",
                             "full_name": "string (optional)",
-                            "bio": "string (optional)"
+                            "bio": "string (optional)",
                         },
                         "response": {
                             "id": "integer",
                             "username": "string",
                             "email": "string",
                             "full_name": "string",
-                            "created_at": "datetime"
+                            "created_at": "datetime",
                         },
                         "example": {
                             "request": {
                                 "username": "trader123",
                                 "email": "trader@example.com",
                                 "password": "securepassword123",
-                                "full_name": "John Doe"
+                                "full_name": "John Doe",
                             },
                             "response": {
                                 "id": 1,
                                 "username": "trader123",
                                 "email": "trader@example.com",
                                 "full_name": "John Doe",
-                                "created_at": "2024-01-15T10:30:00Z"
-                            }
-                        }
+                                "created_at": "2024-01-15T10:30:00Z",
+                            },
+                        },
                     },
                     "POST /auth/login": {
                         "description": "Login and get access token",
                         "request_body": {
                             "username": "string (required)",
-                            "password": "string (required)"
+                            "password": "string (required)",
                         },
                         "response": {
                             "access_token": "string",
                             "token_type": "bearer",
-                            "expires_in": "integer (minutes)"
-                        }
-                    }
-                }
+                            "expires_in": "integer (minutes)",
+                        },
+                    },
+                },
             },
             "markets": {
                 "description": "Market creation, management, and trading",
@@ -119,14 +120,14 @@ class APIDocumentation:
                             "status": "string (optional: open, closed, resolved)",
                             "search": "string (optional)",
                             "sort_by": "string (optional: volume, trending, created_at)",
-                            "sort_order": "string (optional: asc, desc)"
+                            "sort_order": "string (optional: asc, desc)",
                         },
                         "response": {
                             "markets": "array of market objects",
                             "total": "integer",
                             "page": "integer",
-                            "per_page": "integer"
-                        }
+                            "per_page": "integer",
+                        },
                     },
                     "POST /markets/": {
                         "description": "Create a new prediction market",
@@ -139,18 +140,16 @@ class APIDocumentation:
                             "outcome_b": "string (required)",
                             "closes_at": "datetime (required)",
                             "total_liquidity": "float (required, min: 100)",
-                            "tags": "array of strings (optional)"
+                            "tags": "array of strings (optional)",
                         },
-                        "response": "Market object with all details"
+                        "response": "Market object with all details",
                     },
                     "GET /markets/{market_id}": {
                         "description": "Get detailed information about a specific market",
-                        "path_parameters": {
-                            "market_id": "integer (required)"
-                        },
-                        "response": "Complete market object with all properties"
-                    }
-                }
+                        "path_parameters": {"market_id": "integer (required)"},
+                        "response": "Complete market object with all properties",
+                    },
+                },
             },
             "trades": {
                 "description": "Trading operations and trade history",
@@ -161,7 +160,7 @@ class APIDocumentation:
                             "market_id": "integer (required)",
                             "trade_type": "string (required: buy, sell)",
                             "outcome": "string (required: outcome_a, outcome_b)",
-                            "amount": "float (required, min: 1)"
+                            "amount": "float (required, min: 1)",
                         },
                         "response": {
                             "id": "integer",
@@ -173,8 +172,8 @@ class APIDocumentation:
                             "price_per_share": "float",
                             "total_value": "float",
                             "profit_loss": "float",
-                            "created_at": "datetime"
-                        }
+                            "created_at": "datetime",
+                        },
                     },
                     "GET /trades/": {
                         "description": "Get user's trade history",
@@ -182,16 +181,16 @@ class APIDocumentation:
                             "skip": "integer (default: 0)",
                             "limit": "integer (default: 20, max: 100)",
                             "market_id": "integer (optional)",
-                            "trade_type": "string (optional: buy, sell)"
+                            "trade_type": "string (optional: buy, sell)",
                         },
                         "response": {
                             "trades": "array of trade objects",
                             "total": "integer",
                             "page": "integer",
-                            "per_page": "integer"
-                        }
-                    }
-                }
+                            "per_page": "integer",
+                        },
+                    },
+                },
             },
             "positions": {
                 "description": "Portfolio and position management",
@@ -201,14 +200,14 @@ class APIDocumentation:
                         "query_parameters": {
                             "skip": "integer (default: 0)",
                             "limit": "integer (default: 20, max: 100)",
-                            "active_only": "boolean (default: true)"
+                            "active_only": "boolean (default: true)",
                         },
                         "response": {
                             "positions": "array of position objects",
                             "total": "integer",
                             "page": "integer",
-                            "per_page": "integer"
-                        }
+                            "per_page": "integer",
+                        },
                     },
                     "GET /positions/portfolio": {
                         "description": "Get portfolio summary and statistics",
@@ -219,10 +218,10 @@ class APIDocumentation:
                             "total_unrealized_pnl": "float",
                             "total_realized_pnl": "float",
                             "total_pnl": "float",
-                            "portfolio_return_percentage": "float"
-                        }
-                    }
-                }
+                            "portfolio_return_percentage": "float",
+                        },
+                    },
+                },
             },
             "ai_analytics": {
                 "description": "AI-powered analytics and insights",
@@ -234,13 +233,13 @@ class APIDocumentation:
                             "prediction": {
                                 "short_term": "object",
                                 "medium_term": "object",
-                                "long_term": "object"
+                                "long_term": "object",
                             },
                             "confidence": "float",
                             "technical_indicators": "object",
                             "market_sentiment": "object",
-                            "risk_assessment": "object"
-                        }
+                            "risk_assessment": "object",
+                        },
                     },
                     "GET /ai-analytics/user/insights": {
                         "description": "Get AI-powered user insights",
@@ -248,10 +247,10 @@ class APIDocumentation:
                             "performance_metrics": "object",
                             "trading_patterns": "object",
                             "risk_assessment": "object",
-                            "recommendations": "array"
-                        }
-                    }
-                }
+                            "recommendations": "array",
+                        },
+                    },
+                },
             },
             "governance": {
                 "description": "DAO governance and proposal system",
@@ -265,18 +264,18 @@ class APIDocumentation:
                             "voting_start": "datetime (required)",
                             "voting_end": "datetime (required)",
                             "quorum_required": "float (default: 0.1)",
-                            "majority_required": "float (default: 0.6)"
-                        }
+                            "majority_required": "float (default: 0.6)",
+                        },
                     },
                     "POST /governance/proposals/{proposal_id}/vote": {
                         "description": "Vote on a governance proposal",
                         "request_body": {
                             "vote_type": "string (required: yes, no, abstain)",
                             "voting_power": "float (required)",
-                            "reason": "string (optional)"
-                        }
-                    }
-                }
+                            "reason": "string (optional)",
+                        },
+                    },
+                },
             },
             "rewards": {
                 "description": "Rewards and gamification system",
@@ -287,18 +286,18 @@ class APIDocumentation:
                             "reward_type": "string",
                             "tokens_awarded": "integer",
                             "xp_gained": "integer",
-                            "streak": "integer"
-                        }
+                            "streak": "integer",
+                        },
                     },
                     "GET /rewards/achievements": {
                         "description": "Get user's achievements and progress",
                         "response": {
                             "achievements": "array of achievement objects",
                             "total_unlocked": "integer",
-                            "total_achievements": "integer"
-                        }
-                    }
-                }
+                            "total_achievements": "integer",
+                        },
+                    },
+                },
             },
             "mobile": {
                 "description": "Mobile-optimized API endpoints",
@@ -310,8 +309,8 @@ class APIDocumentation:
                             "recent_markets": "array",
                             "trending_markets": "array",
                             "recent_trades": "array",
-                            "notifications": "object"
-                        }
+                            "notifications": "object",
+                        },
                     },
                     "GET /mobile/portfolio": {
                         "description": "Get mobile-optimized portfolio",
@@ -319,13 +318,13 @@ class APIDocumentation:
                             "user": "object",
                             "portfolio_summary": "object",
                             "positions": "array",
-                            "performance_chart": "array"
-                        }
-                    }
-                }
-            }
+                            "performance_chart": "array",
+                        },
+                    },
+                },
+            },
         }
-    
+
     def get_code_examples(self) -> Dict:
         """Get code examples for different programming languages"""
         return {
@@ -385,7 +384,7 @@ trade_data = {
 response = requests.post('http://localhost:8000/api/v1/trades/', 
                         json=trade_data, headers=headers)
 print(response.json())
-"""
+""",
                 },
                 "javascript": {
                     "authentication": """
@@ -443,7 +442,7 @@ const placeTrade = async (token) => {
     const data = await response.json();
     console.log(data);
 };
-"""
+""",
                 },
                 "curl": {
                     "authentication": """
@@ -477,7 +476,7 @@ curl -X POST "http://localhost:8000/api/v1/markets/" \\
        "total_liquidity": 10000.0
      }'
 """
-                }
+                },
             },
             "websocket": {
                 "python": """
@@ -568,10 +567,10 @@ const connectToUserFeed = (token) => {
         }
     };
 };
-"""
-            }
+""",
+            },
         }
-    
+
     def get_error_codes(self) -> Dict:
         """Get comprehensive error code documentation"""
         return {
@@ -582,13 +581,13 @@ const connectToUserFeed = (token) => {
                     "Missing required fields",
                     "Invalid data types",
                     "Validation errors",
-                    "Insufficient balance for trade"
+                    "Insufficient balance for trade",
                 ],
                 "example": {
                     "status_code": 400,
                     "error": "ValidationError",
-                    "detail": "Field 'username' is required"
-                }
+                    "detail": "Field 'username' is required",
+                },
             },
             "401": {
                 "title": "Unauthorized",
@@ -596,13 +595,13 @@ const connectToUserFeed = (token) => {
                 "common_causes": [
                     "Missing Authorization header",
                     "Invalid or expired token",
-                    "Invalid credentials"
+                    "Invalid credentials",
                 ],
                 "example": {
                     "status_code": 401,
                     "error": "Unauthorized",
-                    "detail": "Invalid authentication credentials"
-                }
+                    "detail": "Invalid authentication credentials",
+                },
             },
             "403": {
                 "title": "Forbidden",
@@ -610,13 +609,13 @@ const connectToUserFeed = (token) => {
                 "common_causes": [
                     "Insufficient permissions",
                     "Account suspended",
-                    "Rate limit exceeded"
+                    "Rate limit exceeded",
                 ],
                 "example": {
                     "status_code": 403,
                     "error": "Forbidden",
-                    "detail": "Insufficient permissions to create markets"
-                }
+                    "detail": "Insufficient permissions to create markets",
+                },
             },
             "404": {
                 "title": "Not Found",
@@ -624,26 +623,26 @@ const connectToUserFeed = (token) => {
                 "common_causes": [
                     "Invalid market ID",
                     "User not found",
-                    "Trade not found"
+                    "Trade not found",
                 ],
                 "example": {
                     "status_code": 404,
                     "error": "NotFound",
-                    "detail": "Market with ID 123 not found"
-                }
+                    "detail": "Market with ID 123 not found",
+                },
             },
             "429": {
                 "title": "Too Many Requests",
                 "description": "Rate limit exceeded",
                 "common_causes": [
                     "Too many requests per minute",
-                    "API rate limit exceeded"
+                    "API rate limit exceeded",
                 ],
                 "example": {
                     "status_code": 429,
                     "error": "RateLimitExceeded",
-                    "detail": "Rate limit exceeded. Try again in 60 seconds."
-                }
+                    "detail": "Rate limit exceeded. Try again in 60 seconds.",
+                },
             },
             "500": {
                 "title": "Internal Server Error",
@@ -651,16 +650,16 @@ const connectToUserFeed = (token) => {
                 "common_causes": [
                     "Database connection issues",
                     "External service failures",
-                    "System errors"
+                    "System errors",
                 ],
                 "example": {
                     "status_code": 500,
                     "error": "InternalServerError",
-                    "detail": "An unexpected error occurred. Please try again later."
-                }
-            }
+                    "detail": "An unexpected error occurred. Please try again later.",
+                },
+            },
         }
-    
+
     def get_rate_limits(self) -> Dict:
         """Get detailed rate limiting information"""
         return {
@@ -669,43 +668,43 @@ const connectToUserFeed = (token) => {
                 "authentication": {
                     "requests": 5,
                     "window": "5 minutes",
-                    "description": "Login and registration attempts"
+                    "description": "Login and registration attempts",
                 },
                 "trades": {
                     "requests": 100,
                     "window": "1 minute",
-                    "description": "Trade execution requests"
+                    "description": "Trade execution requests",
                 },
                 "orders": {
                     "requests": 50,
                     "window": "1 minute",
-                    "description": "Order placement and management"
+                    "description": "Order placement and management",
                 },
                 "market_creation": {
                     "requests": 10,
                     "window": "1 hour",
-                    "description": "Market creation requests"
+                    "description": "Market creation requests",
                 },
                 "api_requests": {
                     "requests": 1000,
                     "window": "1 minute",
-                    "description": "General API requests"
-                }
+                    "description": "General API requests",
+                },
             },
             "headers": {
                 "X-RateLimit-Limit": "Maximum requests allowed in the window",
                 "X-RateLimit-Remaining": "Number of requests remaining in the current window",
-                "X-RateLimit-Reset": "Time when the rate limit window resets (Unix timestamp)"
+                "X-RateLimit-Reset": "Time when the rate limit window resets (Unix timestamp)",
             },
             "best_practices": [
                 "Implement exponential backoff for retries",
                 "Cache responses when possible",
                 "Use WebSocket connections for real-time data",
                 "Monitor rate limit headers",
-                "Implement proper error handling"
-            ]
+                "Implement proper error handling",
+            ],
         }
-    
+
     def get_webhook_documentation(self) -> Dict:
         """Get webhook documentation for integrations"""
         return {
@@ -713,7 +712,7 @@ const connectToUserFeed = (token) => {
             "setup": {
                 "endpoint": "Your webhook endpoint URL",
                 "events": "Array of events to subscribe to",
-                "secret": "Optional secret for signature verification"
+                "secret": "Optional secret for signature verification",
             },
             "events": {
                 "market.created": {
@@ -723,8 +722,8 @@ const connectToUserFeed = (token) => {
                         "market_id": "integer",
                         "title": "string",
                         "creator_id": "integer",
-                        "created_at": "datetime"
-                    }
+                        "created_at": "datetime",
+                    },
                 },
                 "trade.executed": {
                     "description": "Triggered when a trade is executed",
@@ -736,8 +735,8 @@ const connectToUserFeed = (token) => {
                         "trade_type": "string",
                         "amount": "float",
                         "price_per_share": "float",
-                        "executed_at": "datetime"
-                    }
+                        "executed_at": "datetime",
+                    },
                 },
                 "market.resolved": {
                     "description": "Triggered when a market is resolved",
@@ -745,19 +744,21 @@ const connectToUserFeed = (token) => {
                         "event": "market.resolved",
                         "market_id": "integer",
                         "outcome": "string",
-                        "resolved_at": "datetime"
-                    }
-                }
+                        "resolved_at": "datetime",
+                    },
+                },
             },
             "security": {
                 "signature_verification": "Webhook payloads include a signature for verification",
                 "retry_policy": "Failed webhook deliveries are retried with exponential backoff",
-                "timeout": "Webhook requests timeout after 30 seconds"
-            }
+                "timeout": "Webhook requests timeout after 30 seconds",
+            },
         }
+
 
 # Global API documentation instance
 api_docs = APIDocumentation()
+
 
 def get_api_documentation() -> APIDocumentation:
     """Get the global API documentation instance"""

@@ -9,12 +9,16 @@ from datetime import datetime
 
 class TraderProfileRequest(BaseModel):
     """Request model for creating a trader profile"""
+
     username: str = Field(..., description="Username")
     display_name: str = Field(..., description="Display name")
     bio: str = Field(default="", description="Trader bio")
     avatar_url: str = Field(default="", description="Avatar URL")
-    risk_level: str = Field(default="moderate", description="Risk level (conservative, moderate, aggressive)")
-    
+    risk_level: str = Field(
+        default="moderate",
+        description="Risk level (conservative, moderate, aggressive)",
+    )
+
     class Config:
         schema_extra = {
             "example": {
@@ -22,13 +26,14 @@ class TraderProfileRequest(BaseModel):
                 "display_name": "Crypto Trader",
                 "bio": "Experienced cryptocurrency trader with 5+ years in the market",
                 "avatar_url": "https://example.com/avatar.jpg",
-                "risk_level": "moderate"
+                "risk_level": "moderate",
             }
         }
 
 
 class TraderProfileResponse(BaseModel):
     """Response model for trader profile"""
+
     user_id: int = Field(..., description="User ID")
     username: str = Field(..., description="Username")
     display_name: str = Field(..., description="Display name")
@@ -45,7 +50,7 @@ class TraderProfileResponse(BaseModel):
     preferred_markets: List[str] = Field(..., description="Preferred markets")
     performance_rating: float = Field(..., description="Performance rating")
     last_active: datetime = Field(..., description="Last active timestamp")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -64,13 +69,14 @@ class TraderProfileResponse(BaseModel):
                 "risk_level": "moderate",
                 "preferred_markets": ["cryptocurrency", "stocks", "forex"],
                 "performance_rating": 85.5,
-                "last_active": "2024-01-15T10:30:00Z"
+                "last_active": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class SocialSignalRequest(BaseModel):
     """Request model for creating a social signal"""
+
     market_id: int = Field(..., description="Market ID")
     signal_type: str = Field(..., description="Signal type (buy, sell, hold)")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence level (0-1)")
@@ -79,7 +85,7 @@ class SocialSignalRequest(BaseModel):
     stop_loss: Optional[float] = Field(None, description="Stop loss price")
     take_profit: Optional[float] = Field(None, description="Take profit price")
     tags: List[str] = Field(default=[], description="Signal tags")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -90,13 +96,14 @@ class SocialSignalRequest(BaseModel):
                 "target_price": 50000.0,
                 "stop_loss": 45000.0,
                 "take_profit": 55000.0,
-                "tags": ["technical_analysis", "bullish", "bitcoin"]
+                "tags": ["technical_analysis", "bullish", "bitcoin"],
             }
         }
 
 
 class SocialSignalResponse(BaseModel):
     """Response model for social signal"""
+
     signal_id: str = Field(..., description="Signal ID")
     trader_id: int = Field(..., description="Trader ID")
     market_id: int = Field(..., description="Market ID")
@@ -111,7 +118,7 @@ class SocialSignalResponse(BaseModel):
     followers_count: int = Field(..., description="Number of followers")
     success_rate: float = Field(..., description="Success rate")
     tags: List[str] = Field(..., description="Signal tags")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -128,31 +135,35 @@ class SocialSignalResponse(BaseModel):
                 "expires_at": "2024-01-16T10:30:00Z",
                 "followers_count": 45,
                 "success_rate": 0.75,
-                "tags": ["technical_analysis", "bullish", "bitcoin"]
+                "tags": ["technical_analysis", "bullish", "bitcoin"],
             }
         }
 
 
 class CopyTradeRequest(BaseModel):
     """Request model for creating a copy trade"""
+
     leader_id: int = Field(..., description="Leader trader ID")
     market_id: int = Field(..., description="Market ID")
     original_trade_id: str = Field(..., description="Original trade ID")
-    copy_percentage: float = Field(..., ge=1.0, le=100.0, description="Copy percentage (1-100)")
-    
+    copy_percentage: float = Field(
+        ..., ge=1.0, le=100.0, description="Copy percentage (1-100)"
+    )
+
     class Config:
         schema_extra = {
             "example": {
                 "leader_id": 1,
                 "market_id": 1,
                 "original_trade_id": "trade_123",
-                "copy_percentage": 50.0
+                "copy_percentage": 50.0,
             }
         }
 
 
 class CopyTradeResponse(BaseModel):
     """Response model for copy trade"""
+
     copy_trade_id: str = Field(..., description="Copy trade ID")
     follower_id: int = Field(..., description="Follower ID")
     leader_id: int = Field(..., description="Leader ID")
@@ -165,7 +176,7 @@ class CopyTradeResponse(BaseModel):
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
     profit_loss: Optional[float] = Field(None, description="Profit/loss")
     performance_ratio: float = Field(..., description="Performance ratio")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -180,13 +191,14 @@ class CopyTradeResponse(BaseModel):
                 "created_at": "2024-01-15T10:30:00Z",
                 "completed_at": None,
                 "profit_loss": None,
-                "performance_ratio": 1.0
+                "performance_ratio": 1.0,
             }
         }
 
 
 class LeaderboardResponse(BaseModel):
     """Response model for leaderboard entry"""
+
     user_id: int = Field(..., description="User ID")
     username: str = Field(..., description="Username")
     display_name: str = Field(..., description="Display name")
@@ -199,7 +211,7 @@ class LeaderboardResponse(BaseModel):
     performance_score: float = Field(..., description="Performance score")
     period: str = Field(..., description="Leaderboard period")
     last_updated: datetime = Field(..., description="Last updated timestamp")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -214,31 +226,35 @@ class LeaderboardResponse(BaseModel):
                 "followers_count": 1250,
                 "performance_score": 85.5,
                 "period": "weekly",
-                "last_updated": "2024-01-15T10:30:00Z"
+                "last_updated": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class CommunityPostRequest(BaseModel):
     """Request model for creating a community post"""
+
     content: str = Field(..., description="Post content")
-    post_type: str = Field(..., description="Post type (analysis, prediction, discussion, news)")
+    post_type: str = Field(
+        ..., description="Post type (analysis, prediction, discussion, news)"
+    )
     market_id: Optional[int] = Field(None, description="Related market ID")
     tags: List[str] = Field(default=[], description="Post tags")
-    
+
     class Config:
         schema_extra = {
             "example": {
                 "content": "Bitcoin showing strong support at $45k level. Expecting breakout above $50k resistance.",
                 "post_type": "analysis",
                 "market_id": 1,
-                "tags": ["bitcoin", "technical_analysis", "breakout"]
+                "tags": ["bitcoin", "technical_analysis", "breakout"],
             }
         }
 
 
 class CommunityPostResponse(BaseModel):
     """Response model for community post"""
+
     post_id: str = Field(..., description="Post ID")
     user_id: int = Field(..., description="User ID")
     username: str = Field(..., description="Username")
@@ -254,7 +270,7 @@ class CommunityPostResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     is_verified: bool = Field(..., description="Verification status")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -272,18 +288,19 @@ class CommunityPostResponse(BaseModel):
                 "shares_count": 3,
                 "created_at": "2024-01-15T10:30:00Z",
                 "updated_at": "2024-01-15T10:30:00Z",
-                "is_verified": True
+                "is_verified": True,
             }
         }
 
 
 class TraderFeedResponse(BaseModel):
     """Response model for trader feed"""
+
     user_id: int = Field(..., description="User ID")
     feed_items: List[Dict[str, Any]] = Field(..., description="Feed items")
     count: int = Field(..., description="Number of feed items")
     timestamp: datetime = Field(..., description="Feed timestamp")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -296,23 +313,24 @@ class TraderFeedResponse(BaseModel):
                             "trader_id": 1,
                             "market_id": 1,
                             "signal_type": "buy",
-                            "confidence": 0.85
+                            "confidence": 0.85,
                         },
-                        "timestamp": "2024-01-15T10:30:00Z"
+                        "timestamp": "2024-01-15T10:30:00Z",
                     }
                 ],
                 "count": 1,
-                "timestamp": "2024-01-15T10:30:00Z"
+                "timestamp": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class TraderAnalyticsResponse(BaseModel):
     """Response model for trader analytics"""
+
     user_id: int = Field(..., description="User ID")
     analytics: Dict[str, Any] = Field(..., description="Analytics data")
     timestamp: datetime = Field(..., description="Analytics timestamp")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -323,32 +341,33 @@ class TraderAnalyticsResponse(BaseModel):
                         "username": "crypto_trader_123",
                         "total_trades": 150,
                         "win_rate": 0.75,
-                        "total_profit": 2500.0
+                        "total_profit": 2500.0,
                     },
                     "performance": {
                         "daily_profit": 150.0,
                         "weekly_profit": 800.0,
-                        "monthly_profit": 2500.0
+                        "monthly_profit": 2500.0,
                     },
                     "social": {
                         "signals_created": 25,
                         "posts_created": 15,
-                        "copy_trades": 5
-                    }
+                        "copy_trades": 5,
+                    },
                 },
-                "timestamp": "2024-01-15T10:30:00Z"
+                "timestamp": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class SocialTradingHealthResponse(BaseModel):
     """Response model for social trading health check"""
+
     status: str = Field(..., description="Service status")
     service: str = Field(..., description="Service name")
     timestamp: datetime = Field(..., description="Health check timestamp")
     features: List[str] = Field(..., description="Available features")
     metrics: Dict[str, Any] = Field(..., description="Service metrics")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -363,20 +382,21 @@ class SocialTradingHealthResponse(BaseModel):
                     "community_posts",
                     "trader_analytics",
                     "personalized_feeds",
-                    "websocket_updates"
+                    "websocket_updates",
                 ],
                 "metrics": {
                     "active_traders": 1500,
                     "total_signals": 2500,
                     "active_copy_trades": 800,
-                    "community_posts": 1200
-                }
+                    "community_posts": 1200,
+                },
             }
         }
 
 
 class WebSocketSocialTradingMessage(BaseModel):
     """Base model for WebSocket social trading messages"""
+
     type: str = Field(..., description="Message type")
     timestamp: datetime = Field(..., description="Message timestamp")
     data: Optional[Dict[str, Any]] = Field(None, description="Message data")
@@ -384,32 +404,40 @@ class WebSocketSocialTradingMessage(BaseModel):
 
 class WebSocketTraderSubscription(BaseModel):
     """Request model for WebSocket trader subscription"""
+
     type: str = Field("subscribe_trader_updates", description="Message type")
     trader_id: int = Field(..., description="Trader ID to subscribe to")
 
 
 class WebSocketSignalSubscription(BaseModel):
     """Request model for WebSocket signal subscription"""
+
     type: str = Field("subscribe_signals", description="Message type")
 
 
 class WebSocketLeaderboardRequest(BaseModel):
     """Request model for WebSocket leaderboard updates"""
+
     type: str = Field("get_leaderboard_updates", description="Message type")
     period: str = Field(default="weekly", description="Leaderboard period")
 
 
 class SocialTradingStatsResponse(BaseModel):
     """Response model for social trading statistics"""
+
     total_traders: int = Field(..., description="Total number of traders")
     total_signals: int = Field(..., description="Total number of signals")
     total_copy_trades: int = Field(..., description="Total number of copy trades")
     total_posts: int = Field(..., description="Total number of community posts")
     active_signals: int = Field(..., description="Number of active signals")
     active_copy_trades: int = Field(..., description="Number of active copy trades")
-    top_performers: List[Dict[str, Any]] = Field(..., description="Top performing traders")
-    most_followed_traders: List[Dict[str, Any]] = Field(..., description="Most followed traders")
-    
+    top_performers: List[Dict[str, Any]] = Field(
+        ..., description="Top performing traders"
+    )
+    most_followed_traders: List[Dict[str, Any]] = Field(
+        ..., description="Most followed traders"
+    )
+
     class Config:
         schema_extra = {
             "example": {
@@ -423,59 +451,60 @@ class SocialTradingStatsResponse(BaseModel):
                     {
                         "user_id": 1,
                         "username": "crypto_trader_123",
-                        "performance_rating": 85.5
+                        "performance_rating": 85.5,
                     }
                 ],
                 "most_followed_traders": [
                     {
                         "user_id": 1,
                         "username": "crypto_trader_123",
-                        "followers_count": 1250
+                        "followers_count": 1250,
                     }
-                ]
+                ],
             }
         }
 
 
 class FollowRequest(BaseModel):
     """Request model for following a trader"""
+
     leader_id: int = Field(..., description="Leader trader ID")
-    
+
     class Config:
-        schema_extra = {
-            "example": {
-                "leader_id": 1
-            }
-        }
+        schema_extra = {"example": {"leader_id": 1}}
 
 
 class FollowResponse(BaseModel):
     """Response model for follow action"""
+
     message: str = Field(..., description="Response message")
     follower_id: int = Field(..., description="Follower ID")
     leader_id: int = Field(..., description="Leader ID")
     timestamp: datetime = Field(..., description="Action timestamp")
-    
+
     class Config:
         schema_extra = {
             "example": {
                 "message": "Successfully started following trader 1",
                 "follower_id": 2,
                 "leader_id": 1,
-                "timestamp": "2024-01-15T10:30:00Z"
+                "timestamp": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class SignalFilterRequest(BaseModel):
     """Request model for filtering signals"""
+
     trader_id: Optional[int] = Field(None, description="Filter by trader ID")
     market_id: Optional[int] = Field(None, description="Filter by market ID")
     signal_type: Optional[str] = Field(None, description="Filter by signal type")
-    min_confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Minimum confidence")
+    min_confidence: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Minimum confidence"
+    )
     tags: Optional[List[str]] = Field(None, description="Filter by tags")
     limit: int = Field(default=20, description="Number of signals to return")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -484,20 +513,23 @@ class SignalFilterRequest(BaseModel):
                 "signal_type": "buy",
                 "min_confidence": 0.7,
                 "tags": ["bitcoin", "technical_analysis"],
-                "limit": 20
+                "limit": 20,
             }
         }
 
 
 class CopyTradeFilterRequest(BaseModel):
     """Request model for filtering copy trades"""
+
     follower_id: Optional[int] = Field(None, description="Filter by follower ID")
     leader_id: Optional[int] = Field(None, description="Filter by leader ID")
     market_id: Optional[int] = Field(None, description="Filter by market ID")
     status: Optional[str] = Field(None, description="Filter by status")
-    min_copy_percentage: Optional[float] = Field(None, ge=1.0, le=100.0, description="Minimum copy percentage")
+    min_copy_percentage: Optional[float] = Field(
+        None, ge=1.0, le=100.0, description="Minimum copy percentage"
+    )
     limit: int = Field(default=20, description="Number of copy trades to return")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -506,6 +538,6 @@ class CopyTradeFilterRequest(BaseModel):
                 "market_id": 1,
                 "status": "active",
                 "min_copy_percentage": 25.0,
-                "limit": 20
+                "limit": 20,
             }
         }

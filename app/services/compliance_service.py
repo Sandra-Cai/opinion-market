@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class ComplianceStatus(Enum):
     """Compliance status"""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -34,6 +35,7 @@ class ComplianceStatus(Enum):
 
 class RiskLevel(Enum):
     """Risk levels"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -42,6 +44,7 @@ class RiskLevel(Enum):
 
 class DocumentType(Enum):
     """Document types"""
+
     PASSPORT = "passport"
     DRIVERS_LICENSE = "drivers_license"
     NATIONAL_ID = "national_id"
@@ -55,6 +58,7 @@ class DocumentType(Enum):
 @dataclass
 class ComplianceProfile:
     """User compliance profile"""
+
     profile_id: str
     user_id: int
     compliance_status: ComplianceStatus
@@ -73,6 +77,7 @@ class ComplianceProfile:
 @dataclass
 class DocumentVerification:
     """Document verification record"""
+
     verification_id: str
     user_id: int
     document_type: DocumentType
@@ -91,6 +96,7 @@ class DocumentVerification:
 @dataclass
 class ComplianceRule:
     """Compliance rule definition"""
+
     rule_id: str
     rule_name: str
     rule_type: str  # 'kyc', 'aml', 'trading', 'reporting'
@@ -106,6 +112,7 @@ class ComplianceRule:
 @dataclass
 class ComplianceAlert:
     """Compliance alert"""
+
     alert_id: str
     user_id: int
     rule_id: str
@@ -123,6 +130,7 @@ class ComplianceAlert:
 @dataclass
 class RegulatoryReport:
     """Regulatory report"""
+
     report_id: str
     report_type: str  # 'suspicious_activity', 'large_transaction', 'periodic'
     user_id: int
@@ -138,6 +146,7 @@ class RegulatoryReport:
 @dataclass
 class ComplianceAudit:
     """Compliance audit record"""
+
     audit_id: str
     audit_type: str  # 'user_review', 'system_audit', 'regulatory_audit'
     target_id: str
@@ -153,7 +162,7 @@ class ComplianceAudit:
 
 class ComplianceService:
     """Comprehensive compliance and regulatory service"""
-    
+
     def __init__(self, redis_client: redis.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
@@ -163,35 +172,37 @@ class ComplianceService:
         self.compliance_alerts: Dict[str, ComplianceAlert] = {}
         self.regulatory_reports: Dict[str, RegulatoryReport] = {}
         self.compliance_audits: Dict[str, ComplianceAudit] = {}
-        
+
         # Compliance data
         self.risk_scores: Dict[int, float] = {}
-        self.compliance_history: Dict[int, deque] = defaultdict(lambda: deque(maxlen=1000))
+        self.compliance_history: Dict[int, deque] = defaultdict(
+            lambda: deque(maxlen=1000)
+        )
         self.alert_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
-        
+
         # Monitoring
         self.active_monitors: Dict[str, asyncio.Task] = {}
         self.compliance_metrics: Dict[str, Dict[str, Any]] = {}
-        
+
     async def initialize(self):
         """Initialize the compliance service"""
         logger.info("Initializing Compliance Service")
-        
+
         # Load existing data
         await self._load_compliance_profiles()
         await self._load_compliance_rules()
         await self._load_document_verifications()
-        
+
         # Initialize default rules
         await self._initialize_default_rules()
-        
+
         # Start background tasks
         asyncio.create_task(self._monitor_compliance())
         asyncio.create_task(self._update_risk_scores())
         asyncio.create_task(self._generate_regulatory_reports())
-        
+
         logger.info("Compliance Service initialized successfully")
-    
+
     async def create_compliance_profile(self, user_id: int) -> ComplianceProfile:
         """Create a new compliance profile"""
         try:
@@ -208,27 +219,34 @@ class ComplianceService:
                 next_review=datetime.utcnow() + timedelta(days=30),
                 compliance_notes=["Profile created"],
                 created_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
+                last_updated=datetime.utcnow(),
             )
-            
+
             self.compliance_profiles[user_id] = profile
             await self._cache_compliance_profile(profile)
-            
+
             logger.info(f"Created compliance profile for user {user_id}")
             return profile
-            
+
         except Exception as e:
             logger.error(f"Error creating compliance profile: {e}")
             raise
-    
-    async def verify_document(self, user_id: int, document_type: DocumentType,
-                             document_number: str, document_url: str,
-                             expiry_date: Optional[datetime] = None) -> DocumentVerification:
+
+    async def verify_document(
+        self,
+        user_id: int,
+        document_type: DocumentType,
+        document_number: str,
+        document_url: str,
+        expiry_date: Optional[datetime] = None,
+    ) -> DocumentVerification:
         """Verify a user document"""
         try:
             # Generate document hash
-            document_hash = hashlib.sha256(f"{user_id}_{document_number}_{document_type.value}".encode()).hexdigest()
-            
+            document_hash = hashlib.sha256(
+                f"{user_id}_{document_number}_{document_type.value}".encode()
+            ).hexdigest()
+
             verification = DocumentVerification(
                 verification_id=f"verification_{user_id}_{document_type.value}_{uuid.uuid4().hex[:8]}",
                 user_id=user_id,
@@ -242,79 +260,87 @@ class ComplianceService:
                 document_url=document_url,
                 expiry_date=expiry_date,
                 created_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
+                last_updated=datetime.utcnow(),
             )
-            
+
             self.document_verifications[verification.verification_id] = verification
             await self._cache_document_verification(verification)
-            
+
             # Start automated verification
             asyncio.create_task(self._automated_document_verification(verification))
-            
+
             logger.info(f"Started document verification for user {user_id}")
             return verification
-            
+
         except Exception as e:
             logger.error(f"Error starting document verification: {e}")
             raise
-    
-    async def approve_document(self, verification_id: str, verified_by: str,
-                              notes: Optional[str] = None) -> bool:
+
+    async def approve_document(
+        self, verification_id: str, verified_by: str, notes: Optional[str] = None
+    ) -> bool:
         """Approve a document verification"""
         try:
             if verification_id not in self.document_verifications:
                 raise ValueError(f"Verification {verification_id} not found")
-            
+
             verification = self.document_verifications[verification_id]
             verification.verification_status = ComplianceStatus.APPROVED
             verification.verification_date = datetime.utcnow()
             verification.verified_by = verified_by
-            
+
             if notes:
                 verification.verification_notes.append(notes)
-            
+
             verification.last_updated = datetime.utcnow()
             await self._cache_document_verification(verification)
-            
+
             # Update user compliance profile
             await self._update_user_compliance_status(verification.user_id)
-            
+
             logger.info(f"Approved document verification {verification_id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error approving document: {e}")
             raise
-    
-    async def reject_document(self, verification_id: str, rejected_by: str,
-                             reason: str) -> bool:
+
+    async def reject_document(
+        self, verification_id: str, rejected_by: str, reason: str
+    ) -> bool:
         """Reject a document verification"""
         try:
             if verification_id not in self.document_verifications:
                 raise ValueError(f"Verification {verification_id} not found")
-            
+
             verification = self.document_verifications[verification_id]
             verification.verification_status = ComplianceStatus.REJECTED
             verification.verification_date = datetime.utcnow()
             verification.verified_by = rejected_by
             verification.verification_notes.append(f"Rejected: {reason}")
-            
+
             verification.last_updated = datetime.utcnow()
             await self._cache_document_verification(verification)
-            
+
             # Update user compliance status
             await self._update_user_compliance_status(verification.user_id)
-            
+
             logger.info(f"Rejected document verification {verification_id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error rejecting document: {e}")
             raise
-    
-    async def create_compliance_rule(self, rule_name: str, rule_type: str,
-                                    description: str, conditions: Dict[str, Any],
-                                    actions: List[str], risk_score: int) -> ComplianceRule:
+
+    async def create_compliance_rule(
+        self,
+        rule_name: str,
+        rule_type: str,
+        description: str,
+        conditions: Dict[str, Any],
+        actions: List[str],
+        risk_score: int,
+    ) -> ComplianceRule:
         """Create a new compliance rule"""
         try:
             rule = ComplianceRule(
@@ -327,53 +353,60 @@ class ComplianceService:
                 risk_score=risk_score,
                 is_active=True,
                 created_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
+                last_updated=datetime.utcnow(),
             )
-            
+
             self.compliance_rules[rule.rule_id] = rule
             await self._cache_compliance_rule(rule)
-            
+
             logger.info(f"Created compliance rule {rule_name}")
             return rule
-            
+
         except Exception as e:
             logger.error(f"Error creating compliance rule: {e}")
             raise
-    
-    async def check_compliance(self, user_id: int, activity_type: str,
-                              activity_data: Dict[str, Any]) -> List[ComplianceAlert]:
+
+    async def check_compliance(
+        self, user_id: int, activity_type: str, activity_data: Dict[str, Any]
+    ) -> List[ComplianceAlert]:
         """Check compliance for user activity"""
         try:
             alerts = []
-            
+
             # Get user compliance profile
             profile = self.compliance_profiles.get(user_id)
             if not profile:
                 profile = await self.create_compliance_profile(user_id)
-            
+
             # Check all applicable rules
             for rule in self.compliance_rules.values():
                 if not rule.is_active:
                     continue
-                
-                if rule.rule_type in ['general', activity_type]:
+
+                if rule.rule_type in ["general", activity_type]:
                     if await self._evaluate_rule(rule, user_id, activity_data):
-                        alert = await self._create_compliance_alert(user_id, rule, activity_data)
+                        alert = await self._create_compliance_alert(
+                            user_id, rule, activity_data
+                        )
                         alerts.append(alert)
-            
+
             # Update risk score
             await self._update_user_risk_score(user_id, alerts)
-            
+
             logger.info(f"Completed compliance check for user {user_id}")
             return alerts
-            
+
         except Exception as e:
             logger.error(f"Error checking compliance: {e}")
             raise
-    
-    async def generate_regulatory_report(self, report_type: str, user_id: int,
-                                       report_data: Dict[str, Any],
-                                       regulatory_body: str) -> RegulatoryReport:
+
+    async def generate_regulatory_report(
+        self,
+        report_type: str,
+        user_id: int,
+        report_data: Dict[str, Any],
+        regulatory_body: str,
+    ) -> RegulatoryReport:
         """Generate a regulatory report"""
         try:
             report = RegulatoryReport(
@@ -383,57 +416,59 @@ class ComplianceService:
                 report_data=report_data,
                 submission_date=datetime.utcnow(),
                 regulatory_body=regulatory_body,
-                report_status='draft',
+                report_status="draft",
                 acknowledgment_reference=None,
                 created_at=datetime.utcnow(),
-                last_updated=datetime.utcnow()
+                last_updated=datetime.utcnow(),
             )
-            
+
             self.regulatory_reports[report.report_id] = report
             await self._cache_regulatory_report(report)
-            
+
             # Submit report to regulatory body
             asyncio.create_task(self._submit_regulatory_report(report))
-            
+
             logger.info(f"Generated regulatory report {report.report_id}")
             return report
-            
+
         except Exception as e:
             logger.error(f"Error generating regulatory report: {e}")
             raise
-    
+
     async def get_compliance_profile(self, user_id: int) -> ComplianceProfile:
         """Get user compliance profile"""
         try:
             profile = self.compliance_profiles.get(user_id)
-            
+
             if not profile:
                 profile = await self.create_compliance_profile(user_id)
-            
+
             return profile
-            
+
         except Exception as e:
             logger.error(f"Error getting compliance profile: {e}")
             raise
-    
+
     async def get_user_risk_score(self, user_id: int) -> float:
         """Get user risk score"""
         try:
             return self.risk_scores.get(user_id, 50.0)  # Default medium risk
-            
+
         except Exception as e:
             logger.error(f"Error getting user risk score: {e}")
             return 50.0
-    
-    async def _automated_document_verification(self, verification: DocumentVerification):
+
+    async def _automated_document_verification(
+        self, verification: DocumentVerification
+    ):
         """Perform automated document verification"""
         try:
             # Simulate automated verification process
             await asyncio.sleep(5)  # Simulate processing time
-            
+
             # Basic validation checks
             is_valid = await self._validate_document(verification)
-            
+
             if is_valid:
                 verification.verification_status = ComplianceStatus.APPROVED
                 verification.verification_date = datetime.utcnow()
@@ -444,79 +479,86 @@ class ComplianceService:
                 verification.verification_date = datetime.utcnow()
                 verification.verified_by = "automated_system"
                 verification.verification_notes.append("Automated verification failed")
-            
+
             verification.last_updated = datetime.utcnow()
             await self._cache_document_verification(verification)
-            
+
             # Update user compliance status
             await self._update_user_compliance_status(verification.user_id)
-            
-            logger.info(f"Completed automated verification for {verification.verification_id}")
-            
+
+            logger.info(
+                f"Completed automated verification for {verification.verification_id}"
+            )
+
         except Exception as e:
             logger.error(f"Error in automated verification: {e}")
-    
+
     async def _validate_document(self, verification: DocumentVerification) -> bool:
         """Validate document authenticity"""
         try:
             # Simulate document validation
             # In practice, this would use OCR, AI, and other validation techniques
-            
+
             # Check document number format
             if verification.document_type == DocumentType.PASSPORT:
                 # Basic passport number validation
-                if not re.match(r'^[A-Z0-9]{6,9}$', verification.document_number):
+                if not re.match(r"^[A-Z0-9]{6,9}$", verification.document_number):
                     return False
-            
+
             # Check expiry date
-            if verification.expiry_date and verification.expiry_date < datetime.utcnow():
+            if (
+                verification.expiry_date
+                and verification.expiry_date < datetime.utcnow()
+            ):
                 return False
-            
+
             # Simulate validation success (90% success rate)
             return np.random.random() > 0.1
-            
+
         except Exception as e:
             logger.error(f"Error validating document: {e}")
             return False
-    
-    async def _evaluate_rule(self, rule: ComplianceRule, user_id: int,
-                            activity_data: Dict[str, Any]) -> bool:
+
+    async def _evaluate_rule(
+        self, rule: ComplianceRule, user_id: int, activity_data: Dict[str, Any]
+    ) -> bool:
         """Evaluate if a compliance rule is triggered"""
         try:
             conditions = rule.conditions
-            
+
             # Check user risk level
-            if 'max_risk_level' in conditions:
+            if "max_risk_level" in conditions:
                 profile = self.compliance_profiles.get(user_id)
-                if profile and profile.risk_level.value > conditions['max_risk_level']:
+                if profile and profile.risk_level.value > conditions["max_risk_level"]:
                     return True
-            
+
             # Check transaction amount
-            if 'max_transaction_amount' in conditions:
-                amount = activity_data.get('amount', 0)
-                if amount > conditions['max_transaction_amount']:
+            if "max_transaction_amount" in conditions:
+                amount = activity_data.get("amount", 0)
+                if amount > conditions["max_transaction_amount"]:
                     return True
-            
+
             # Check frequency
-            if 'max_frequency' in conditions:
-                frequency = activity_data.get('frequency', 0)
-                if frequency > conditions['max_frequency']:
+            if "max_frequency" in conditions:
+                frequency = activity_data.get("frequency", 0)
+                if frequency > conditions["max_frequency"]:
                     return True
-            
+
             # Check geographic restrictions
-            if 'restricted_countries' in conditions:
-                country = activity_data.get('country', '')
-                if country in conditions['restricted_countries']:
+            if "restricted_countries" in conditions:
+                country = activity_data.get("country", "")
+                if country in conditions["restricted_countries"]:
                     return True
-            
+
             return False
-            
+
         except Exception as e:
             logger.error(f"Error evaluating rule: {e}")
             return False
-    
-    async def _create_compliance_alert(self, user_id: int, rule: ComplianceRule,
-                                      activity_data: Dict[str, Any]) -> ComplianceAlert:
+
+    async def _create_compliance_alert(
+        self, user_id: int, rule: ComplianceRule, activity_data: Dict[str, Any]
+    ) -> ComplianceAlert:
         """Create a compliance alert"""
         try:
             alert = ComplianceAlert(
@@ -527,43 +569,53 @@ class ComplianceService:
                 severity=RiskLevel.HIGH if rule.risk_score > 7 else RiskLevel.MEDIUM,
                 description=f"Rule '{rule.rule_name}' triggered",
                 triggered_data=activity_data,
-                status='open',
+                status="open",
                 assigned_to=None,
                 created_at=datetime.utcnow(),
                 resolved_at=None,
-                last_updated=datetime.utcnow()
+                last_updated=datetime.utcnow(),
             )
-            
+
             self.compliance_alerts[alert.alert_id] = alert
             await self._cache_compliance_alert(alert)
-            
+
             # Store alert history
-            self.alert_history[user_id].append({
-                'timestamp': datetime.utcnow().isoformat(),
-                'alert_type': alert.alert_type,
-                'severity': alert.severity.value,
-                'description': alert.description
-            })
-            
+            self.alert_history[user_id].append(
+                {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "alert_type": alert.alert_type,
+                    "severity": alert.severity.value,
+                    "description": alert.description,
+                }
+            )
+
             return alert
-            
+
         except Exception as e:
             logger.error(f"Error creating compliance alert: {e}")
             raise
-    
+
     async def _update_user_compliance_status(self, user_id: int):
         """Update user compliance status based on verifications"""
         try:
             profile = self.compliance_profiles.get(user_id)
             if not profile:
                 return
-            
+
             # Get user verifications
-            user_verifications = [v for v in self.document_verifications.values() if v.user_id == user_id]
-            
+            user_verifications = [
+                v for v in self.document_verifications.values() if v.user_id == user_id
+            ]
+
             # Count approved verifications
-            approved_count = len([v for v in user_verifications if v.verification_status == ComplianceStatus.APPROVED])
-            
+            approved_count = len(
+                [
+                    v
+                    for v in user_verifications
+                    if v.verification_status == ComplianceStatus.APPROVED
+                ]
+            )
+
             # Update verification level
             if approved_count >= 3:
                 profile.verification_level = 3
@@ -577,26 +629,34 @@ class ComplianceService:
             else:
                 profile.verification_level = 0
                 profile.kyc_status = ComplianceStatus.PENDING
-            
+
             # Update overall compliance status
-            if profile.kyc_status == ComplianceStatus.APPROVED and profile.aml_status == ComplianceStatus.APPROVED:
+            if (
+                profile.kyc_status == ComplianceStatus.APPROVED
+                and profile.aml_status == ComplianceStatus.APPROVED
+            ):
                 profile.compliance_status = ComplianceStatus.APPROVED
-            elif profile.kyc_status == ComplianceStatus.REJECTED or profile.aml_status == ComplianceStatus.REJECTED:
+            elif (
+                profile.kyc_status == ComplianceStatus.REJECTED
+                or profile.aml_status == ComplianceStatus.REJECTED
+            ):
                 profile.compliance_status = ComplianceStatus.REJECTED
             else:
                 profile.compliance_status = ComplianceStatus.UNDER_REVIEW
-            
+
             profile.last_updated = datetime.utcnow()
             await self._cache_compliance_profile(profile)
-            
+
         except Exception as e:
             logger.error(f"Error updating user compliance status: {e}")
-    
-    async def _update_user_risk_score(self, user_id: int, alerts: List[ComplianceAlert]):
+
+    async def _update_user_risk_score(
+        self, user_id: int, alerts: List[ComplianceAlert]
+    ):
         """Update user risk score based on compliance alerts"""
         try:
             base_score = 50.0
-            
+
             # Adjust based on alert severity
             for alert in alerts:
                 if alert.severity == RiskLevel.CRITICAL:
@@ -607,7 +667,7 @@ class ComplianceService:
                     base_score += 10
                 elif alert.severity == RiskLevel.LOW:
                     base_score += 5
-            
+
             # Get profile risk level
             profile = self.compliance_profiles.get(user_id)
             if profile:
@@ -617,12 +677,12 @@ class ComplianceService:
                     base_score += 15
                 elif profile.risk_level == RiskLevel.MEDIUM:
                     base_score += 10
-            
+
             # Cap risk score at 100
             final_score = min(100.0, max(0.0, base_score))
-            
+
             self.risk_scores[user_id] = final_score
-            
+
             # Update profile risk level
             if profile:
                 if final_score >= 80:
@@ -633,31 +693,31 @@ class ComplianceService:
                     profile.risk_level = RiskLevel.MEDIUM
                 else:
                     profile.risk_level = RiskLevel.LOW
-                
+
                 profile.last_updated = datetime.utcnow()
                 await self._cache_compliance_profile(profile)
-            
+
         except Exception as e:
             logger.error(f"Error updating user risk score: {e}")
-    
+
     async def _submit_regulatory_report(self, report: RegulatoryReport):
         """Submit report to regulatory body"""
         try:
             # Simulate regulatory submission
             await asyncio.sleep(2)
-            
+
             # Update report status
-            report.report_status = 'submitted'
+            report.report_status = "submitted"
             report.acknowledgment_reference = f"REF_{uuid.uuid4().hex[:8].upper()}"
             report.last_updated = datetime.utcnow()
-            
+
             await self._cache_regulatory_report(report)
-            
+
             logger.info(f"Submitted regulatory report {report.report_id}")
-            
+
         except Exception as e:
             logger.error(f"Error submitting regulatory report: {e}")
-    
+
     async def _initialize_default_rules(self):
         """Initialize default compliance rules"""
         try:
@@ -668,9 +728,9 @@ class ComplianceService:
                 "Users must verify identity documents",
                 {"min_verification_level": 2},
                 ["require_document_verification"],
-                5
+                5,
             )
-            
+
             # AML rules
             await self.create_compliance_rule(
                 "Large Transaction Monitoring",
@@ -678,9 +738,9 @@ class ComplianceService:
                 "Monitor large transactions for suspicious activity",
                 {"max_transaction_amount": 10000},
                 ["flag_for_review", "generate_report"],
-                8
+                8,
             )
-            
+
             # Trading rules
             await self.create_compliance_rule(
                 "High-Frequency Trading Check",
@@ -688,9 +748,9 @@ class ComplianceService:
                 "Monitor for excessive trading activity",
                 {"max_frequency": 100},
                 ["flag_for_review", "limit_trading"],
-                6
+                6,
             )
-            
+
             # Geographic rules
             await self.create_compliance_rule(
                 "Restricted Country Check",
@@ -698,12 +758,12 @@ class ComplianceService:
                 "Block transactions from restricted countries",
                 {"restricted_countries": ["CU", "IR", "KP", "SD", "SY"]},
                 ["block_transaction", "generate_report"],
-                9
+                9,
             )
-            
+
         except Exception as e:
             logger.error(f"Error initializing default rules: {e}")
-    
+
     # Background tasks
     async def _monitor_compliance(self):
         """Monitor compliance across all users"""
@@ -715,13 +775,13 @@ class ComplianceService:
                         # Periodic compliance checks
                         if datetime.utcnow() > profile.next_review:
                             await self._perform_compliance_review(user_id)
-                
+
                 await asyncio.sleep(3600)  # Check every hour
-                
+
             except Exception as e:
                 logger.error(f"Error in compliance monitoring: {e}")
                 await asyncio.sleep(7200)
-    
+
     async def _update_risk_scores(self):
         """Update risk scores for all users"""
         while True:
@@ -733,13 +793,13 @@ class ComplianceService:
                     change = np.random.normal(0, 2)  # Small random change
                     new_score = max(0, min(100, current_score + change))
                     self.risk_scores[user_id] = new_score
-                
+
                 await asyncio.sleep(1800)  # Update every 30 minutes
-                
+
             except Exception as e:
                 logger.error(f"Error updating risk scores: {e}")
                 await asyncio.sleep(3600)
-    
+
     async def _generate_regulatory_reports(self):
         """Generate periodic regulatory reports"""
         while True:
@@ -750,76 +810,73 @@ class ComplianceService:
                         # Check if periodic report is due
                         if datetime.utcnow() > profile.next_review:
                             await self._generate_periodic_report(user_id)
-                
+
                 await asyncio.sleep(86400)  # Check daily
-                
+
             except Exception as e:
                 logger.error(f"Error generating regulatory reports: {e}")
                 await asyncio.sleep(172800)
-    
+
     async def _perform_compliance_review(self, user_id: int):
         """Perform periodic compliance review"""
         try:
             profile = self.compliance_profiles[user_id]
-            
+
             # Simulate compliance review
             review_score = np.random.uniform(0.7, 1.0)
-            
+
             if review_score > 0.9:
                 profile.compliance_status = ComplianceStatus.APPROVED
             elif review_score > 0.7:
                 profile.compliance_status = ComplianceStatus.UNDER_REVIEW
             else:
                 profile.compliance_status = ComplianceStatus.SUSPENDED
-            
+
             profile.last_review = datetime.utcnow()
             profile.next_review = datetime.utcnow() + timedelta(days=30)
             profile.last_updated = datetime.utcnow()
-            
+
             await self._cache_compliance_profile(profile)
-            
+
             logger.info(f"Completed compliance review for user {user_id}")
-            
+
         except Exception as e:
             logger.error(f"Error performing compliance review: {e}")
-    
+
     async def _generate_periodic_report(self, user_id: int):
         """Generate periodic regulatory report"""
         try:
             profile = self.compliance_profiles[user_id]
-            
+
             report_data = {
-                'user_id': user_id,
-                'compliance_status': profile.compliance_status.value,
-                'risk_level': profile.risk_level.value,
-                'verification_level': profile.verification_level,
-                'last_review': profile.last_review.isoformat(),
-                'risk_score': self.risk_scores.get(user_id, 50.0)
+                "user_id": user_id,
+                "compliance_status": profile.compliance_status.value,
+                "risk_level": profile.risk_level.value,
+                "verification_level": profile.verification_level,
+                "last_review": profile.last_review.isoformat(),
+                "risk_score": self.risk_scores.get(user_id, 50.0),
             }
-            
+
             await self.generate_regulatory_report(
-                'periodic',
-                user_id,
-                report_data,
-                'SEC'  # Example regulatory body
+                "periodic", user_id, report_data, "SEC"  # Example regulatory body
             )
-            
+
         except Exception as e:
             logger.error(f"Error generating periodic report: {e}")
-    
+
     # Helper methods
     async def _load_compliance_profiles(self):
         """Load compliance profiles from database"""
         pass
-    
+
     async def _load_compliance_rules(self):
         """Load compliance rules from database"""
         pass
-    
+
     async def _load_document_verifications(self):
         """Load document verifications from database"""
         pass
-    
+
     # Caching methods
     async def _cache_compliance_profile(self, profile: ComplianceProfile):
         """Cache compliance profile"""
@@ -828,23 +885,25 @@ class ComplianceService:
             await self.redis.setex(
                 cache_key,
                 7200,  # 2 hours TTL
-                json.dumps({
-                    'compliance_status': profile.compliance_status.value,
-                    'risk_level': profile.risk_level.value,
-                    'kyc_status': profile.kyc_status.value,
-                    'aml_status': profile.aml_status.value,
-                    'verification_level': profile.verification_level,
-                    'documents_verified': profile.documents_verified,
-                    'last_review': profile.last_review.isoformat(),
-                    'next_review': profile.next_review.isoformat(),
-                    'compliance_notes': profile.compliance_notes,
-                    'created_at': profile.created_at.isoformat(),
-                    'last_updated': profile.last_updated.isoformat()
-                })
+                json.dumps(
+                    {
+                        "compliance_status": profile.compliance_status.value,
+                        "risk_level": profile.risk_level.value,
+                        "kyc_status": profile.kyc_status.value,
+                        "aml_status": profile.aml_status.value,
+                        "verification_level": profile.verification_level,
+                        "documents_verified": profile.documents_verified,
+                        "last_review": profile.last_review.isoformat(),
+                        "next_review": profile.next_review.isoformat(),
+                        "compliance_notes": profile.compliance_notes,
+                        "created_at": profile.created_at.isoformat(),
+                        "last_updated": profile.last_updated.isoformat(),
+                    }
+                ),
             )
         except Exception as e:
             logger.error(f"Error caching compliance profile: {e}")
-    
+
     async def _cache_document_verification(self, verification: DocumentVerification):
         """Cache document verification"""
         try:
@@ -852,23 +911,33 @@ class ComplianceService:
             await self.redis.setex(
                 cache_key,
                 7200,  # 2 hours TTL
-                json.dumps({
-                    'user_id': verification.user_id,
-                    'document_type': verification.document_type.value,
-                    'document_number': verification.document_number,
-                    'verification_status': verification.verification_status.value,
-                    'verification_date': verification.verification_date.isoformat() if verification.verification_date else None,
-                    'verified_by': verification.verified_by,
-                    'verification_notes': verification.verification_notes,
-                    'document_url': verification.document_url,
-                    'expiry_date': verification.expiry_date.isoformat() if verification.expiry_date else None,
-                    'created_at': verification.created_at.isoformat(),
-                    'last_updated': verification.last_updated.isoformat()
-                })
+                json.dumps(
+                    {
+                        "user_id": verification.user_id,
+                        "document_type": verification.document_type.value,
+                        "document_number": verification.document_number,
+                        "verification_status": verification.verification_status.value,
+                        "verification_date": (
+                            verification.verification_date.isoformat()
+                            if verification.verification_date
+                            else None
+                        ),
+                        "verified_by": verification.verified_by,
+                        "verification_notes": verification.verification_notes,
+                        "document_url": verification.document_url,
+                        "expiry_date": (
+                            verification.expiry_date.isoformat()
+                            if verification.expiry_date
+                            else None
+                        ),
+                        "created_at": verification.created_at.isoformat(),
+                        "last_updated": verification.last_updated.isoformat(),
+                    }
+                ),
             )
         except Exception as e:
             logger.error(f"Error caching document verification: {e}")
-    
+
     async def _cache_compliance_rule(self, rule: ComplianceRule):
         """Cache compliance rule"""
         try:
@@ -876,21 +945,23 @@ class ComplianceService:
             await self.redis.setex(
                 cache_key,
                 7200,  # 2 hours TTL
-                json.dumps({
-                    'rule_name': rule.rule_name,
-                    'rule_type': rule.rule_type,
-                    'description': rule.description,
-                    'conditions': rule.conditions,
-                    'actions': rule.actions,
-                    'risk_score': rule.risk_score,
-                    'is_active': rule.is_active,
-                    'created_at': rule.created_at.isoformat(),
-                    'last_updated': rule.last_updated.isoformat()
-                })
+                json.dumps(
+                    {
+                        "rule_name": rule.rule_name,
+                        "rule_type": rule.rule_type,
+                        "description": rule.description,
+                        "conditions": rule.conditions,
+                        "actions": rule.actions,
+                        "risk_score": rule.risk_score,
+                        "is_active": rule.is_active,
+                        "created_at": rule.created_at.isoformat(),
+                        "last_updated": rule.last_updated.isoformat(),
+                    }
+                ),
             )
         except Exception as e:
             logger.error(f"Error caching compliance rule: {e}")
-    
+
     async def _cache_compliance_alert(self, alert: ComplianceAlert):
         """Cache compliance alert"""
         try:
@@ -898,23 +969,27 @@ class ComplianceService:
             await self.redis.setex(
                 cache_key,
                 3600,  # 1 hour TTL
-                json.dumps({
-                    'user_id': alert.user_id,
-                    'rule_id': alert.rule_id,
-                    'alert_type': alert.alert_type,
-                    'severity': alert.severity.value,
-                    'description': alert.description,
-                    'triggered_data': alert.triggered_data,
-                    'status': alert.status,
-                    'assigned_to': alert.assigned_to,
-                    'created_at': alert.created_at.isoformat(),
-                    'resolved_at': alert.resolved_at.isoformat() if alert.resolved_at else None,
-                    'last_updated': alert.last_updated.isoformat()
-                })
+                json.dumps(
+                    {
+                        "user_id": alert.user_id,
+                        "rule_id": alert.rule_id,
+                        "alert_type": alert.alert_type,
+                        "severity": alert.severity.value,
+                        "description": alert.description,
+                        "triggered_data": alert.triggered_data,
+                        "status": alert.status,
+                        "assigned_to": alert.assigned_to,
+                        "created_at": alert.created_at.isoformat(),
+                        "resolved_at": (
+                            alert.resolved_at.isoformat() if alert.resolved_at else None
+                        ),
+                        "last_updated": alert.last_updated.isoformat(),
+                    }
+                ),
             )
         except Exception as e:
             logger.error(f"Error caching compliance alert: {e}")
-    
+
     async def _cache_regulatory_report(self, report: RegulatoryReport):
         """Cache regulatory report"""
         try:
@@ -922,24 +997,28 @@ class ComplianceService:
             await self.redis.setex(
                 cache_key,
                 7200,  # 2 hours TTL
-                json.dumps({
-                    'report_type': report.report_type,
-                    'user_id': report.user_id,
-                    'report_data': report.report_data,
-                    'submission_date': report.submission_date.isoformat(),
-                    'regulatory_body': report.regulatory_body,
-                    'report_status': report.report_status,
-                    'acknowledgment_reference': report.acknowledgment_reference,
-                    'created_at': report.created_at.isoformat(),
-                    'last_updated': report.last_updated.isoformat()
-                })
+                json.dumps(
+                    {
+                        "report_type": report.report_type,
+                        "user_id": report.user_id,
+                        "report_data": report.report_data,
+                        "submission_date": report.submission_date.isoformat(),
+                        "regulatory_body": report.regulatory_body,
+                        "report_status": report.report_status,
+                        "acknowledgment_reference": report.acknowledgment_reference,
+                        "created_at": report.created_at.isoformat(),
+                        "last_updated": report.last_updated.isoformat(),
+                    }
+                ),
             )
         except Exception as e:
             logger.error(f"Error caching regulatory report: {e}")
 
 
 # Factory function
-async def get_compliance_service(redis_client: redis.Redis, db_session: Session) -> ComplianceService:
+async def get_compliance_service(
+    redis_client: redis.Redis, db_session: Session
+) -> ComplianceService:
     """Get compliance service instance"""
     service = ComplianceService(redis_client, db_session)
     await service.initialize()

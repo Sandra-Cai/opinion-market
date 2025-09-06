@@ -9,13 +9,18 @@ from datetime import datetime
 
 class TradingStrategyRequest(BaseModel):
     """Request model for creating a trading strategy"""
+
     strategy_name: str = Field(..., description="Strategy name")
-    strategy_type: str = Field(..., description="Strategy type (momentum, mean_reversion, arbitrage, ml_based)")
+    strategy_type: str = Field(
+        ..., description="Strategy type (momentum, mean_reversion, arbitrage, ml_based)"
+    )
     parameters: Dict[str, Any] = Field(default={}, description="Strategy parameters")
     indicators: List[str] = Field(default=[], description="Technical indicators to use")
     timeframes: List[str] = Field(default=[], description="Trading timeframes")
     markets: List[int] = Field(default=[], description="Target markets")
-    risk_management: Dict[str, Any] = Field(default={}, description="Risk management rules")
+    risk_management: Dict[str, Any] = Field(
+        default={}, description="Risk management rules"
+    )
 
     class Config:
         schema_extra = {
@@ -25,7 +30,7 @@ class TradingStrategyRequest(BaseModel):
                 "parameters": {
                     "rsi_period": 14,
                     "sma_period": 20,
-                    "volume_threshold": 1.5
+                    "volume_threshold": 1.5,
                 },
                 "indicators": ["rsi", "sma", "volume_sma"],
                 "timeframes": ["1h", "4h", "1d"],
@@ -33,14 +38,15 @@ class TradingStrategyRequest(BaseModel):
                 "risk_management": {
                     "max_position_size": 0.1,
                     "stop_loss": 0.05,
-                    "take_profit": 0.15
-                }
+                    "take_profit": 0.15,
+                },
             }
         }
 
 
 class TradingStrategyResponse(BaseModel):
     """Response model for trading strategy"""
+
     strategy_id: str = Field(..., description="Strategy ID")
     strategy_name: str = Field(..., description="Strategy name")
     strategy_type: str = Field(..., description="Strategy type")
@@ -49,7 +55,9 @@ class TradingStrategyResponse(BaseModel):
     timeframes: List[str] = Field(..., description="Trading timeframes")
     markets: List[int] = Field(..., description="Target markets")
     risk_management: Dict[str, Any] = Field(..., description="Risk management rules")
-    performance_metrics: Dict[str, float] = Field(..., description="Performance metrics")
+    performance_metrics: Dict[str, float] = Field(
+        ..., description="Performance metrics"
+    )
     is_active: bool = Field(..., description="Active status")
     created_at: datetime = Field(..., description="Creation timestamp")
     last_updated: datetime = Field(..., description="Last update timestamp")
@@ -63,7 +71,7 @@ class TradingStrategyResponse(BaseModel):
                 "parameters": {
                     "rsi_period": 14,
                     "sma_period": 20,
-                    "volume_threshold": 1.5
+                    "volume_threshold": 1.5,
                 },
                 "indicators": ["rsi", "sma", "volume_sma"],
                 "timeframes": ["1h", "4h", "1d"],
@@ -71,24 +79,25 @@ class TradingStrategyResponse(BaseModel):
                 "risk_management": {
                     "max_position_size": 0.1,
                     "stop_loss": 0.05,
-                    "take_profit": 0.15
+                    "take_profit": 0.15,
                 },
                 "performance_metrics": {
                     "total_return": 0.25,
                     "sharpe_ratio": 1.5,
                     "max_drawdown": 0.08,
                     "win_rate": 0.65,
-                    "profit_factor": 1.8
+                    "profit_factor": 1.8,
                 },
                 "is_active": True,
                 "created_at": "2024-01-15T10:30:00Z",
-                "last_updated": "2024-01-15T10:30:00Z"
+                "last_updated": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class SignalResponse(BaseModel):
     """Response model for trading signal"""
+
     signal_id: str = Field(..., description="Signal ID")
     strategy_id: str = Field(..., description="Strategy ID")
     market_id: int = Field(..., description="Market ID")
@@ -116,19 +125,16 @@ class SignalResponse(BaseModel):
                 "stop_loss": 45000.0,
                 "take_profit": 55000.0,
                 "reasoning": "Strong momentum with price above moving averages",
-                "indicators": {
-                    "rsi": 65.5,
-                    "sma_20": 48000.0,
-                    "volume_sma": 1250000.0
-                },
+                "indicators": {"rsi": 65.5, "sma_20": 48000.0, "volume_sma": 1250000.0},
                 "created_at": "2024-01-15T10:30:00Z",
-                "expires_at": "2024-01-16T10:30:00Z"
+                "expires_at": "2024-01-16T10:30:00Z",
             }
         }
 
 
 class BacktestRequest(BaseModel):
     """Request model for running backtest"""
+
     start_date: datetime = Field(..., description="Backtest start date")
     end_date: datetime = Field(..., description="Backtest end date")
     initial_capital: float = Field(default=100000.0, description="Initial capital")
@@ -138,13 +144,14 @@ class BacktestRequest(BaseModel):
             "example": {
                 "start_date": "2023-01-01T00:00:00Z",
                 "end_date": "2023-12-31T23:59:59Z",
-                "initial_capital": 100000.0
+                "initial_capital": 100000.0,
             }
         }
 
 
 class BacktestResponse(BaseModel):
     """Response model for backtest result"""
+
     backtest_id: str = Field(..., description="Backtest ID")
     strategy_id: str = Field(..., description="Strategy ID")
     start_date: datetime = Field(..., description="Start date")
@@ -193,7 +200,7 @@ class BacktestResponse(BaseModel):
                         "signal_type": "buy",
                         "price": 48000.0,
                         "quantity": 2,
-                        "pnl": 2500.0
+                        "pnl": 2500.0,
                     }
                 ],
                 "equity_curve": [
@@ -201,20 +208,28 @@ class BacktestResponse(BaseModel):
                         "date": "2023-01-01T00:00:00Z",
                         "equity": 100000.0,
                         "capital": 100000.0,
-                        "positions": 0
+                        "positions": 0,
                     }
                 ],
-                "created_at": "2024-01-15T10:30:00Z"
+                "created_at": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class PortfolioOptimizationRequest(BaseModel):
     """Request model for portfolio optimization"""
-    optimization_type: str = Field(..., description="Optimization type (sharpe, min_variance, max_return, black_litterman)")
+
+    optimization_type: str = Field(
+        ...,
+        description="Optimization type (sharpe, min_variance, max_return, black_litterman)",
+    )
     target_return: Optional[float] = Field(None, description="Target return")
-    risk_tolerance: float = Field(default=0.5, ge=0.0, le=1.0, description="Risk tolerance")
-    constraints: Optional[Dict[str, Any]] = Field(None, description="Optimization constraints")
+    risk_tolerance: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Risk tolerance"
+    )
+    constraints: Optional[Dict[str, Any]] = Field(
+        None, description="Optimization constraints"
+    )
 
     class Config:
         schema_extra = {
@@ -222,16 +237,14 @@ class PortfolioOptimizationRequest(BaseModel):
                 "optimization_type": "sharpe",
                 "target_return": 0.15,
                 "risk_tolerance": 0.5,
-                "constraints": {
-                    "max_weight": 0.3,
-                    "min_weight": 0.05
-                }
+                "constraints": {"max_weight": 0.3, "min_weight": 0.05},
             }
         }
 
 
 class PortfolioOptimizationResponse(BaseModel):
     """Response model for portfolio optimization"""
+
     optimization_id: str = Field(..., description="Optimization ID")
     user_id: int = Field(..., description="User ID")
     optimization_type: str = Field(..., description="Optimization type")
@@ -242,7 +255,9 @@ class PortfolioOptimizationResponse(BaseModel):
     expected_return: float = Field(..., description="Expected return")
     expected_volatility: float = Field(..., description="Expected volatility")
     sharpe_ratio: float = Field(..., description="Sharpe ratio")
-    efficient_frontier: List[Dict[str, float]] = Field(..., description="Efficient frontier points")
+    efficient_frontier: List[Dict[str, float]] = Field(
+        ..., description="Efficient frontier points"
+    )
     created_at: datetime = Field(..., description="Creation timestamp")
 
     class Config:
@@ -253,32 +268,24 @@ class PortfolioOptimizationResponse(BaseModel):
                 "optimization_type": "sharpe",
                 "target_return": 0.15,
                 "risk_tolerance": 0.5,
-                "constraints": {
-                    "max_weight": 0.3,
-                    "min_weight": 0.05
-                },
-                "optimal_weights": {
-                    1: 0.25,
-                    2: 0.30,
-                    3: 0.20,
-                    4: 0.15,
-                    5: 0.10
-                },
+                "constraints": {"max_weight": 0.3, "min_weight": 0.05},
+                "optimal_weights": {1: 0.25, 2: 0.30, 3: 0.20, 4: 0.15, 5: 0.10},
                 "expected_return": 0.15,
                 "expected_volatility": 0.12,
                 "sharpe_ratio": 1.25,
                 "efficient_frontier": [
                     {"return": 0.10, "volatility": 0.08, "sharpe": 1.25},
                     {"return": 0.15, "volatility": 0.12, "sharpe": 1.25},
-                    {"return": 0.20, "volatility": 0.18, "sharpe": 1.11}
+                    {"return": 0.20, "volatility": 0.18, "sharpe": 1.11},
                 ],
-                "created_at": "2024-01-15T10:30:00Z"
+                "created_at": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class TechnicalIndicatorsResponse(BaseModel):
     """Response model for technical indicators"""
+
     market_id: int = Field(..., description="Market ID")
     indicators: Dict[str, Optional[float]] = Field(..., description="Indicator values")
     calculated_at: datetime = Field(..., description="Calculation timestamp")
@@ -296,21 +303,26 @@ class TechnicalIndicatorsResponse(BaseModel):
                     "bb_upper": 52000.0,
                     "bb_middle": 48000.0,
                     "bb_lower": 44000.0,
-                    "atr": 2000.0
+                    "atr": 2000.0,
                 },
-                "calculated_at": "2024-01-15T10:30:00Z"
+                "calculated_at": "2024-01-15T10:30:00Z",
             }
         }
 
 
 class StrategyUpdateRequest(BaseModel):
     """Request model for updating strategy"""
+
     strategy_name: Optional[str] = Field(None, description="Strategy name")
-    parameters: Optional[Dict[str, Any]] = Field(None, description="Strategy parameters")
+    parameters: Optional[Dict[str, Any]] = Field(
+        None, description="Strategy parameters"
+    )
     indicators: Optional[List[str]] = Field(None, description="Technical indicators")
     timeframes: Optional[List[str]] = Field(None, description="Trading timeframes")
     markets: Optional[List[int]] = Field(None, description="Target markets")
-    risk_management: Optional[Dict[str, Any]] = Field(None, description="Risk management rules")
+    risk_management: Optional[Dict[str, Any]] = Field(
+        None, description="Risk management rules"
+    )
     is_active: Optional[bool] = Field(None, description="Active status")
 
     class Config:
@@ -320,20 +332,25 @@ class StrategyUpdateRequest(BaseModel):
                 "parameters": {
                     "rsi_period": 21,
                     "sma_period": 50,
-                    "volume_threshold": 2.0
+                    "volume_threshold": 2.0,
                 },
-                "is_active": True
+                "is_active": True,
             }
         }
 
 
 class SignalFilterRequest(BaseModel):
     """Request model for filtering signals"""
+
     strategy_id: Optional[str] = Field(None, description="Filter by strategy ID")
     market_id: Optional[int] = Field(None, description="Filter by market ID")
     signal_type: Optional[str] = Field(None, description="Filter by signal type")
-    min_strength: Optional[float] = Field(None, ge=0.0, le=1.0, description="Minimum signal strength")
-    min_confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Minimum confidence")
+    min_strength: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Minimum signal strength"
+    )
+    min_confidence: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Minimum confidence"
+    )
     limit: int = Field(default=20, description="Number of signals to return")
 
     class Config:
@@ -343,13 +360,14 @@ class SignalFilterRequest(BaseModel):
                 "signal_type": "buy",
                 "min_strength": 0.7,
                 "min_confidence": 0.6,
-                "limit": 20
+                "limit": 20,
             }
         }
 
 
 class BacktestFilterRequest(BaseModel):
     """Request model for filtering backtest results"""
+
     strategy_id: Optional[str] = Field(None, description="Filter by strategy ID")
     min_return: Optional[float] = Field(None, description="Minimum total return")
     min_sharpe: Optional[float] = Field(None, description="Minimum Sharpe ratio")
@@ -365,13 +383,14 @@ class BacktestFilterRequest(BaseModel):
                 "min_return": 0.1,
                 "min_sharpe": 1.0,
                 "max_drawdown": 0.15,
-                "limit": 20
+                "limit": 20,
             }
         }
 
 
 class WebSocketQuantitativeTradingMessage(BaseModel):
     """Base model for WebSocket quantitative trading messages"""
+
     type: str = Field(..., description="Message type")
     timestamp: datetime = Field(..., description="Message timestamp")
     data: Optional[Dict[str, Any]] = Field(None, description="Message data")
@@ -379,23 +398,27 @@ class WebSocketQuantitativeTradingMessage(BaseModel):
 
 class WebSocketStrategySubscription(BaseModel):
     """Request model for WebSocket strategy subscription"""
+
     type: str = Field("subscribe_strategy_updates", description="Message type")
     strategy_id: str = Field(..., description="Strategy ID to subscribe to")
 
 
 class WebSocketSignalSubscription(BaseModel):
     """Request model for WebSocket signal subscription"""
+
     type: str = Field("subscribe_signals", description="Message type")
 
 
 class WebSocketBacktestRequest(BaseModel):
     """Request model for WebSocket backtest updates"""
+
     type: str = Field("get_backtest_updates", description="Message type")
     strategy_id: str = Field(..., description="Strategy ID")
 
 
 class QuantitativeTradingHealthResponse(BaseModel):
     """Response model for quantitative trading health check"""
+
     status: str = Field(..., description="Service status")
     service: str = Field(..., description="Service name")
     timestamp: datetime = Field(..., description="Health check timestamp")
@@ -414,27 +437,30 @@ class QuantitativeTradingHealthResponse(BaseModel):
                     "backtesting",
                     "portfolio_optimization",
                     "technical_indicators",
-                    "real_time_updates"
+                    "real_time_updates",
                 ],
                 "metrics": {
                     "active_strategies": 15,
                     "total_signals": 250,
                     "completed_backtests": 50,
-                    "portfolio_optimizations": 25
-                }
+                    "portfolio_optimizations": 25,
+                },
             }
         }
 
 
 class QuantitativeTradingStatsResponse(BaseModel):
     """Response model for quantitative trading statistics"""
+
     total_strategies: int = Field(..., description="Total number of strategies")
     active_strategies: int = Field(..., description="Number of active strategies")
     total_signals: int = Field(..., description="Total number of signals")
     total_backtests: int = Field(..., description="Total number of backtests")
     total_optimizations: int = Field(..., description="Total number of optimizations")
     active_signals: int = Field(..., description="Number of active signals")
-    top_performing_strategies: List[Dict[str, Any]] = Field(..., description="Top performing strategies")
+    top_performing_strategies: List[Dict[str, Any]] = Field(
+        ..., description="Top performing strategies"
+    )
     recent_signals: List[Dict[str, Any]] = Field(..., description="Recent signals")
 
     class Config:
@@ -451,7 +477,7 @@ class QuantitativeTradingStatsResponse(BaseModel):
                         "strategy_id": "strategy_momentum_20240115_103000",
                         "strategy_name": "Momentum Breakout Strategy",
                         "total_return": 0.25,
-                        "sharpe_ratio": 1.5
+                        "sharpe_ratio": 1.5,
                     }
                 ],
                 "recent_signals": [
@@ -461,8 +487,8 @@ class QuantitativeTradingStatsResponse(BaseModel):
                         "market_id": 1,
                         "signal_type": "buy",
                         "strength": 0.8,
-                        "confidence": 0.75
+                        "confidence": 0.75,
                     }
-                ]
+                ],
             }
         }

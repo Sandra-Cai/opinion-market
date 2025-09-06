@@ -3,21 +3,26 @@ from typing import Optional, List
 from datetime import datetime
 from app.models.dispute import DisputeStatus, DisputeType
 
+
 class DisputeBase(BaseModel):
     dispute_type: DisputeType
     reason: str = Field(..., min_length=10, max_length=1000)
     evidence: Optional[str] = None
 
+
 class DisputeCreate(DisputeBase):
     market_id: int
+
 
 class DisputeUpdate(BaseModel):
     status: Optional[DisputeStatus] = None
     resolution_notes: Optional[str] = None
 
+
 class DisputeVoteCreate(BaseModel):
     vote_for_dispute: bool
     reason: Optional[str] = None
+
 
 class DisputeVoteResponse(BaseModel):
     id: int
@@ -26,9 +31,10 @@ class DisputeVoteResponse(BaseModel):
     vote_for_dispute: bool
     reason: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class DisputeResponse(DisputeBase):
     id: int
@@ -47,9 +53,10 @@ class DisputeResponse(DisputeBase):
     is_resolved: bool
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class DisputeListResponse(BaseModel):
     disputes: List[DisputeResponse]

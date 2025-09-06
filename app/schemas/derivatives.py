@@ -11,6 +11,7 @@ from enum import Enum
 
 class DerivativeType(str, Enum):
     """Derivative types"""
+
     OPTION = "option"
     FUTURE = "future"
     FORWARD = "forward"
@@ -22,12 +23,14 @@ class DerivativeType(str, Enum):
 
 class OptionType(str, Enum):
     """Option types"""
+
     CALL = "call"
     PUT = "put"
 
 
 class ExerciseStyle(str, Enum):
     """Exercise styles"""
+
     AMERICAN = "american"
     EUROPEAN = "european"
     BERMUDAN = "bermudan"
@@ -35,6 +38,7 @@ class ExerciseStyle(str, Enum):
 
 class SwapType(str, Enum):
     """Swap types"""
+
     INTEREST_RATE = "interest_rate"
     CURRENCY = "currency"
     COMMODITY = "commodity"
@@ -45,6 +49,7 @@ class SwapType(str, Enum):
 
 class RiskType(str, Enum):
     """Risk types"""
+
     MARKET = "market"
     CREDIT = "credit"
     LIQUIDITY = "liquidity"
@@ -61,6 +66,7 @@ class RiskType(str, Enum):
 
 class StressTestType(str, Enum):
     """Stress test types"""
+
     HISTORICAL = "historical"
     MONTE_CARLO = "monte_carlo"
     SCENARIO = "scenario"
@@ -70,39 +76,49 @@ class StressTestType(str, Enum):
 # Derivative Schemas
 class DerivativeCreate(BaseModel):
     """Create derivative request"""
+
     symbol: str = Field(..., description="Derivative symbol")
     derivative_type: DerivativeType = Field(..., description="Type of derivative")
     underlying_asset: str = Field(..., description="Underlying asset symbol")
-    strike_price: Optional[float] = Field(None, description="Strike price (for options)")
+    strike_price: Optional[float] = Field(
+        None, description="Strike price (for options)"
+    )
     expiration_date: Optional[datetime] = Field(None, description="Expiration date")
-    option_type: Optional[OptionType] = Field(None, description="Option type (call/put)")
+    option_type: Optional[OptionType] = Field(
+        None, description="Option type (call/put)"
+    )
     exercise_style: Optional[ExerciseStyle] = Field(None, description="Exercise style")
     contract_size: float = Field(1.0, description="Contract size")
     multiplier: float = Field(1.0, description="Price multiplier")
     currency: str = Field("USD", description="Currency")
     exchange: str = Field("CBOE", description="Exchange")
 
-    @validator('strike_price')
+    @validator("strike_price")
     def validate_strike_price(cls, v, values):
-        if values.get('derivative_type') == DerivativeType.OPTION and v is None:
-            raise ValueError('Strike price is required for options')
+        if values.get("derivative_type") == DerivativeType.OPTION and v is None:
+            raise ValueError("Strike price is required for options")
         return v
 
-    @validator('expiration_date')
+    @validator("expiration_date")
     def validate_expiration_date(cls, v, values):
-        if values.get('derivative_type') in [DerivativeType.OPTION, DerivativeType.FUTURE] and v is None:
-            raise ValueError('Expiration date is required for options and futures')
+        if (
+            values.get("derivative_type")
+            in [DerivativeType.OPTION, DerivativeType.FUTURE]
+            and v is None
+        ):
+            raise ValueError("Expiration date is required for options and futures")
         return v
 
-    @validator('option_type')
+    @validator("option_type")
     def validate_option_type(cls, v, values):
-        if values.get('derivative_type') == DerivativeType.OPTION and v is None:
-            raise ValueError('Option type is required for options')
+        if values.get("derivative_type") == DerivativeType.OPTION and v is None:
+            raise ValueError("Option type is required for options")
         return v
 
 
 class DerivativeResponse(BaseModel):
     """Derivative response"""
+
     derivative_id: str = Field(..., description="Derivative ID")
     symbol: str = Field(..., description="Derivative symbol")
     derivative_type: str = Field(..., description="Type of derivative")
@@ -123,14 +139,18 @@ class DerivativeResponse(BaseModel):
 # Pricing Schemas
 class OptionPriceRequest(BaseModel):
     """Option price calculation request"""
+
     underlying_price: float = Field(..., description="Current underlying price", gt=0)
     risk_free_rate: float = Field(0.05, description="Risk-free rate", ge=0, le=1)
     dividend_yield: float = Field(0.0, description="Dividend yield", ge=0, le=1)
-    volatility: Optional[float] = Field(None, description="Implied volatility", gt=0, le=5)
+    volatility: Optional[float] = Field(
+        None, description="Implied volatility", gt=0, le=5
+    )
 
 
 class GreeksResponse(BaseModel):
     """Option Greeks response"""
+
     delta: float = Field(..., description="Delta")
     gamma: float = Field(..., description="Gamma")
     theta: float = Field(..., description="Theta")
@@ -143,6 +163,7 @@ class GreeksResponse(BaseModel):
 
 class OptionPriceResponse(BaseModel):
     """Option price calculation response"""
+
     derivative_id: str = Field(..., description="Derivative ID")
     theoretical_price: float = Field(..., description="Theoretical price")
     greeks: Optional[GreeksResponse] = Field(None, description="Option Greeks")
@@ -158,6 +179,7 @@ class OptionPriceResponse(BaseModel):
 
 class DerivativePriceResponse(BaseModel):
     """Derivative price response"""
+
     derivative_id: str = Field(..., description="Derivative ID")
     timestamp: datetime = Field(..., description="Price timestamp")
     bid_price: float = Field(..., description="Bid price")
@@ -174,11 +196,14 @@ class DerivativePriceResponse(BaseModel):
 
 class VolatilitySurfaceResponse(BaseModel):
     """Volatility surface response"""
+
     underlying_asset: str = Field(..., description="Underlying asset")
     timestamp: datetime = Field(..., description="Surface timestamp")
     strikes: List[float] = Field(..., description="Strike prices")
     expirations: List[str] = Field(..., description="Expiration dates")
-    implied_volatilities: List[List[float]] = Field(..., description="Implied volatilities matrix")
+    implied_volatilities: List[List[float]] = Field(
+        ..., description="Implied volatilities matrix"
+    )
     risk_free_rate: float = Field(..., description="Risk-free rate")
     dividend_yield: float = Field(..., description="Dividend yield")
 
@@ -186,6 +211,7 @@ class VolatilitySurfaceResponse(BaseModel):
 # Position Schemas
 class DerivativePositionCreate(BaseModel):
     """Create derivative position request"""
+
     user_id: int = Field(..., description="User ID", gt=0)
     derivative_id: str = Field(..., description="Derivative ID")
     quantity: float = Field(..., description="Position quantity", ne=0)
@@ -194,6 +220,7 @@ class DerivativePositionCreate(BaseModel):
 
 class DerivativePositionResponse(BaseModel):
     """Derivative position response"""
+
     position_id: str = Field(..., description="Position ID")
     user_id: int = Field(..., description="User ID")
     derivative_id: str = Field(..., description="Derivative ID")
@@ -214,30 +241,36 @@ class DerivativePositionResponse(BaseModel):
 # Order Schemas
 class DerivativeOrderCreate(BaseModel):
     """Create derivative order request"""
+
     user_id: int = Field(..., description="User ID", gt=0)
     derivative_id: str = Field(..., description="Derivative ID")
-    order_type: str = Field(..., description="Order type", regex="^(market|limit|stop|stop_limit)$")
+    order_type: str = Field(
+        ..., description="Order type", regex="^(market|limit|stop|stop_limit)$"
+    )
     side: str = Field(..., description="Order side", regex="^(buy|sell)$")
     quantity: float = Field(..., description="Order quantity", gt=0)
     price: Optional[float] = Field(None, description="Limit price", gt=0)
     stop_price: Optional[float] = Field(None, description="Stop price", gt=0)
-    time_in_force: str = Field("GTC", description="Time in force", regex="^(GTC|IOC|FOK|DAY)$")
+    time_in_force: str = Field(
+        "GTC", description="Time in force", regex="^(GTC|IOC|FOK|DAY)$"
+    )
 
-    @validator('price')
+    @validator("price")
     def validate_price(cls, v, values):
-        if values.get('order_type') in ['limit', 'stop_limit'] and v is None:
-            raise ValueError('Price is required for limit and stop-limit orders')
+        if values.get("order_type") in ["limit", "stop_limit"] and v is None:
+            raise ValueError("Price is required for limit and stop-limit orders")
         return v
 
-    @validator('stop_price')
+    @validator("stop_price")
     def validate_stop_price(cls, v, values):
-        if values.get('order_type') == 'stop_limit' and v is None:
-            raise ValueError('Stop price is required for stop-limit orders')
+        if values.get("order_type") == "stop_limit" and v is None:
+            raise ValueError("Stop price is required for stop-limit orders")
         return v
 
 
 class DerivativeOrderResponse(BaseModel):
     """Derivative order response"""
+
     order_id: str = Field(..., description="Order ID")
     user_id: int = Field(..., description="User ID")
     derivative_id: str = Field(..., description="Derivative ID")
@@ -258,16 +291,22 @@ class DerivativeOrderResponse(BaseModel):
 # Risk Management Schemas
 class RiskLimitCreate(BaseModel):
     """Create risk limit request"""
+
     user_id: int = Field(..., description="User ID", gt=0)
     risk_type: str = Field(..., description="Risk type")
     limit_name: str = Field(..., description="Limit name")
     limit_value: float = Field(..., description="Limit value", gt=0)
-    limit_type: str = Field("absolute", description="Limit type", regex="^(absolute|percentage|var)$")
-    time_horizon: str = Field("daily", description="Time horizon", regex="^(intraday|daily|weekly|monthly)$")
+    limit_type: str = Field(
+        "absolute", description="Limit type", regex="^(absolute|percentage|var)$"
+    )
+    time_horizon: str = Field(
+        "daily", description="Time horizon", regex="^(intraday|daily|weekly|monthly)$"
+    )
 
 
 class RiskLimitResponse(BaseModel):
     """Risk limit response"""
+
     limit_id: str = Field(..., description="Limit ID")
     user_id: int = Field(..., description="User ID")
     risk_type: str = Field(..., description="Risk type")
@@ -285,6 +324,7 @@ class RiskLimitResponse(BaseModel):
 
 class RiskMetricResponse(BaseModel):
     """Risk metric response"""
+
     metric_id: str = Field(..., description="Metric ID")
     user_id: int = Field(..., description="User ID")
     risk_type: str = Field(..., description="Risk type")
@@ -300,6 +340,7 @@ class RiskMetricResponse(BaseModel):
 
 class StressTestRequest(BaseModel):
     """Stress test request"""
+
     test_type: str = Field(..., description="Test type")
     test_name: str = Field(..., description="Test name")
     scenarios: List[Dict[str, Any]] = Field(..., description="Stress scenarios")
@@ -307,6 +348,7 @@ class StressTestRequest(BaseModel):
 
 class StressTestResponse(BaseModel):
     """Stress test response"""
+
     test_id: str = Field(..., description="Test ID")
     user_id: int = Field(..., description="User ID")
     test_type: str = Field(..., description="Test type")
@@ -323,6 +365,7 @@ class StressTestResponse(BaseModel):
 
 class RiskReportResponse(BaseModel):
     """Risk report response"""
+
     report_id: str = Field(..., description="Report ID")
     user_id: int = Field(..., description="User ID")
     report_type: str = Field(..., description="Report type")
@@ -337,6 +380,7 @@ class RiskReportResponse(BaseModel):
 
 class PortfolioRiskResponse(BaseModel):
     """Portfolio risk response"""
+
     user_id: int = Field(..., description="User ID")
     timestamp: datetime = Field(..., description="Timestamp")
     total_exposure: float = Field(..., description="Total exposure")
@@ -358,15 +402,19 @@ class PortfolioRiskResponse(BaseModel):
 # Analytics Schemas
 class DerivativesSummaryResponse(BaseModel):
     """Derivatives summary response"""
+
     total_derivatives: int = Field(..., description="Total derivatives")
     active_derivatives: int = Field(..., description="Active derivatives")
     type_distribution: Dict[str, int] = Field(..., description="Type distribution")
-    underlying_distribution: Dict[str, int] = Field(..., description="Underlying distribution")
+    underlying_distribution: Dict[str, int] = Field(
+        ..., description="Underlying distribution"
+    )
     timestamp: datetime = Field(..., description="Timestamp")
 
 
 class RiskSummaryResponse(BaseModel):
     """Risk summary response"""
+
     total_users: int = Field(..., description="Total users")
     total_risk_limits: int = Field(..., description="Total risk limits")
     active_risk_limits: int = Field(..., description="Active risk limits")
@@ -377,6 +425,7 @@ class RiskSummaryResponse(BaseModel):
 # WebSocket Schemas
 class WebSocketMessage(BaseModel):
     """WebSocket message"""
+
     type: str = Field(..., description="Message type")
     data: Dict[str, Any] = Field(..., description="Message data")
     timestamp: str = Field(..., description="Timestamp")
@@ -384,6 +433,7 @@ class WebSocketMessage(BaseModel):
 
 class PortfolioGreeksUpdate(BaseModel):
     """Portfolio Greeks update"""
+
     user_id: int = Field(..., description="User ID")
     portfolio_greeks: Dict[str, float] = Field(..., description="Portfolio Greeks")
     timestamp: datetime = Field(..., description="Timestamp")
@@ -391,6 +441,7 @@ class PortfolioGreeksUpdate(BaseModel):
 
 class PriceUpdate(BaseModel):
     """Price update"""
+
     derivative_id: str = Field(..., description="Derivative ID")
     price_data: DerivativePriceResponse = Field(..., description="Price data")
     timestamp: datetime = Field(..., description="Timestamp")
@@ -398,6 +449,7 @@ class PriceUpdate(BaseModel):
 
 class RiskAlert(BaseModel):
     """Risk alert"""
+
     user_id: int = Field(..., description="User ID")
     alert_type: str = Field(..., description="Alert type")
     message: str = Field(..., description="Alert message")
@@ -408,6 +460,7 @@ class RiskAlert(BaseModel):
 # Error Schemas
 class ErrorResponse(BaseModel):
     """Error response"""
+
     error: str = Field(..., description="Error message")
     detail: Optional[str] = Field(None, description="Error detail")
     timestamp: datetime = Field(..., description="Timestamp")
@@ -415,5 +468,6 @@ class ErrorResponse(BaseModel):
 
 class ValidationErrorResponse(BaseModel):
     """Validation error response"""
+
     errors: List[Dict[str, Any]] = Field(..., description="Validation errors")
     timestamp: datetime = Field(..., description="Timestamp")

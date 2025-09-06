@@ -9,17 +9,37 @@ from datetime import datetime
 import logging
 
 from app.services.order_management_system import (
-    OrderManagementSystem, Order, OrderFill, ExecutionReport, OrderBook, MarketData,
-    OrderType, OrderSide, OrderStatus, TimeInForce, OrderRoute
+    OrderManagementSystem,
+    Order,
+    OrderFill,
+    ExecutionReport,
+    OrderBook,
+    MarketData,
+    OrderType,
+    OrderSide,
+    OrderStatus,
+    TimeInForce,
+    OrderRoute,
 )
 from app.services.execution_management_system import (
-    ExecutionManagementSystem, ExecutionOrder, ExecutionSlice, ExecutionMetrics,
-    ExecutionAlgorithm, ExecutionStrategy
+    ExecutionManagementSystem,
+    ExecutionOrder,
+    ExecutionSlice,
+    ExecutionMetrics,
+    ExecutionAlgorithm,
+    ExecutionStrategy,
 )
 from app.schemas.order_management import (
-    OrderCreate, OrderResponse, OrderModify, OrderCancel,
-    ExecutionCreate, ExecutionResponse, ExecutionMetricsResponse,
-    OrderBookResponse, MarketDataResponse, ExecutionReportResponse
+    OrderCreate,
+    OrderResponse,
+    OrderModify,
+    OrderCancel,
+    ExecutionCreate,
+    ExecutionResponse,
+    ExecutionMetricsResponse,
+    OrderBookResponse,
+    MarketDataResponse,
+    ExecutionReportResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,10 +50,12 @@ router = APIRouter()
 websocket_connections: Dict[str, Any] = {}
 
 
-@router.post("/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/orders", response_model=OrderResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_order(
     order_data: OrderCreate,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    oms: OrderManagementSystem = Depends(get_order_management_system),
 ):
     """Create a new order"""
     try:
@@ -49,9 +71,9 @@ async def create_order(
             time_in_force=TimeInForce(order_data.time_in_force),
             client_order_id=order_data.client_order_id,
             algo_type=order_data.algo_type,
-            algo_parameters=order_data.algo_parameters
+            algo_parameters=order_data.algo_parameters,
         )
-        
+
         return OrderResponse(
             order_id=order.order_id,
             user_id=order.user_id,
@@ -68,14 +90,14 @@ async def create_order(
             remaining_quantity=order.remaining_quantity,
             average_price=order.average_price,
             created_at=order.created_at,
-            last_updated=order.last_updated
+            last_updated=order.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating order: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create order: {str(e)}"
+            detail=f"Failed to create order: {str(e)}",
         )
 
 
@@ -83,18 +105,17 @@ async def create_order(
 async def get_order(
     order_id: str,
     user_id: int,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    oms: OrderManagementSystem = Depends(get_order_management_system),
 ):
     """Get order details"""
     try:
         order = await oms.get_order(order_id, user_id)
-        
+
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
-        
+
         return OrderResponse(
             order_id=order.order_id,
             user_id=order.user_id,
@@ -111,16 +132,16 @@ async def get_order(
             remaining_quantity=order.remaining_quantity,
             average_price=order.average_price,
             created_at=order.created_at,
-            last_updated=order.last_updated
+            last_updated=order.last_updated,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting order: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get order: {str(e)}"
+            detail=f"Failed to get order: {str(e)}",
         )
 
 
@@ -131,20 +152,20 @@ async def get_orders(
     symbol: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 100,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    oms: OrderManagementSystem = Depends(get_order_management_system),
 ):
     """Get orders for a user"""
     try:
         order_status = OrderStatus(status) if status else None
-        
+
         orders = await oms.get_orders(
             user_id=user_id,
             account_id=account_id,
             symbol=symbol,
             status=order_status,
-            limit=limit
+            limit=limit,
         )
-        
+
         return [
             OrderResponse(
                 order_id=order.order_id,
@@ -162,16 +183,16 @@ async def get_orders(
                 remaining_quantity=order.remaining_quantity,
                 average_price=order.average_price,
                 created_at=order.created_at,
-                last_updated=order.last_updated
+                last_updated=order.last_updated,
             )
             for order in orders
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting orders: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get orders: {str(e)}"
+            detail=f"Failed to get orders: {str(e)}",
         )
 
 
@@ -179,7 +200,7 @@ async def get_orders(
 async def modify_order(
     order_id: str,
     modify_data: OrderModify,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    oms: OrderManagementSystem = Depends(get_order_management_system),
 ):
     """Modify an existing order"""
     try:
@@ -187,18 +208,17 @@ async def modify_order(
             order_id=order_id,
             user_id=modify_data.user_id,
             new_quantity=modify_data.new_quantity,
-            new_price=modify_data.new_price
+            new_price=modify_data.new_price,
         )
-        
+
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to modify order"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to modify order"
             )
-        
+
         # Get updated order
         order = await oms.get_order(order_id, modify_data.user_id)
-        
+
         return OrderResponse(
             order_id=order.order_id,
             user_id=order.user_id,
@@ -215,16 +235,16 @@ async def modify_order(
             remaining_quantity=order.remaining_quantity,
             average_price=order.average_price,
             created_at=order.created_at,
-            last_updated=order.last_updated
+            last_updated=order.last_updated,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error modifying order: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to modify order: {str(e)}"
+            detail=f"Failed to modify order: {str(e)}",
         )
 
 
@@ -232,27 +252,26 @@ async def modify_order(
 async def cancel_order(
     order_id: str,
     cancel_data: OrderCancel,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    oms: OrderManagementSystem = Depends(get_order_management_system),
 ):
     """Cancel an order"""
     try:
         success = await oms.cancel_order(order_id, cancel_data.user_id)
-        
+
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to cancel order"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to cancel order"
             )
-        
+
         return {"message": "Order cancelled successfully", "order_id": order_id}
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error cancelling order: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to cancel order: {str(e)}"
+            detail=f"Failed to cancel order: {str(e)}",
         )
 
 
@@ -260,12 +279,12 @@ async def cancel_order(
 async def get_order_fills(
     order_id: str,
     user_id: int,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    oms: OrderManagementSystem = Depends(get_order_management_system),
 ):
     """Get fills for an order"""
     try:
         fills = await oms.get_order_fills(order_id, user_id)
-        
+
         return [
             {
                 "fill_id": fill.fill_id,
@@ -278,29 +297,31 @@ async def get_order_fills(
                 "commission": fill.commission,
                 "venue": fill.venue,
                 "fill_time": fill.fill_time,
-                "created_at": fill.created_at
+                "created_at": fill.created_at,
             }
             for fill in fills
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting order fills: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get order fills: {str(e)}"
+            detail=f"Failed to get order fills: {str(e)}",
         )
 
 
-@router.get("/orders/{order_id}/execution-reports", response_model=List[ExecutionReportResponse])
+@router.get(
+    "/orders/{order_id}/execution-reports", response_model=List[ExecutionReportResponse]
+)
 async def get_execution_reports(
     order_id: str,
     user_id: int,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    oms: OrderManagementSystem = Depends(get_order_management_system),
 ):
     """Get execution reports for an order"""
     try:
         reports = await oms.get_execution_reports(order_id, user_id)
-        
+
         return [
             ExecutionReportResponse(
                 report_id=report.report_id,
@@ -316,23 +337,25 @@ async def get_execution_reports(
                 venue=report.venue,
                 execution_time=report.execution_time,
                 text=report.text,
-                created_at=report.created_at
+                created_at=report.created_at,
             )
             for report in reports
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting execution reports: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get execution reports: {str(e)}"
+            detail=f"Failed to get execution reports: {str(e)}",
         )
 
 
-@router.post("/executions", response_model=ExecutionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/executions", response_model=ExecutionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_execution(
     execution_data: ExecutionCreate,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system)
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
 ):
     """Create a new execution order"""
     try:
@@ -343,9 +366,9 @@ async def create_execution(
             quantity=execution_data.quantity,
             algorithm=ExecutionAlgorithm(execution_data.algorithm),
             strategy=ExecutionStrategy(execution_data.strategy),
-            parameters=execution_data.parameters
+            parameters=execution_data.parameters,
         )
-        
+
         return ExecutionResponse(
             execution_id=execution.execution_id,
             parent_order_id=execution.parent_order_id,
@@ -361,32 +384,31 @@ async def create_execution(
             average_price=execution.average_price,
             venues=execution.venues,
             created_at=execution.created_at,
-            last_updated=execution.last_updated
+            last_updated=execution.last_updated,
         )
-        
+
     except Exception as e:
         logger.error(f"Error creating execution: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create execution: {str(e)}"
+            detail=f"Failed to create execution: {str(e)}",
         )
 
 
 @router.get("/executions/{execution_id}", response_model=ExecutionResponse)
 async def get_execution(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system)
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
 ):
     """Get execution details"""
     try:
         execution = await ems.get_execution(execution_id)
-        
+
         if not execution:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Execution not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Execution not found"
             )
-        
+
         return ExecutionResponse(
             execution_id=execution.execution_id,
             parent_order_id=execution.parent_order_id,
@@ -402,28 +424,28 @@ async def get_execution(
             average_price=execution.average_price,
             venues=execution.venues,
             created_at=execution.created_at,
-            last_updated=execution.last_updated
+            last_updated=execution.last_updated,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting execution: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get execution: {str(e)}"
+            detail=f"Failed to get execution: {str(e)}",
         )
 
 
 @router.get("/executions/{execution_id}/slices", response_model=List[Dict[str, Any]])
 async def get_execution_slices(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system)
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
 ):
     """Get execution slices"""
     try:
         slices = await ems.get_execution_slices(execution_id)
-        
+
         return [
             {
                 "slice_id": slice_obj.slice_id,
@@ -439,34 +461,36 @@ async def get_execution_slices(
                 "average_price": slice_obj.average_price,
                 "start_time": slice_obj.start_time,
                 "end_time": slice_obj.end_time,
-                "created_at": slice_obj.created_at
+                "created_at": slice_obj.created_at,
             }
             for slice_obj in slices
         ]
-        
+
     except Exception as e:
         logger.error(f"Error getting execution slices: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get execution slices: {str(e)}"
+            detail=f"Failed to get execution slices: {str(e)}",
         )
 
 
-@router.get("/executions/{execution_id}/metrics", response_model=ExecutionMetricsResponse)
+@router.get(
+    "/executions/{execution_id}/metrics", response_model=ExecutionMetricsResponse
+)
 async def get_execution_metrics(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system)
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
 ):
     """Get execution metrics"""
     try:
         metrics = await ems.get_execution_metrics(execution_id)
-        
+
         if not metrics:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Execution metrics not found"
+                detail="Execution metrics not found",
             )
-        
+
         return ExecutionMetricsResponse(
             execution_id=metrics.execution_id,
             symbol=metrics.symbol,
@@ -483,61 +507,62 @@ async def get_execution_metrics(
             participation_rate=metrics.participation_rate,
             fill_rate=metrics.fill_rate,
             execution_time=metrics.execution_time,
-            created_at=metrics.created_at
+            created_at=metrics.created_at,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting execution metrics: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get execution metrics: {str(e)}"
+            detail=f"Failed to get execution metrics: {str(e)}",
         )
 
 
 @router.delete("/executions/{execution_id}", response_model=Dict[str, str])
 async def cancel_execution(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system)
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
 ):
     """Cancel execution"""
     try:
         success = await ems.cancel_execution(execution_id)
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to cancel execution"
+                detail="Failed to cancel execution",
             )
-        
-        return {"message": "Execution cancelled successfully", "execution_id": execution_id}
-        
+
+        return {
+            "message": "Execution cancelled successfully",
+            "execution_id": execution_id,
+        }
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error cancelling execution: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to cancel execution: {str(e)}"
+            detail=f"Failed to cancel execution: {str(e)}",
         )
 
 
 @router.get("/market-data/{symbol}", response_model=MarketDataResponse)
 async def get_market_data(
-    symbol: str,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    symbol: str, oms: OrderManagementSystem = Depends(get_order_management_system)
 ):
     """Get market data for a symbol"""
     try:
         market_data = await oms.get_market_data(symbol)
-        
+
         if not market_data:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Market data not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Market data not found"
             )
-        
+
         return MarketDataResponse(
             symbol=market_data.symbol,
             bid_price=market_data.bid_price,
@@ -549,34 +574,32 @@ async def get_market_data(
             high_price=market_data.high_price,
             low_price=market_data.low_price,
             open_price=market_data.open_price,
-            timestamp=market_data.timestamp
+            timestamp=market_data.timestamp,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting market data: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get market data: {str(e)}"
+            detail=f"Failed to get market data: {str(e)}",
         )
 
 
 @router.get("/order-book/{symbol}", response_model=OrderBookResponse)
 async def get_order_book(
-    symbol: str,
-    oms: OrderManagementSystem = Depends(get_order_management_system)
+    symbol: str, oms: OrderManagementSystem = Depends(get_order_management_system)
 ):
     """Get order book for a symbol"""
     try:
         order_book = await oms.get_order_book(symbol)
-        
+
         if not order_book:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order book not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order book not found"
             )
-        
+
         return OrderBookResponse(
             symbol=order_book.symbol,
             bids=order_book.bids,
@@ -585,16 +608,16 @@ async def get_order_book(
             last_trade_quantity=order_book.last_trade_quantity,
             last_trade_time=order_book.last_trade_time,
             volume=order_book.volume,
-            timestamp=order_book.timestamp
+            timestamp=order_book.timestamp,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting order book: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get order book: {str(e)}"
+            detail=f"Failed to get order book: {str(e)}",
         )
 
 

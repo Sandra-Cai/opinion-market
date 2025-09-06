@@ -3,6 +3,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from app.models.governance import ProposalType, ProposalStatus, VoteType
 
+
 class GovernanceProposalBase(BaseModel):
     title: str = Field(..., min_length=5, max_length=200)
     description: str = Field(..., min_length=20, max_length=2000)
@@ -13,8 +14,10 @@ class GovernanceProposalBase(BaseModel):
     majority_required: float = Field(0.6, ge=0.5, le=1.0)
     metadata: Optional[Dict[str, Any]] = None
 
+
 class GovernanceProposalCreate(GovernanceProposalBase):
     pass
+
 
 class GovernanceProposalUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=5, max_length=200)
@@ -22,10 +25,12 @@ class GovernanceProposalUpdate(BaseModel):
     voting_end: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
 
+
 class GovernanceVoteCreate(BaseModel):
     vote_type: VoteType
     voting_power: float = Field(..., gt=0)
     reason: Optional[str] = Field(None, max_length=500)
+
 
 class GovernanceVoteResponse(BaseModel):
     id: int
@@ -36,9 +41,10 @@ class GovernanceVoteResponse(BaseModel):
     voting_weight: float
     reason: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class GovernanceProposalResponse(GovernanceProposalBase):
     id: int
@@ -59,15 +65,17 @@ class GovernanceProposalResponse(GovernanceProposalBase):
     execution_notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class GovernanceProposalListResponse(BaseModel):
     proposals: List[GovernanceProposalResponse]
     total: int
     page: int
     per_page: int
+
 
 class GovernanceTokenResponse(BaseModel):
     id: int
@@ -80,15 +88,18 @@ class GovernanceTokenResponse(BaseModel):
     total_voting_power: float
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class GovernanceTokenStakeRequest(BaseModel):
     amount: float = Field(..., gt=0)
 
+
 class GovernanceTokenUnstakeRequest(BaseModel):
     amount: float = Field(..., gt=0)
+
 
 class GovernanceStatsResponse(BaseModel):
     total_proposals: int

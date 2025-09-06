@@ -3,6 +3,7 @@ from typing import Optional, List, Dict
 from datetime import datetime
 from app.models.order import OrderType, OrderStatus, OrderSide
 
+
 class OrderBase(BaseModel):
     order_type: OrderType
     side: OrderSide
@@ -12,13 +13,16 @@ class OrderBase(BaseModel):
     stop_price: Optional[float] = Field(None, ge=0, le=1)
     expires_at: Optional[datetime] = None
 
+
 class OrderCreate(OrderBase):
     market_id: int
+
 
 class OrderUpdate(BaseModel):
     limit_price: Optional[float] = Field(None, ge=0, le=1)
     stop_price: Optional[float] = Field(None, ge=0, le=1)
     expires_at: Optional[datetime] = None
+
 
 class OrderResponse(OrderBase):
     id: int
@@ -33,9 +37,10 @@ class OrderResponse(OrderBase):
     order_hash: str
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class OrderListResponse(BaseModel):
     orders: List[OrderResponse]
@@ -43,10 +48,12 @@ class OrderListResponse(BaseModel):
     page: int
     per_page: int
 
+
 class OrderBookLevel(BaseModel):
     price: float
     amount: float
     total: float
+
 
 class OrderBookResponse(BaseModel):
     market_id: int
@@ -56,6 +63,7 @@ class OrderBookResponse(BaseModel):
     best_bid: Optional[float] = None
     best_ask: Optional[float] = None
 
+
 class OrderFillResponse(BaseModel):
     id: int
     order_id: int
@@ -64,6 +72,6 @@ class OrderFillResponse(BaseModel):
     price: float
     total_value: float
     created_at: datetime
-    
+
     class Config:
         from_attributes = True

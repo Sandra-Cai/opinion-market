@@ -11,16 +11,22 @@ from datetime import datetime
 # Cryptocurrency Schemas
 class CryptocurrencyRequest(BaseModel):
     """Request model for creating a cryptocurrency"""
+
     symbol: str = Field(..., description="Cryptocurrency symbol (e.g., BTC, ETH)")
     name: str = Field(..., description="Full name of the cryptocurrency")
-    blockchain: str = Field(..., description="Blockchain network (e.g., Bitcoin, Ethereum)")
-    contract_address: Optional[str] = Field(None, description="Smart contract address (for tokens)")
+    blockchain: str = Field(
+        ..., description="Blockchain network (e.g., Bitcoin, Ethereum)"
+    )
+    contract_address: Optional[str] = Field(
+        None, description="Smart contract address (for tokens)"
+    )
     decimals: int = Field(..., description="Number of decimal places")
     total_supply: float = Field(..., description="Total supply of the cryptocurrency")
 
 
 class CryptocurrencyResponse(BaseModel):
     """Response model for cryptocurrency data"""
+
     crypto_id: str
     symbol: str
     name: str
@@ -38,13 +44,16 @@ class CryptocurrencyResponse(BaseModel):
 # Crypto Price Schemas
 class CryptoPriceRequest(BaseModel):
     """Request model for adding cryptocurrency price data"""
+
     price_usd: float = Field(..., description="Price in USD")
     price_btc: float = Field(..., description="Price in BTC")
     price_eth: float = Field(..., description="Price in ETH")
     volume_24h: float = Field(..., description="24-hour trading volume")
     market_cap: float = Field(..., description="Market capitalization")
     price_change_24h: float = Field(..., description="24-hour price change")
-    price_change_percent_24h: float = Field(..., description="24-hour price change percentage")
+    price_change_percent_24h: float = Field(
+        ..., description="24-hour price change percentage"
+    )
     high_24h: float = Field(..., description="24-hour high price")
     low_24h: float = Field(..., description="24-hour low price")
     source: str = Field(..., description="Data source")
@@ -52,6 +61,7 @@ class CryptoPriceRequest(BaseModel):
 
 class CryptoPriceResponse(BaseModel):
     """Response model for cryptocurrency price data"""
+
     price_id: str
     crypto_id: str
     price_usd: float
@@ -70,6 +80,7 @@ class CryptoPriceResponse(BaseModel):
 # Crypto Position Schemas
 class CryptoPositionRequest(BaseModel):
     """Request model for creating a cryptocurrency position"""
+
     crypto_id: str = Field(..., description="Cryptocurrency ID")
     position_type: str = Field(..., description="Position type: 'long' or 'short'")
     size: float = Field(..., description="Position size")
@@ -81,6 +92,7 @@ class CryptoPositionRequest(BaseModel):
 
 class CryptoPositionResponse(BaseModel):
     """Response model for cryptocurrency position data"""
+
     position_id: str
     user_id: int
     crypto_id: str
@@ -101,8 +113,11 @@ class CryptoPositionResponse(BaseModel):
 # DeFi Protocol Schemas
 class DeFiProtocolRequest(BaseModel):
     """Request model for creating a DeFi protocol"""
+
     name: str = Field(..., description="Protocol name")
-    protocol_type: str = Field(..., description="Protocol type: 'DEX', 'Lending', 'Yield', 'Derivatives'")
+    protocol_type: str = Field(
+        ..., description="Protocol type: 'DEX', 'Lending', 'Yield', 'Derivatives'"
+    )
     blockchain: str = Field(..., description="Blockchain network")
     tvl: float = Field(..., description="Total Value Locked")
     apy: float = Field(..., description="Annual Percentage Yield")
@@ -111,6 +126,7 @@ class DeFiProtocolRequest(BaseModel):
 
 class DeFiProtocolResponse(BaseModel):
     """Response model for DeFi protocol data"""
+
     protocol_id: str
     name: str
     protocol_type: str
@@ -126,18 +142,26 @@ class DeFiProtocolResponse(BaseModel):
 # Crypto Order Schemas
 class CryptoOrderRequest(BaseModel):
     """Request model for creating a cryptocurrency order"""
+
     crypto_id: str = Field(..., description="Cryptocurrency ID")
-    order_type: str = Field(..., description="Order type: 'market', 'limit', 'stop', 'stop_limit'")
+    order_type: str = Field(
+        ..., description="Order type: 'market', 'limit', 'stop', 'stop_limit'"
+    )
     side: str = Field(..., description="Order side: 'buy' or 'sell'")
     size: float = Field(..., description="Order size")
     price: Optional[float] = Field(None, description="Order price (for limit orders)")
-    stop_price: Optional[float] = Field(None, description="Stop price (for stop orders)")
-    limit_price: Optional[float] = Field(None, description="Limit price (for stop-limit orders)")
+    stop_price: Optional[float] = Field(
+        None, description="Stop price (for stop orders)"
+    )
+    limit_price: Optional[float] = Field(
+        None, description="Limit price (for stop-limit orders)"
+    )
     time_in_force: str = Field("GTC", description="Time in force: 'GTC', 'IOC', 'FOK'")
 
 
 class CryptoOrderResponse(BaseModel):
     """Response model for cryptocurrency order data"""
+
     order_id: str
     user_id: int
     crypto_id: str
@@ -159,6 +183,7 @@ class CryptoOrderResponse(BaseModel):
 # Analytics Schemas
 class PriceStatistics(BaseModel):
     """Price statistics data"""
+
     price_mean: Optional[float]
     price_std: Optional[float]
     price_min: Optional[float]
@@ -168,6 +193,7 @@ class PriceStatistics(BaseModel):
 
 class TechnicalIndicators(BaseModel):
     """Technical indicators data"""
+
     sma_20: Optional[float]
     sma_50: Optional[float]
     sma_200: Optional[float]
@@ -177,6 +203,7 @@ class TechnicalIndicators(BaseModel):
 
 class PriceTrends(BaseModel):
     """Price trends data"""
+
     price_change: Optional[float]
     price_change_percent: Optional[float]
     trend_direction: Optional[str]
@@ -188,6 +215,7 @@ class PriceTrends(BaseModel):
 
 class DeFiIntegration(BaseModel):
     """DeFi integration data"""
+
     related_protocols: List[Dict[str, Any]]
     protocol_count: int
     total_tvl_integration: float
@@ -195,6 +223,7 @@ class DeFiIntegration(BaseModel):
 
 class CryptoMetricsResponse(BaseModel):
     """Response model for comprehensive cryptocurrency metrics"""
+
     crypto_id: str
     symbol: str
     name: str
@@ -215,6 +244,7 @@ class CryptoMetricsResponse(BaseModel):
 # DeFi Analytics Schemas
 class ProtocolTypeMetrics(BaseModel):
     """Protocol type metrics data"""
+
     count: int
     total_tvl: float
     avg_apy: float
@@ -223,6 +253,7 @@ class ProtocolTypeMetrics(BaseModel):
 
 class TopProtocol(BaseModel):
     """Top protocol data"""
+
     protocol_id: str
     name: str
     protocol_type: str
@@ -234,6 +265,7 @@ class TopProtocol(BaseModel):
 
 class BlockchainDistribution(BaseModel):
     """Blockchain distribution data"""
+
     count: int
     tvl: float
     avg_apy: float
@@ -241,6 +273,7 @@ class BlockchainDistribution(BaseModel):
 
 class RiskAnalysis(BaseModel):
     """Risk analysis data"""
+
     avg_risk_score: float
     min_risk_score: float
     max_risk_score: float
@@ -249,6 +282,7 @@ class RiskAnalysis(BaseModel):
 
 class DeFiAnalyticsResponse(BaseModel):
     """Response model for comprehensive DeFi analytics"""
+
     total_tvl: float
     total_protocols: int
     protocol_types: Dict[str, ProtocolTypeMetrics]
@@ -261,6 +295,7 @@ class DeFiAnalyticsResponse(BaseModel):
 # WebSocket Message Schemas
 class CryptoUpdateMessage(BaseModel):
     """WebSocket message for cryptocurrency updates"""
+
     type: str = "crypto_update"
     crypto_id: str
     timestamp: str
@@ -271,6 +306,7 @@ class CryptoUpdateMessage(BaseModel):
 # Error Response Schemas
 class CryptoErrorResponse(BaseModel):
     """Error response model"""
+
     error: str
     message: str
     timestamp: str
@@ -280,6 +316,7 @@ class CryptoErrorResponse(BaseModel):
 # Health Check Schemas
 class CryptoServiceHealth(BaseModel):
     """Cryptocurrency service health status"""
+
     service: str = "crypto_trading"
     status: str
     active_cryptocurrencies: int
@@ -291,6 +328,7 @@ class CryptoServiceHealth(BaseModel):
 # Statistics Schemas
 class CryptoStats(BaseModel):
     """Cryptocurrency statistics"""
+
     total_cryptocurrencies: int
     total_market_cap: float
     total_volume_24h: float

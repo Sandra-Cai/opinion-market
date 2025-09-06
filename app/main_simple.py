@@ -5,7 +5,7 @@ import uvicorn
 app = FastAPI(
     title="Opinion Market API",
     description="A comprehensive prediction market platform with advanced features",
-    version="2.0.0"
+    version="2.0.0",
 )
 
 # CORS middleware
@@ -16,6 +16,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.get("/")
 async def root():
@@ -34,17 +35,20 @@ async def root():
             "Blockchain Integration",
             "Advanced Orders",
             "Enterprise Security",
-            "Performance Optimization"
-        ]
+            "Performance Optimization",
+        ],
     }
+
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "opinion-market-api"}
 
+
 @app.get("/ready")
 async def readiness_check():
     return {"status": "ready", "service": "opinion-market-api"}
+
 
 @app.get("/metrics")
 async def metrics():
@@ -53,25 +57,23 @@ async def metrics():
             "requests_total": 1000,
             "active_users": 150,
             "markets_created": 25,
-            "trades_executed": 500
+            "trades_executed": 500,
         }
     }
+
 
 @app.get("/api/v1/")
 async def api_root():
     return {
         "message": "Opinion Market API v1",
-        "endpoints": [
-            "/health",
-            "/ready",
-            "/metrics",
-            "/docs"
-        ]
+        "endpoints": ["/health", "/ready", "/metrics", "/docs"],
     }
+
 
 @app.get("/api/v1/health")
 async def api_health():
     return {"status": "healthy", "api_version": "v1"}
+
 
 @app.get("/api/v1/markets")
 async def get_markets():
@@ -83,7 +85,7 @@ async def get_markets():
                 "description": "Prediction market for Bitcoin price",
                 "status": "active",
                 "total_volume": 1000000,
-                "participant_count": 150
+                "participant_count": 150,
             },
             {
                 "id": 2,
@@ -91,15 +93,11 @@ async def get_markets():
                 "description": "Tesla delivery prediction",
                 "status": "active",
                 "total_volume": 750000,
-                "participant_count": 89
-            }
+                "participant_count": 89,
+            },
         ]
     }
 
+
 if __name__ == "__main__":
-    uvicorn.run(
-        "app.main_simple:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+    uvicorn.run("app.main_simple:app", host="0.0.0.0", port=8000, reload=True)

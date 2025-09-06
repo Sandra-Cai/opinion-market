@@ -1,5 +1,31 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, users, markets, trades, votes, positions, websocket, leaderboard, disputes, notifications, analytics, verification, orders, governance, advanced_markets, ai_analytics, rewards, mobile, advanced_orders, market_data, ml_analytics, social, forex_trading, order_management, derivatives
+from app.api.v1.endpoints import (
+    auth,
+    users,
+    markets,
+    trades,
+    votes,
+    positions,
+    websocket,
+    leaderboard,
+    disputes,
+    notifications,
+    analytics,
+    verification,
+    orders,
+    governance,
+    advanced_markets,
+    ai_analytics,
+    rewards,
+    mobile,
+    advanced_orders,
+    market_data,
+    ml_analytics,
+    social,
+    forex_trading,
+    order_management,
+    derivatives,
+)
 
 api_router = APIRouter()
 
@@ -10,21 +36,41 @@ api_router.include_router(trades.router, prefix="/trades", tags=["trades"])
 api_router.include_router(votes.router, prefix="/votes", tags=["votes"])
 api_router.include_router(positions.router, prefix="/positions", tags=["positions"])
 api_router.include_router(websocket.router, tags=["websocket"])
-api_router.include_router(leaderboard.router, prefix="/leaderboard", tags=["leaderboard"])
+api_router.include_router(
+    leaderboard.router, prefix="/leaderboard", tags=["leaderboard"]
+)
 api_router.include_router(disputes.router, prefix="/disputes", tags=["disputes"])
-api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+api_router.include_router(
+    notifications.router, prefix="/notifications", tags=["notifications"]
+)
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
-api_router.include_router(verification.router, prefix="/verification", tags=["verification"])
+api_router.include_router(
+    verification.router, prefix="/verification", tags=["verification"]
+)
 api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 api_router.include_router(governance.router, prefix="/governance", tags=["governance"])
-api_router.include_router(advanced_markets.router, prefix="/advanced-markets", tags=["advanced-markets"])
-api_router.include_router(ai_analytics.router, prefix="/ai-analytics", tags=["ai-analytics"])
+api_router.include_router(
+    advanced_markets.router, prefix="/advanced-markets", tags=["advanced-markets"]
+)
+api_router.include_router(
+    ai_analytics.router, prefix="/ai-analytics", tags=["ai-analytics"]
+)
 api_router.include_router(rewards.router, prefix="/rewards", tags=["rewards"])
 api_router.include_router(mobile.router, prefix="/mobile", tags=["mobile"])
-api_router.include_router(advanced_orders.router, prefix="/advanced-orders", tags=["advanced-orders"])
-api_router.include_router(market_data.router, prefix="/market-data", tags=["market-data"])
-api_router.include_router(ml_analytics.router, prefix="/ml-analytics", tags=["ml-analytics"])
+api_router.include_router(
+    advanced_orders.router, prefix="/advanced-orders", tags=["advanced-orders"]
+)
+api_router.include_router(
+    market_data.router, prefix="/market-data", tags=["market-data"]
+)
+api_router.include_router(
+    ml_analytics.router, prefix="/ml-analytics", tags=["ml-analytics"]
+)
 api_router.include_router(social.router, prefix="/social", tags=["social"])
 api_router.include_router(forex_trading.router, prefix="/forex", tags=["forex-trading"])
-api_router.include_router(order_management.router, prefix="/order-management", tags=["order-management"])
-api_router.include_router(derivatives.router, prefix="/derivatives", tags=["derivatives"])
+api_router.include_router(
+    order_management.router, prefix="/order-management", tags=["order-management"]
+)
+api_router.include_router(
+    derivatives.router, prefix="/derivatives", tags=["derivatives"]
+)

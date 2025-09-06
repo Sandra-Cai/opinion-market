@@ -543,6 +543,9 @@ class BlockchainIntegrationService:
     
     async def _monitor_transactions(self):
         """Monitor blockchain transactions"""
+        consecutive_errors = 0
+        max_consecutive_errors = 10
+        
         while True:
             try:
                 for network_name, web3 in self.web3_connections.items():
@@ -558,14 +561,24 @@ class BlockchainIntegrationService:
                                 # Process contract transaction
                                 await self._process_contract_transaction(tx, network_name)
                 
+                consecutive_errors = 0  # Reset error counter on success
                 await asyncio.sleep(30)  # Check every 30 seconds
                 
             except Exception as e:
-                logger.error(f"Error monitoring transactions: {e}")
-                await asyncio.sleep(60)
+                consecutive_errors += 1
+                logger.error(f"Error monitoring transactions (attempt {consecutive_errors}): {e}")
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.critical(f"Too many consecutive errors ({consecutive_errors}), stopping transaction monitoring")
+                    break
+                    
+                await asyncio.sleep(min(60 * consecutive_errors, 300))  # Exponential backoff, max 5 minutes
     
     async def _monitor_gas_prices(self):
         """Monitor gas prices across networks"""
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+        
         while True:
             try:
                 for network_name, web3 in self.web3_connections.items():
@@ -573,14 +586,24 @@ class BlockchainIntegrationService:
                     await self._record_metric(f'gas_price_{network_name}', 
                                             web3.from_wei(gas_price, 'gwei'), 'gwei')
                 
+                consecutive_errors = 0  # Reset error counter on success
                 await asyncio.sleep(300)  # Check every 5 minutes
                 
             except Exception as e:
-                logger.error(f"Error monitoring gas prices: {e}")
-                await asyncio.sleep(600)
+                consecutive_errors += 1
+                logger.error(f"Error monitoring gas prices (attempt {consecutive_errors}): {e}")
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.critical(f"Too many consecutive errors ({consecutive_errors}), stopping gas price monitoring")
+                    break
+                    
+                await asyncio.sleep(min(600 * consecutive_errors, 1800))  # Exponential backoff, max 30 minutes
     
     async def _update_token_prices(self):
         """Update token prices"""
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+        
         while True:
             try:
                 for token_address, token in self.tokens.items():
@@ -595,14 +618,24 @@ class BlockchainIntegrationService:
                     
                     await self._cache_token(token)
                 
+                consecutive_errors = 0  # Reset error counter on success
                 await asyncio.sleep(600)  # Update every 10 minutes
                 
             except Exception as e:
-                logger.error(f"Error updating token prices: {e}")
-                await asyncio.sleep(1200)
+                consecutive_errors += 1
+                logger.error(f"Error updating token prices (attempt {consecutive_errors}): {e}")
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.critical(f"Too many consecutive errors ({consecutive_errors}), stopping token price updates")
+                    break
+                    
+                await asyncio.sleep(min(1200 * consecutive_errors, 3600))  # Exponential backoff, max 1 hour
     
     async def _monitor_oracle_data(self):
         """Monitor oracle data updates"""
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+        
         while True:
             try:
                 for oracle_key, oracle_data in self.oracles.items():
@@ -619,11 +652,18 @@ class BlockchainIntegrationService:
                         
                         logger.info(f"Updated oracle data for market {oracle_data.market_id}")
                 
+                consecutive_errors = 0  # Reset error counter on success
                 await asyncio.sleep(300)  # Check every 5 minutes
                 
             except Exception as e:
-                logger.error(f"Error monitoring oracle data: {e}")
-                await asyncio.sleep(600)
+                consecutive_errors += 1
+                logger.error(f"Error monitoring oracle data (attempt {consecutive_errors}): {e}")
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.critical(f"Too many consecutive errors ({consecutive_errors}), stopping oracle data monitoring")
+                    break
+                    
+                await asyncio.sleep(min(600 * consecutive_errors, 1800))  # Exponential backoff, max 30 minutes
     
     async def _process_contract_transaction(self, tx, network_name: str):
         """Process a contract transaction"""

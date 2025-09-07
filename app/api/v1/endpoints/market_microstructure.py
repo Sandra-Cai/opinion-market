@@ -26,7 +26,7 @@ from app.services.liquidity_management import (
     LiquidityAllocation,
     LiquidityOptimization,
     LiquidityAlert,
-    get_liquidity_management_service_sync_sync,
+    get_liquidity_management_service_sync,
 )
 from app.schemas.market_microstructure import (
     MarketDepthResponse,

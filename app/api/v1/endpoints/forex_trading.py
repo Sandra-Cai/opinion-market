@@ -114,7 +114,7 @@ async def get_currency_pairs(
 
         return [
             CurrencyPairResponse(
-                pair_id=pair.pair_id,
+                pair_id=bond.pair_id,
                 base_currency=bond.base_currency,
                 quote_currency=bond.quote_currency,
                 pair_name=bond.pair_name,

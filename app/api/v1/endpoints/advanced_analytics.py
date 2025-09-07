@@ -280,7 +280,7 @@ async def get_portfolio_advanced_analysis(
         portfolio_metrics = {
             "total_markets": len(user_markets),
             "diversification_score": 0.75,
-            "risk_score": 0.5
+            "risk_score": 0.5,
         }  # Simplified for now
 
         portfolio_analysis = {
@@ -344,7 +344,10 @@ async def get_portfolio_advanced_analysis(
                 ),
             },
             "portfolio_metrics": portfolio_metrics,
-            "recommendations": ["Diversify portfolio", "Monitor risk levels"],  # Simplified
+            "recommendations": [
+                "Diversify portfolio",
+                "Monitor risk levels",
+            ],  # Simplified
         }
 
         return JSONResponse(content=portfolio_analysis)
@@ -381,7 +384,10 @@ async def compare_markets(
         forecasts = await analysis_service.forecast_market_trends(market_ids)
 
         # Create comparison matrix
-        comparison_matrix = {"markets": market_ids, "correlations": len(correlations)}  # Simplified
+        comparison_matrix = {
+            "markets": market_ids,
+            "correlations": len(correlations),
+        }  # Simplified
 
         comparison_analysis = {
             "market_ids": market_ids,
@@ -421,7 +427,10 @@ async def compare_markets(
                 },
             },
             "comparison_metrics": comparison_matrix,
-            "insights": ["Markets show moderate correlation", "Consider diversification"],  # Simplified
+            "insights": [
+                "Markets show moderate correlation",
+                "Consider diversification",
+            ],  # Simplified
         }
 
         return JSONResponse(content=comparison_analysis)

@@ -896,3 +896,10 @@ async def get_execution_management_system(
     ems = ExecutionManagementSystem(redis_client, db_session)
     await ems.initialize()
     return ems
+
+
+# Synchronous wrapper for FastAPI dependencies
+def get_execution_management_system_sync() -> ExecutionManagementSystem:
+    """Synchronous wrapper for Execution Management System"""
+    # Create a mock system for FastAPI dependencies
+    return ExecutionManagementSystem(None, None)

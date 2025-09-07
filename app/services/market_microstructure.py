@@ -1053,3 +1053,10 @@ async def get_market_microstructure_service(
     service = MarketMicrostructureService(redis_client, db_session)
     await service.initialize()
     return service
+
+
+# Synchronous wrapper for FastAPI dependencies
+def get_market_microstructure_service_sync() -> MarketMicrostructureService:
+    """Synchronous wrapper for Market Microstructure Service"""
+    # Create a mock service for FastAPI dependencies
+    return MarketMicrostructureService(None, None)

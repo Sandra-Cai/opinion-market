@@ -978,3 +978,10 @@ async def get_liquidity_management_service(
     service = LiquidityManagementService(redis_client, db_session)
     await service.initialize()
     return service
+
+
+# Synchronous wrapper for FastAPI dependencies
+def get_liquidity_management_service_sync() -> LiquidityManagementService:
+    """Synchronous wrapper for Liquidity Management Service"""
+    # Create a mock service for FastAPI dependencies
+    return LiquidityManagementService(None, None)

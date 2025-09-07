@@ -17,6 +17,7 @@ from app.services.market_microstructure import (
     MarketMakingStrategy,
     MarketMakingQuote,
     MarketImpact,
+    get_market_microstructure_service_sync,
 )
 from app.services.liquidity_management import (
     LiquidityManagementService,
@@ -25,6 +26,7 @@ from app.services.liquidity_management import (
     LiquidityAllocation,
     LiquidityOptimization,
     LiquidityAlert,
+    get_liquidity_management_service_sync_sync,
 )
 from app.schemas.market_microstructure import (
     MarketDepthResponse,
@@ -53,7 +55,7 @@ router = APIRouter()
 async def get_market_depth(
     symbol: str,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Get market depth for a symbol"""
@@ -93,7 +95,7 @@ async def get_market_depth(
 async def get_liquidity_metrics(
     symbol: str,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Get liquidity metrics for a symbol"""
@@ -136,7 +138,7 @@ async def get_liquidity_metrics(
 async def get_order_flow(
     symbol: str,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Get order flow analysis for a symbol"""
@@ -176,7 +178,7 @@ async def get_order_flow(
 async def get_market_regime(
     symbol: str,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Get market regime analysis for a symbol"""
@@ -216,7 +218,7 @@ async def get_market_impact(
     symbol: str,
     limit: int = 100,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Get market impact analysis for a symbol"""
@@ -255,7 +257,7 @@ async def get_market_impact(
 async def create_market_making_strategy(
     strategy_data: MarketMakingStrategyCreate,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Create a market making strategy"""
@@ -295,7 +297,7 @@ async def create_market_making_strategy(
 async def get_market_making_quotes(
     strategy_id: str,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Get market making quotes for a strategy"""
@@ -335,7 +337,7 @@ async def update_market_making_parameters(
     strategy_id: str,
     parameters: Dict[str, Any],
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Update market making strategy parameters"""
@@ -368,7 +370,7 @@ async def update_market_making_parameters(
 async def stop_market_making_strategy(
     strategy_id: str,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Stop market making strategy"""
@@ -397,7 +399,7 @@ async def calculate_optimal_spread(
     symbol: str,
     trade_size: float,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Calculate optimal spread for a given trade size"""
@@ -419,7 +421,7 @@ async def estimate_market_impact(
     trade_size: float,
     execution_time: float = 60,
     mm_service: MarketMicrostructureService = Depends(
-        get_market_microstructure_service
+        get_market_microstructure_service_sync
     ),
 ):
     """Estimate market impact for a trade"""
@@ -441,7 +443,7 @@ async def estimate_market_impact(
 @router.get("/liquidity-profile/{symbol}", response_model=LiquidityProfileResponse)
 async def get_liquidity_profile(
     symbol: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Get liquidity profile for a symbol"""
     try:
@@ -485,7 +487,7 @@ async def get_liquidity_profile(
 @router.get("/liquidity-pools", response_model=List[LiquidityPoolResponse])
 async def get_liquidity_pools(
     symbol: Optional[str] = None,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Get liquidity pools"""
     try:
@@ -524,7 +526,7 @@ async def get_liquidity_pools(
 )
 async def create_liquidity_pool(
     pool_data: LiquidityPoolCreate,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Create a new liquidity pool"""
     try:
@@ -566,7 +568,7 @@ async def create_liquidity_pool(
 )
 async def allocate_liquidity(
     allocation_data: LiquidityAllocationCreate,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Allocate liquidity to a user"""
     try:
@@ -604,7 +606,7 @@ async def allocate_liquidity(
 )
 async def get_liquidity_optimization(
     symbol: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Get liquidity optimization for a symbol"""
     try:
@@ -643,7 +645,7 @@ async def get_liquidity_optimization(
 async def get_liquidity_alerts(
     symbol: Optional[str] = None,
     severity: Optional[str] = None,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Get liquidity alerts"""
     try:
@@ -678,7 +680,7 @@ async def get_liquidity_alerts(
 async def acknowledge_liquidity_alert(
     alert_id: str,
     user_id: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Acknowledge a liquidity alert"""
     try:
@@ -704,7 +706,7 @@ async def acknowledge_liquidity_alert(
 @router.get("/liquidity-score/{symbol}", response_model=Dict[str, float])
 async def calculate_liquidity_score(
     symbol: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Calculate comprehensive liquidity score"""
     try:
@@ -723,7 +725,7 @@ async def calculate_liquidity_score(
 async def optimize_liquidity_allocation(
     symbol: str,
     total_amount: float,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service),
+    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
 ):
     """Optimize liquidity allocation across pools"""
     try:
@@ -739,14 +741,14 @@ async def optimize_liquidity_allocation(
 
 
 # Dependency injection functions
-async def get_market_microstructure_service() -> MarketMicrostructureService:
+async def get_market_microstructure_service_sync() -> MarketMicrostructureService:
     """Get Market Microstructure Service instance"""
     # This would be injected from the main app
     # For now, return a mock instance
     pass
 
 
-async def get_liquidity_management_service() -> LiquidityManagementService:
+async def get_liquidity_management_service_sync() -> LiquidityManagementService:
     """Get Liquidity Management Service instance"""
     # This would be injected from the main app
     # For now, return a mock instance

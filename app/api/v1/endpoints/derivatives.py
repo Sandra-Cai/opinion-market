@@ -23,7 +23,7 @@ import json
 import uuid
 
 from app.core.database import get_db
-from app.core.redis_client import get_redis_client
+from app.core.redis_client import get_redis_sync
 from app.services.derivatives_trading import (
     get_derivatives_trading_service,
     DerivativesTradingService,
@@ -101,13 +101,13 @@ manager = ConnectionManager()
 
 # Dependency injection
 async def get_derivatives_service(
-    redis_client: redis.Redis = Depends(get_redis_client), db: Session = Depends(get_db)
+    redis_client = Depends(get_redis_sync), db: Session = Depends(get_db)
 ) -> DerivativesTradingService:
     return await get_derivatives_trading_service(redis_client, db)
 
 
 async def get_risk_service(
-    redis_client: redis.Redis = Depends(get_redis_client), db: Session = Depends(get_db)
+    redis_client = Depends(get_redis_sync), db: Session = Depends(get_db)
 ) -> DerivativesRiskManagementService:
     return await get_derivatives_risk_management_service(redis_client, db)
 

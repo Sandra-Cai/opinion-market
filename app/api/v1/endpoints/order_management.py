@@ -29,6 +29,7 @@ from app.services.execution_management_system import (
     ExecutionMetrics,
     ExecutionAlgorithm,
     ExecutionStrategy,
+    get_execution_management_system_sync,
 )
 from app.schemas.order_management import (
     OrderCreate,
@@ -356,7 +357,7 @@ async def get_execution_reports(
 )
 async def create_execution(
     execution_data: ExecutionCreate,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system_sync),
 ):
     """Create a new execution order"""
     try:
@@ -399,7 +400,7 @@ async def create_execution(
 @router.get("/executions/{execution_id}", response_model=ExecutionResponse)
 async def get_execution(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system_sync),
 ):
     """Get execution details"""
     try:
@@ -441,7 +442,7 @@ async def get_execution(
 @router.get("/executions/{execution_id}/slices", response_model=List[Dict[str, Any]])
 async def get_execution_slices(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system_sync),
 ):
     """Get execution slices"""
     try:
@@ -480,7 +481,7 @@ async def get_execution_slices(
 )
 async def get_execution_metrics(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system_sync),
 ):
     """Get execution metrics"""
     try:
@@ -524,7 +525,7 @@ async def get_execution_metrics(
 @router.delete("/executions/{execution_id}", response_model=Dict[str, str])
 async def cancel_execution(
     execution_id: str,
-    ems: ExecutionManagementSystem = Depends(get_execution_management_system),
+    ems: ExecutionManagementSystem = Depends(get_execution_management_system_sync),
 ):
     """Cancel execution"""
     try:
@@ -630,7 +631,7 @@ async def get_order_management_system() -> OrderManagementSystem:
     pass
 
 
-async def get_execution_management_system() -> ExecutionManagementSystem:
+async def get_execution_management_system_sync() -> ExecutionManagementSystem:
     """Get Execution Management System instance"""
     # This would be injected from the main app
     # For now, return a mock instance

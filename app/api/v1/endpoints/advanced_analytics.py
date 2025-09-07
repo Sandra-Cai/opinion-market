@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
-from app.core.redis_client import get_redis_client
+from app.core.redis_client import get_redis_sync
 from app.services.advanced_market_analysis import (
     get_advanced_market_analysis_service,
     MarketCorrelation,
@@ -58,7 +58,7 @@ async def analyze_market_correlations(
     Analyze correlations between multiple markets
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analysis_service = await get_advanced_market_analysis_service(redis_client, db)
 
         correlations = await analysis_service.analyze_market_correlations(
@@ -94,7 +94,7 @@ async def analyze_market_clusters(
     Cluster markets based on their characteristics
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analysis_service = await get_advanced_market_analysis_service(redis_client, db)
 
         clusters = await analysis_service.cluster_markets(
@@ -127,7 +127,7 @@ async def detect_market_anomalies(
     Detect anomalies in market behavior
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analysis_service = await get_advanced_market_analysis_service(redis_client, db)
 
         anomalies = await analysis_service.detect_market_anomalies(market_ids)
@@ -160,7 +160,7 @@ async def forecast_market_trends(
     Forecast market trends for multiple markets
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analysis_service = await get_advanced_market_analysis_service(redis_client, db)
 
         forecasts = await analysis_service.forecast_market_trends(
@@ -196,7 +196,7 @@ async def get_comprehensive_market_analysis(
     Get comprehensive market analysis including correlations, anomalies, and forecasts
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analysis_service = await get_advanced_market_analysis_service(redis_client, db)
 
         # Get active markets for correlation analysis
@@ -261,7 +261,7 @@ async def get_portfolio_advanced_analysis(
     Get advanced analysis for a user's portfolio
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analysis_service = await get_advanced_market_analysis_service(redis_client, db)
 
         # Get user's active markets (this would depend on your data model)
@@ -373,7 +373,7 @@ async def compare_markets(
                 status_code=400, detail="At least 2 markets required for comparison"
             )
 
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analysis_service = await get_advanced_market_analysis_service(redis_client, db)
 
         # Perform comprehensive analysis

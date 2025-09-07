@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
-from app.core.redis_client import get_redis_client
+from app.core.redis_client import get_redis_sync
 from app.services.ai_predictions import get_ai_prediction_service, PredictionResult
 from app.services.real_time_analytics import (
     get_real_time_analytics_service,
@@ -51,7 +51,7 @@ async def get_market_prediction(
     """
     try:
         # Get AI prediction service
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         ai_service = await get_ai_prediction_service(redis_client, db)
 
         # Check for cached prediction first
@@ -107,7 +107,7 @@ async def get_batch_predictions(
     Get AI predictions for multiple markets
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         ai_service = await get_ai_prediction_service(redis_client, db)
 
         predictions = []
@@ -147,7 +147,7 @@ async def get_market_analytics(
     Get real-time analytics for a specific market
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analytics_service = await get_real_time_analytics_service(redis_client, db)
 
         metrics = await analytics_service.get_market_metrics(market_id)
@@ -185,7 +185,7 @@ async def get_user_analytics(
     Get analytics for a specific user
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analytics_service = await get_real_time_analytics_service(redis_client, db)
 
         metrics = await analytics_service.get_user_metrics(user_id)
@@ -219,7 +219,7 @@ async def get_system_analytics(
     Get system-wide analytics
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analytics_service = await get_real_time_analytics_service(redis_client, db)
 
         metrics = await analytics_service.get_system_metrics()
@@ -255,7 +255,7 @@ async def get_top_markets(
     Get top markets by volume
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analytics_service = await get_real_time_analytics_service(redis_client, db)
 
         top_markets = await analytics_service.get_top_markets(limit)
@@ -296,7 +296,7 @@ async def get_top_traders(
     Get top traders by volume
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analytics_service = await get_real_time_analytics_service(redis_client, db)
 
         top_traders = await analytics_service.get_top_traders(limit)
@@ -334,7 +334,7 @@ async def get_market_trends(
     Get market trends over time
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         analytics_service = await get_real_time_analytics_service(redis_client, db)
 
         trends = await analytics_service.get_market_trends(market_id, hours)
@@ -443,7 +443,7 @@ async def get_market_insights(
     Get comprehensive market insights including AI predictions and analytics
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
 
         # Get AI prediction
         ai_service = await get_ai_prediction_service(redis_client, db)
@@ -513,7 +513,7 @@ async def get_portfolio_insights(
     Get portfolio insights for a user
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
 
         # Get user analytics
         analytics_service = await get_real_time_analytics_service(redis_client, db)

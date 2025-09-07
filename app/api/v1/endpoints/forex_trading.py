@@ -46,7 +46,7 @@ from app.schemas.forex_trading import (
     ForwardPointsResponse,
 )
 from app.core.database import get_db
-from app.core.redis_client import get_redis_client
+from app.core.redis_client import get_redis_sync
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ websocket_connections: Dict[str, WebSocket] = {}
 async def create_currency_pair(
     pair_data: CurrencyPairCreate,
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Create a new currency pair"""
     try:
@@ -102,7 +102,7 @@ async def create_currency_pair(
 async def get_currency_pairs(
     active_only: bool = Query(True, description="Return only active currency pairs"),
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Get all currency pairs"""
     try:
@@ -140,7 +140,7 @@ async def get_currency_pairs(
 
 @router.get("/currency-pairs/{pair_id}", response_model=CurrencyPairResponse)
 async def get_currency_pair(
-    pair_id: str, db: Session = Depends(get_db), redis_client=Depends(get_redis_client)
+    pair_id: str, db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
 ):
     """Get a specific currency pair"""
     try:
@@ -178,7 +178,7 @@ async def get_currency_pair(
 async def add_fx_price(
     price_data: FXPriceCreate,
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Add a new FX price"""
     try:
@@ -221,7 +221,7 @@ async def get_fx_prices(
     pair_id: str,
     limit: int = Query(100, description="Number of prices to return"),
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Get FX prices for a currency pair"""
     try:
@@ -262,7 +262,7 @@ async def get_fx_prices(
 async def create_fx_position(
     position_data: FXPositionCreate,
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Create a new FX position"""
     try:
@@ -305,7 +305,7 @@ async def create_fx_position(
 
 @router.get("/positions/{user_id}", response_model=List[FXPositionResponse])
 async def get_user_positions(
-    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis_client)
+    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
 ):
     """Get FX positions for a user"""
     try:
@@ -344,7 +344,7 @@ async def get_user_positions(
 async def create_forward_contract(
     contract_data: ForwardContractCreate,
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Create a new FX forward contract"""
     try:
@@ -386,7 +386,7 @@ async def create_forward_contract(
     "/forward-contracts/{user_id}", response_model=List[ForwardContractResponse]
 )
 async def get_user_forward_contracts(
-    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis_client)
+    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
 ):
     """Get forward contracts for a user"""
     try:
@@ -423,7 +423,7 @@ async def get_user_forward_contracts(
 async def create_swap_contract(
     swap_data: SwapContractCreate,
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Create a new FX swap contract"""
     try:
@@ -459,7 +459,7 @@ async def create_swap_contract(
 
 @router.get("/swap-contracts/{user_id}", response_model=List[SwapContractResponse])
 async def get_user_swap_contracts(
-    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis_client)
+    user_id: int, db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
 ):
     """Get swap contracts for a user"""
     try:
@@ -492,7 +492,7 @@ async def get_user_swap_contracts(
 async def place_fx_order(
     order_data: FXOrderCreate,
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Place a new FX order"""
     try:
@@ -537,7 +537,7 @@ async def get_user_orders(
     user_id: int,
     status: Optional[str] = Query(None, description="Filter by order status"),
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Get FX orders for a user"""
     try:
@@ -575,7 +575,7 @@ async def get_user_orders(
 
 @router.get("/metrics/{pair_id}", response_model=FXMetricsResponse)
 async def get_fx_metrics(
-    pair_id: str, db: Session = Depends(get_db), redis_client=Depends(get_redis_client)
+    pair_id: str, db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
 ):
     """Get comprehensive metrics for a currency pair"""
     try:
@@ -591,7 +591,7 @@ async def get_fx_metrics(
 
 @router.get("/cross-rates/{base_currency}", response_model=CrossCurrencyRatesResponse)
 async def get_cross_currency_rates(
-    base_currency: str, db: Session = Depends(get_db), redis_client=Depends(get_redis_client)
+    base_currency: str, db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
 ):
     """Get cross currency rates for a base currency"""
     try:
@@ -613,7 +613,7 @@ async def calculate_forward_points(
     interest_rate_quote: float,
     days_to_maturity: int,
     db: Session = Depends(get_db),
-    redis_client=Depends(get_redis_client),
+    redis_client=Depends(get_redis_sync),
 ):
     """Calculate forward points using interest rate parity"""
     try:
@@ -635,7 +635,7 @@ async def calculate_forward_points(
 
 @router.get("/trading-sessions")
 async def get_trading_sessions(
-    db: Session = Depends(get_db), redis_client=Depends(get_redis_client)
+    db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
 ):
     """Get current trading sessions status"""
     try:

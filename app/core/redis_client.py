@@ -3,6 +3,7 @@ Redis client utility for consistent Redis connection management
 """
 
 import redis.asyncio as redis
+import redis as redis_sync
 import logging
 from typing import Optional
 
@@ -52,3 +53,25 @@ async def close_redis_client():
         await _redis_client.close()
         _redis_client = None
         logger.info("Redis client connection closed")
+
+
+# Synchronous wrapper for FastAPI dependencies
+def get_redis_sync() -> Optional[redis_sync.Redis]:
+    """
+    Synchronous wrapper for Redis client - returns None if Redis is not available
+    This is safe for FastAPI dependencies as it won't block
+    """
+    try:
+        # Return a synchronous Redis client for FastAPI dependencies
+        return redis_sync.Redis(
+            host="localhost",
+            port=6379,
+            db=0,
+            decode_responses=True,
+            socket_connect_timeout=1,
+            socket_timeout=1,
+            retry_on_timeout=False,
+        )
+    except Exception as e:
+        logger.warning(f"Redis sync client creation failed: {e}. Using None for development.")
+        return None

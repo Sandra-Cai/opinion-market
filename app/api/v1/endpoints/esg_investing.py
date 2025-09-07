@@ -72,7 +72,7 @@ from app.schemas.sustainable_finance import (
     SustainableFinanceAnalyticsResponse,
 )
 from app.core.database import get_db
-from app.core.redis_client import get_redis_client
+from app.core.redis_client import get_redis_sync
 from app.core.auth import get_current_user
 
 logger = logging.getLogger(__name__)

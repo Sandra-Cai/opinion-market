@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
-from app.core.redis_client import get_redis_client
+from app.core.redis_client import get_redis_sync
 from app.services.blockchain_integration import (
     get_blockchain_integration_service,
     SmartContract,
@@ -60,7 +60,7 @@ async def create_market_on_blockchain(
     Create a new market on the blockchain
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Prepare market data
@@ -106,7 +106,7 @@ async def place_trade_on_blockchain(
     Place a trade on the blockchain
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Place trade on blockchain
@@ -144,7 +144,7 @@ async def create_market_token(
     Create a token for a market
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Create token on blockchain
@@ -185,7 +185,7 @@ async def submit_oracle_data(
     Submit oracle data for market resolution
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Submit oracle data
@@ -227,7 +227,7 @@ async def get_transaction_status(
     Get transaction status and details
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Get transaction from cache or blockchain
@@ -269,7 +269,7 @@ async def get_contract_info(
     Get smart contract information
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Get contract from cache or blockchain
@@ -304,7 +304,7 @@ async def get_network_status(
     Get status of all supported blockchain networks
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         network_statuses = []
@@ -365,7 +365,7 @@ async def get_token_info(
     Get token information
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Get token from cache or blockchain
@@ -406,7 +406,7 @@ async def get_oracle_data(
     Get oracle data for a market
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Get oracle data from cache or blockchain
@@ -442,7 +442,7 @@ async def get_gas_prices(
     Get current gas prices for all networks
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         gas_prices = {}
@@ -597,7 +597,7 @@ async def deploy_contract(
     Deploy a smart contract
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Deploy contract based on type
@@ -656,7 +656,7 @@ async def get_recent_transactions(
     Get recent transactions for a network
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Get recent transactions (this would be implemented in the service)
@@ -689,7 +689,7 @@ async def get_blockchain_analytics(
     Get blockchain analytics
     """
     try:
-        redis_client = await get_redis_client()
+        redis_client = await get_redis_sync()
         blockchain_service = await get_blockchain_integration_service(redis_client, db)
 
         # Get analytics data (this would be implemented in the service)

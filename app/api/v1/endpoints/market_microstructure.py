@@ -443,7 +443,9 @@ async def estimate_market_impact(
 @router.get("/liquidity-profile/{symbol}", response_model=LiquidityProfileResponse)
 async def get_liquidity_profile(
     symbol: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Get liquidity profile for a symbol"""
     try:
@@ -487,7 +489,9 @@ async def get_liquidity_profile(
 @router.get("/liquidity-pools", response_model=List[LiquidityPoolResponse])
 async def get_liquidity_pools(
     symbol: Optional[str] = None,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Get liquidity pools"""
     try:
@@ -526,7 +530,9 @@ async def get_liquidity_pools(
 )
 async def create_liquidity_pool(
     pool_data: LiquidityPoolCreate,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Create a new liquidity pool"""
     try:
@@ -568,7 +574,9 @@ async def create_liquidity_pool(
 )
 async def allocate_liquidity(
     allocation_data: LiquidityAllocationCreate,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Allocate liquidity to a user"""
     try:
@@ -606,7 +614,9 @@ async def allocate_liquidity(
 )
 async def get_liquidity_optimization(
     symbol: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Get liquidity optimization for a symbol"""
     try:
@@ -645,7 +655,9 @@ async def get_liquidity_optimization(
 async def get_liquidity_alerts(
     symbol: Optional[str] = None,
     severity: Optional[str] = None,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Get liquidity alerts"""
     try:
@@ -680,7 +692,9 @@ async def get_liquidity_alerts(
 async def acknowledge_liquidity_alert(
     alert_id: str,
     user_id: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Acknowledge a liquidity alert"""
     try:
@@ -706,7 +720,9 @@ async def acknowledge_liquidity_alert(
 @router.get("/liquidity-score/{symbol}", response_model=Dict[str, float])
 async def calculate_liquidity_score(
     symbol: str,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Calculate comprehensive liquidity score"""
     try:
@@ -725,7 +741,9 @@ async def calculate_liquidity_score(
 async def optimize_liquidity_allocation(
     symbol: str,
     total_amount: float,
-    lm_service: LiquidityManagementService = Depends(get_liquidity_management_service_sync),
+    lm_service: LiquidityManagementService = Depends(
+        get_liquidity_management_service_sync
+    ),
 ):
     """Optimize liquidity allocation across pools"""
     try:

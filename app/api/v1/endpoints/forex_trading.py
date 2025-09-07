@@ -591,7 +591,9 @@ async def get_fx_metrics(
 
 @router.get("/cross-rates/{base_currency}", response_model=CrossCurrencyRatesResponse)
 async def get_cross_currency_rates(
-    base_currency: str, db: Session = Depends(get_db), redis_client=Depends(get_redis_sync)
+    base_currency: str,
+    db: Session = Depends(get_db),
+    redis_client=Depends(get_redis_sync),
 ):
     """Get cross currency rates for a base currency"""
     try:

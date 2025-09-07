@@ -101,13 +101,13 @@ manager = ConnectionManager()
 
 # Dependency injection
 async def get_derivatives_service(
-    redis_client = Depends(get_redis_sync), db: Session = Depends(get_db)
+    redis_client=Depends(get_redis_sync), db: Session = Depends(get_db)
 ) -> DerivativesTradingService:
     return await get_derivatives_trading_service(redis_client, db)
 
 
 async def get_risk_service(
-    redis_client = Depends(get_redis_sync), db: Session = Depends(get_db)
+    redis_client=Depends(get_redis_sync), db: Session = Depends(get_db)
 ) -> DerivativesRiskManagementService:
     return await get_derivatives_risk_management_service(redis_client, db)
 

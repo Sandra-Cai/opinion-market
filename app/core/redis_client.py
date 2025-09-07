@@ -73,5 +73,7 @@ def get_redis_sync() -> Optional[redis_sync.Redis]:
             retry_on_timeout=False,
         )
     except Exception as e:
-        logger.warning(f"Redis sync client creation failed: {e}. Using None for development.")
+        logger.warning(
+            f"Redis sync client creation failed: {e}. Using None for development."
+        )
         return None

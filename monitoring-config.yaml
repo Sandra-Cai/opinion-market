@@ -1,0 +1,81 @@
+monitoring:
+  metrics:
+    - name: "response_time"
+      threshold: 1.0
+      unit: "seconds"
+      critical_threshold: 2.0
+    - name: "error_rate"
+      threshold: 0.05
+      unit: "percentage"
+      critical_threshold: 0.1
+    - name: "cpu_usage"
+      threshold: 80
+      unit: "percentage"
+      critical_threshold: 90
+    - name: "memory_usage"
+      threshold: 85
+      unit: "percentage"
+      critical_threshold: 95
+    - name: "disk_usage"
+      threshold: 90
+      unit: "percentage"
+      critical_threshold: 95
+    - name: "import_time"
+      threshold: 0.5
+      unit: "seconds"
+      critical_threshold: 1.0
+  
+  alerts:
+    - name: "high_response_time"
+      condition: "response_time > 1.0"
+      severity: "warning"
+      action: "restart_service"
+    - name: "critical_response_time"
+      condition: "response_time > 2.0"
+      severity: "critical"
+      action: "emergency_restart"
+    - name: "high_error_rate"
+      condition: "error_rate > 0.05"
+      severity: "warning"
+      action: "check_logs"
+    - name: "critical_error_rate"
+      condition: "error_rate > 0.1"
+      severity: "critical"
+      action: "rollback_deployment"
+    - name: "resource_exhaustion"
+      condition: "cpu_usage > 80 OR memory_usage > 85"
+      severity: "warning"
+      action: "scale_resources"
+    - name: "critical_resource_exhaustion"
+      condition: "cpu_usage > 90 OR memory_usage > 95"
+      severity: "critical"
+      action: "emergency_scale"
+  
+  notifications:
+    - type: "slack"
+      webhook: "${SLACK_WEBHOOK_URL}"
+      channels: ["#alerts", "#devops"]
+    - type: "email"
+      recipients: ["admin@company.com", "devops@company.com"]
+    - type: "pagerduty"
+      service_key: "${PAGERDUTY_SERVICE_KEY}"
+  
+  actions:
+    - name: "restart_service"
+      command: "docker restart opinion-market"
+      timeout: 30
+    - name: "emergency_restart"
+      command: "docker restart opinion-market && sleep 10 && docker logs opinion-market"
+      timeout: 60
+    - name: "check_logs"
+      command: "docker logs --tail 100 opinion-market"
+      timeout: 10
+    - name: "rollback_deployment"
+      command: "kubectl rollout undo deployment/opinion-market"
+      timeout: 120
+    - name: "scale_resources"
+      command: "kubectl scale deployment opinion-market --replicas=3"
+      timeout: 60
+    - name: "emergency_scale"
+      command: "kubectl scale deployment opinion-market --replicas=5"
+      timeout: 60

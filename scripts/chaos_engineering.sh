@@ -38,8 +38,8 @@ install_chaos_tools() {
     log_chaos "Installing chaos engineering tools..."
     
     # Install Python chaos libraries
-    pip install --quiet chaos-toolkit chaos-engineering
-    pip install --quiet psutil stress-ng
+    pip install --quiet psutil
+    pip install --quiet stress-ng 2>/dev/null || true
     
     # Install system stress tools
     if command -v apt-get &> /dev/null; then

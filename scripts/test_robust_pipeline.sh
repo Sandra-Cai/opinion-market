@@ -146,7 +146,7 @@ main() {
     echo "=========================================="
     
     run_test "API Server Startup Test" \
-        "timeout 30s bash -c 'python -m uvicorn app.main_simple:app --host 0.0.0.0 --port 8000 & sleep 5; curl -f http://localhost:8000/health; kill %1' || echo 'Server test completed'" \
+        "bash -c 'python -m uvicorn app.main_simple:app --host 0.0.0.0 --port 8000 & sleep 5; curl -f http://localhost:8000/health; kill %1' || echo 'Server test completed'" \
         "Test API server startup and health check"
     
     # 6. Docker Tests (if Docker is available)
@@ -198,7 +198,7 @@ main() {
         "Test import performance"
     
     run_test "API Response Time Test" \
-        "timeout 10s bash -c 'python -m uvicorn app.main_simple:app --host 0.0.0.0 --port 8000 & sleep 3; time curl -f http://localhost:8000/health; kill %1' || echo 'Response time test completed'" \
+        "bash -c 'python -m uvicorn app.main_simple:app --host 0.0.0.0 --port 8000 & sleep 3; time curl -f http://localhost:8000/health; kill %1' || echo 'Response time test completed'" \
         "Test API response time"
     
     # 10. Integration Tests

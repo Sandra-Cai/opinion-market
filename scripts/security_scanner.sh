@@ -123,7 +123,7 @@ scan_dependency_vulnerabilities() {
     log_security "Scanning dependencies for known vulnerabilities..."
     
     # Run Safety scan
-    safety check --json --output /tmp/safety_report.json 2>/dev/null || true
+    safety check --json > /tmp/safety_report.json 2>/dev/null || true
     
     # Parse Safety results
     local vulnerability_count=$(jq '.vulnerabilities | length' /tmp/safety_report.json 2>/dev/null || echo "0")

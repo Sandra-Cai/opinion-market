@@ -334,7 +334,7 @@ class PerformanceOptimizer:
         import hashlib
 
         key_hash = hashlib.md5(
-            json.dumps(key_data, sort_keys=True).encode()
+            json.dumps(key_data, sort_keys=True).encode(), usedforsecurity=False
         ).hexdigest()
 
         return f"{prefix}{func_name}:{key_hash}"

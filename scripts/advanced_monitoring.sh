@@ -201,7 +201,11 @@ collect_metrics() {
     
     # Memory usage
     local memory_usage=0
-    if command -v free &> /dev/null; then
+    if command -v vm_stat &> /dev/null; then
+        # macOS memory calculation
+        memory_usage=$(vm_stat | awk '/Pages free/ {free=$3} /Pages active/ {active=$3} /Pages inactive/ {inactive=$3} /Pages speculative/ {spec=$3} /Pages wired down/ {wired=$4} END {total=free+active+inactive+spec+wired; used=active+inactive+wired; printf "%.0f", used*100/total}' 2>/dev/null || echo "0")
+    elif command -v free &> /dev/null; then
+        # Linux memory calculation
         memory_usage=$(free | awk 'NR==2{printf "%.0f", $3*100/$2}' 2>/dev/null || echo "0")
     fi
     

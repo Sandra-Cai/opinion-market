@@ -7,14 +7,26 @@ def validate_yaml_file(filepath):
     try:
         with open(filepath) as f:
             content = f.read()
-            if '---' in content and content.count('---') > 1:
-                list(yaml.safe_load_all(content))
-            else:
+            # Try single document first
+            try:
                 yaml.safe_load(content)
-        print(f'✅ {filepath}: OK')
-        return True
+                print(f'✅ {filepath}: OK (single document)')
+                return True
+            except yaml.composer.ComposerError as e:
+                if "expected a single document" in str(e):
+                    # Try multi-document
+                    try:
+                        list(yaml.safe_load_all(content))
+                        print(f'✅ {filepath}: OK (multi-document)')
+                        return True
+                    except Exception as e2:
+                        print(f'❌ {filepath}: Multi-document error: {e2}')
+                        return False
+                else:
+                    print(f'❌ {filepath}: Single document error: {e}')
+                    return False
     except Exception as e:
-        print(f'❌ {filepath}: {e}')
+        print(f'❌ {filepath}: File error: {e}')
         return False
 
 def main():

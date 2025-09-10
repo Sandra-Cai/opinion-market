@@ -1,13 +1,12 @@
 name: Opinion Market CI/CD Pipeline
 
-# DISABLED - Comment out triggers to stop automatic runs
-# on:
-#   push:
-#     branches: [ main, develop ]
-#   pull_request:
-#     branches: [ main, develop ]
-#   release:
-#     types: [ published ]
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
 
 env:
   REGISTRY: ghcr.io

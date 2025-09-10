@@ -196,7 +196,7 @@ collect_metrics() {
     # CPU usage
     local cpu_usage=0
     if command -v top &> /dev/null; then
-        cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//' 2>/dev/null || echo "0")
+        cpu_usage=$(top -l 1 | grep "CPU usage" | awk '{print $3}' | sed 's/%//' 2>/dev/null || echo "0")
     fi
     
     # Memory usage

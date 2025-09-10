@@ -492,7 +492,7 @@ class MarketMicrostructureService:
         try:
             # Generate realistic market depth
             # Use hashlib for deterministic hash instead of built-in hash()
-            deterministic_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
+            deterministic_hash = int(hashlib.md5(symbol.encode(), usedforsecurity=False).hexdigest()[:8], 16)
             base_price = 100.0 + deterministic_hash % 1000
             spread = 0.01
 
@@ -1001,7 +1001,7 @@ class MarketMicrostructureService:
             for symbol in ["AAPL", "GOOGL", "MSFT", "TSLA"]:
                 # Use hashlib for deterministic hash instead of built-in hash()
                 deterministic_hash = int(
-                    hashlib.md5(symbol.encode()).hexdigest()[:8], 16
+                    hashlib.md5(symbol.encode(), usedforsecurity=False).hexdigest()[:8], 16
                 )
                 base_price = 100.0 + deterministic_hash % 1000
                 for i in range(100):

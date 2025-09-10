@@ -1013,7 +1013,7 @@ class OrderManagementSystem:
         try:
             # Generate random market data
             # Use hashlib for deterministic hash instead of built-in hash()
-            deterministic_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
+            deterministic_hash = int(hashlib.md5(symbol.encode(), usedforsecurity=False).hexdigest()[:8], 16)
             base_price = 100.0 + deterministic_hash % 1000
 
             market_data = MarketData(

@@ -348,7 +348,7 @@ class BlockchainIntegrationService:
             # For now, we'll simulate deployment
 
             # Generate a mock contract address
-            contract_address = f"0x{hashlib.md5(f'market_{market_data['id']}_{network}'.encode()).hexdigest()[:40]}"
+            contract_address = f"0x{hashlib.md5(f'market_{market_data['id']}_{network}'.encode(), usedforsecurity=False).hexdigest()[:40]}"
 
             # Simulate deployment transaction
             deployment_tx = {
@@ -424,7 +424,7 @@ class BlockchainIntegrationService:
             # 3. Wait for confirmation
 
             # Simulate transaction
-            tx_hash = f"0x{hashlib.md5(f'trade_{market_id}_{user_address}_{datetime.utcnow().isoformat()}'.encode()).hexdigest()[:64]}"
+            tx_hash = f"0x{hashlib.md5(f'trade_{market_id}_{user_address}_{datetime.utcnow().isoformat()}'.encode(), usedforsecurity=False).hexdigest()[:64]}"
 
             blockchain_tx = BlockchainTransaction(
                 transaction_hash=tx_hash,

@@ -507,7 +507,7 @@ class BlockchainIntegrationService:
         """Deploy a token contract"""
         try:
             # Generate mock token address
-            token_address = f"0x{hashlib.md5(f'token_{token_name}_{token_symbol}_{network}'.encode()).hexdigest()[:40]}"
+            token_address = f"0x{hashlib.md5(f'token_{token_name}_{token_symbol}_{network}'.encode(), usedforsecurity=False).hexdigest()[:40]}"
 
             logger.info(f"Simulated deployment of token contract: {token_address}")
             return token_address
@@ -573,7 +573,7 @@ class BlockchainIntegrationService:
         """Submit oracle data transaction"""
         try:
             # Simulate transaction
-            tx_hash = f"0x{hashlib.md5(f'oracle_{market_id}_{data_value}_{datetime.utcnow().isoformat()}'.encode()).hexdigest()[:64]}"
+            tx_hash = f"0x{hashlib.md5(f'oracle_{market_id}_{data_value}_{datetime.utcnow().isoformat()}'.encode(), usedforsecurity=False).hexdigest()[:64]}"
 
             logger.info(f"Simulated oracle data submission: {tx_hash}")
             return tx_hash
@@ -806,11 +806,11 @@ class BlockchainIntegrationService:
     ) -> Optional[str]:
         """Get market contract address"""
         # Implementation would query database or cache
-        return f"0x{hashlib.md5(f'market_{market_id}_{network}'.encode()).hexdigest()[:40]}"
+        return f"0x{hashlib.md5(f'market_{market_id}_{network}'.encode(), usedforsecurity=False).hexdigest()[:40]}"
 
     async def _get_oracle_contract_address(self, network: str) -> str:
         """Get oracle contract address"""
-        return f"0x{hashlib.md5(f'oracle_{network}'.encode()).hexdigest()[:40]}"
+        return f"0x{hashlib.md5(f'oracle_{network}'.encode(), usedforsecurity=False).hexdigest()[:40]}"
 
     async def _get_token_price(self, token_address: str, network: str) -> float:
         """Get token price from DEX or price feed"""

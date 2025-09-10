@@ -97,7 +97,19 @@ run_validation_stage() {
     done
     
     # Check YAML syntax
-    if ! find . -name "*.yml" -o -name "*.yaml" | xargs -I {} python -c "import yaml; yaml.safe_load(open('{}'))" 2>/dev/null; then
+    if ! find . -name "*.yml" -o -name "*.yaml" | xargs -I {} python -c "
+import yaml
+try:
+    with open('{}') as f:
+        content = f.read()
+        if '---' in content and content.count('---') > 1:
+            list(yaml.safe_load_all(content))
+        else:
+            yaml.safe_load(content)
+except Exception as e:
+    print(f'YAML error in {}: {e}')
+    exit(1)
+" 2>/dev/null; then
         validation_passed=false
         validation_details="$validation_details, YAML syntax errors"
     fi

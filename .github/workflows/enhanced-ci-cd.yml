@@ -830,7 +830,7 @@ jobs:
           else
             echo "⏭️  Performance testing skipped (not on develop)"
           fi
-          
+          3
           echo ""
           echo "🎯 Enhanced pipeline completed!"
           echo "📊 All jobs completed with enhanced error handling"

@@ -97,18 +97,39 @@ run_validation_stage() {
     done
     
     # Check YAML syntax
-    if ! find . -name "*.yml" -o -name "*.yaml" | xargs -I {} python -c "
+    if ! python3 -c "
 import yaml
-try:
-    with open('{}') as f:
-        content = f.read()
-        if '---' in content and content.count('---') > 1:
-            list(yaml.safe_load_all(content))
-        else:
-            yaml.safe_load(content)
-except Exception as e:
-    print(f'YAML error in {}: {e}')
-    exit(1)
+import glob
+import sys
+
+def validate_yaml_file(filepath):
+    try:
+        with open(filepath) as f:
+            content = f.read()
+            try:
+                yaml.safe_load(content)
+                return True
+            except yaml.composer.ComposerError as e:
+                if 'expected a single document' in str(e):
+                    try:
+                        list(yaml.safe_load_all(content))
+                        return True
+                    except Exception:
+                        return False
+                else:
+                    return False
+    except Exception:
+        return False
+
+yaml_files = glob.glob('**/*.yml', recursive=True) + glob.glob('**/*.yaml', recursive=True)
+failed_files = [f for f in yaml_files if not validate_yaml_file(f)]
+
+if failed_files:
+    print(f'YAML validation failed for: {failed_files}')
+    sys.exit(1)
+else:
+    print('All YAML files are valid')
+    sys.exit(0)
 " 2>/dev/null; then
         validation_passed=false
         validation_details="$validation_details, YAML syntax errors"

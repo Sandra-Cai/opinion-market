@@ -170,7 +170,7 @@ class StrategySignal:
 class QuantitativeResearchService:
     """Comprehensive Quantitative Research Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1249,7 +1249,7 @@ class QuantitativeResearchService:
 
 # Factory function
 async def get_quantitative_research_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> QuantitativeResearchService:
     """Get Quantitative Research Service instance"""
     service = QuantitativeResearchService(redis_client, db_session)

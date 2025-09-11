@@ -102,7 +102,7 @@ class SocialFeaturesService:
     """Comprehensive social features service"""
 
     def __init__(self):
-        self.redis_client: Optional[redis.Redis] = None
+        self.redis_client: Optional[redis_sync.Redis] = None
         self.ml_service = get_ml_service()
         self.user_profiles = {}
         self.social_posts = {}

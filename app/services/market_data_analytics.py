@@ -153,7 +153,7 @@ class DataQuality:
 class MarketDataAnalyticsService:
     """Comprehensive market data and analytics service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.market_data: Dict[str, deque] = defaultdict(lambda: deque(maxlen=10000))
@@ -1052,7 +1052,7 @@ class MarketDataAnalyticsService:
 
 # Factory function
 async def get_market_data_analytics_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> MarketDataAnalyticsService:
     """Get market data analytics service instance"""
     service = MarketDataAnalyticsService(redis_client, db_session)

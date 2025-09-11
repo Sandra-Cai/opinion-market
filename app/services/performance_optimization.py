@@ -61,7 +61,7 @@ class PerformanceOptimizer:
     """Comprehensive performance optimization service"""
 
     def __init__(self):
-        self.redis_client: Optional[redis.Redis] = None
+        self.redis_client: Optional[redis_sync.Redis] = None
         self.cache_metrics = {}
         self.db_metrics = {}
         self.performance_profiles = {}

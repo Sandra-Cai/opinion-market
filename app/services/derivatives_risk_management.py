@@ -156,7 +156,7 @@ class PortfolioRisk:
 class DerivativesRiskManagementService:
     """Comprehensive Derivatives Risk Management Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1110,7 +1110,7 @@ class DerivativesRiskManagementService:
 
 # Factory function
 async def get_derivatives_risk_management_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> DerivativesRiskManagementService:
     """Get Derivatives Risk Management Service instance"""
     service = DerivativesRiskManagementService(redis_client, db_session)

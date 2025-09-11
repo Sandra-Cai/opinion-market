@@ -167,7 +167,7 @@ class StrategyPerformance:
 class AlgorithmicTradingService:
     """Comprehensive algorithmic trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.strategies: Dict[str, TradingStrategy] = {}
@@ -1249,7 +1249,7 @@ class AlgorithmicTradingService:
 
 # Factory function
 async def get_algorithmic_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> AlgorithmicTradingService:
     """Get algorithmic trading service instance"""
     service = AlgorithmicTradingService(redis_client, db_session)

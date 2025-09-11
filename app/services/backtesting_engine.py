@@ -169,7 +169,7 @@ class Portfolio:
 class BacktestingEngine:
     """Advanced Backtesting Engine"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1060,7 +1060,7 @@ class BacktestingEngine:
 
 # Factory function
 async def get_backtesting_engine(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> BacktestingEngine:
     """Get Backtesting Engine instance"""
     engine = BacktestingEngine(redis_client, db_session)

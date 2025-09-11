@@ -65,7 +65,7 @@ class SystemMonitor:
     """Comprehensive system monitoring and alerting"""
 
     def __init__(self):
-        self.redis_client: Optional[redis.Redis] = None
+        self.redis_client: Optional[redis_sync.Redis] = None
         self.notification_service = get_notification_service()
         self.metrics_history: List[SystemMetrics] = []
         self.application_metrics_history: List[ApplicationMetrics] = []

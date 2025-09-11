@@ -188,7 +188,7 @@ class ESGAlert:
 class ESGInvestingService:
     """Comprehensive ESG Investing Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1240,7 +1240,7 @@ class ESGInvestingService:
 
 # Factory function
 async def get_esg_investing_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> ESGInvestingService:
     """Get ESG Investing Service instance"""
     service = ESGInvestingService(redis_client, db_session)

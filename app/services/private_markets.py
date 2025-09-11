@@ -245,7 +245,7 @@ class ExitEvent:
 class PrivateMarketsService:
     """Comprehensive Private Markets Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1276,7 +1276,7 @@ class PrivateMarketsService:
 
 # Factory function
 async def get_private_markets_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> PrivateMarketsService:
     """Get Private Markets Service instance"""
     service = PrivateMarketsService(redis_client, db_session)

@@ -103,7 +103,7 @@ class PortfolioOptimization:
 class QuantitativeTradingService:
     """Comprehensive quantitative trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.trading_signals: Dict[str, TradingSignal] = {}
@@ -1114,7 +1114,7 @@ class QuantitativeTradingService:
 
 # Factory function
 async def get_quantitative_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> QuantitativeTradingService:
     """Get quantitative trading service instance"""
     service = QuantitativeTradingService(redis_client, db_session)

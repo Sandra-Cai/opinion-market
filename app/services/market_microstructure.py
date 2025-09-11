@@ -185,7 +185,7 @@ class MarketImpact:
 class MarketMicrostructureService:
     """Comprehensive Market Microstructure Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1047,7 +1047,7 @@ class MarketMicrostructureService:
 
 # Factory function
 async def get_market_microstructure_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> MarketMicrostructureService:
     """Get Market Microstructure Service instance"""
     service = MarketMicrostructureService(redis_client, db_session)

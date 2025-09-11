@@ -91,7 +91,7 @@ class OracleData:
 class BlockchainIntegrationService:
     """Comprehensive blockchain integration service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.web3_connections: Dict[str, Web3] = {}
@@ -953,7 +953,7 @@ class BlockchainIntegrationService:
 
 # Factory function
 async def get_blockchain_integration_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> BlockchainIntegrationService:
     """Get blockchain integration service instance"""
     service = BlockchainIntegrationService(redis_client, db_session)

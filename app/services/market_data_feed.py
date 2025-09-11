@@ -52,7 +52,7 @@ class MarketDataFeed:
     """Real-time market data feed service"""
 
     def __init__(self):
-        self.redis_client: Optional[redis.Redis] = None
+        self.redis_client: Optional[redis_sync.Redis] = None
         self.price_feed_manager = price_feed_manager
         self.subscribers: Dict[str, List[Callable]] = {}
         self.market_alerts: List[MarketAlert] = []

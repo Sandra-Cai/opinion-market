@@ -163,7 +163,7 @@ class ComplianceAudit:
 class ComplianceService:
     """Comprehensive compliance and regulatory service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.compliance_profiles: Dict[int, ComplianceProfile] = {}
@@ -1017,7 +1017,7 @@ class ComplianceService:
 
 # Factory function
 async def get_compliance_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> ComplianceService:
     """Get compliance service instance"""
     service = ComplianceService(redis_client, db_session)

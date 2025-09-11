@@ -119,7 +119,7 @@ class CryptoOrder:
 class CryptoTradingService:
     """Comprehensive cryptocurrency trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.cryptocurrencies: Dict[str, Cryptocurrency] = {}
@@ -924,7 +924,7 @@ class CryptoTradingService:
 
 # Factory function
 async def get_crypto_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> CryptoTradingService:
     """Get cryptocurrency trading service instance"""
     service = CryptoTradingService(redis_client, db_session)

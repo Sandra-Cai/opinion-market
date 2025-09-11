@@ -190,7 +190,7 @@ class TaxStrategy:
 class FinancialPlanningService:
     """Comprehensive Financial Planning Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1187,7 +1187,7 @@ class FinancialPlanningService:
 
 # Factory function
 async def get_financial_planning_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> FinancialPlanningService:
     """Get Financial Planning Service instance"""
     service = FinancialPlanningService(redis_client, db_session)

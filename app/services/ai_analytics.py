@@ -100,7 +100,7 @@ class FeatureSet:
 class AIAnalyticsService:
     """Comprehensive AI analytics service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.models: Dict[str, AIModel] = {}
@@ -770,7 +770,7 @@ class AIAnalyticsService:
 
 # Factory function
 async def get_ai_analytics_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> AIAnalyticsService:
     """Get AI analytics service instance"""
     service = AIAnalyticsService(redis_client, db_session)

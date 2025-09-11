@@ -105,7 +105,7 @@ class RiskAlert:
 class RiskManagementService:
     """Comprehensive risk management service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.risk_profiles: Dict[int, RiskProfile] = {}
@@ -1049,7 +1049,7 @@ class RiskManagementService:
 
 # Factory function
 async def get_risk_management_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> RiskManagementService:
     """Get risk management service instance"""
     service = RiskManagementService(redis_client, db_session)

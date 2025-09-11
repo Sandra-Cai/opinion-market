@@ -201,7 +201,7 @@ class SustainabilityReport:
 class SustainableFinanceService:
     """Comprehensive Sustainable Finance Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1077,7 +1077,7 @@ class SustainableFinanceService:
 
 # Factory function
 async def get_sustainable_finance_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> SustainableFinanceService:
     """Get Sustainable Finance Service instance"""
     service = SustainableFinanceService(redis_client, db_session)

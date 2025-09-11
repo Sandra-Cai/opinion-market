@@ -144,7 +144,7 @@ class FXOrder:
 class ForexTradingService:
     """Comprehensive foreign exchange trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.currency_pairs: Dict[str, CurrencyPair] = {}
@@ -994,7 +994,7 @@ class ForexTradingService:
 
 # Factory function
 async def get_forex_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> ForexTradingService:
     """Get forex trading service instance"""
     service = ForexTradingService(redis_client, db_session)

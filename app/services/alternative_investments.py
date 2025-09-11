@@ -216,7 +216,7 @@ class DueDiligence:
 class AlternativeInvestmentsService:
     """Comprehensive Alternative Investments Service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1177,7 +1177,7 @@ class AlternativeInvestmentsService:
 
 # Factory function
 async def get_alternative_investments_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> AlternativeInvestmentsService:
     """Get Alternative Investments Service instance"""
     service = AlternativeInvestmentsService(redis_client, db_session)

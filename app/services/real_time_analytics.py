@@ -81,7 +81,7 @@ class SystemMetrics:
 class RealTimeAnalyticsService:
     """Real-time analytics service for market insights"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.websocket_connections: Dict[str, WebSocket] = {}
@@ -689,7 +689,7 @@ class RealTimeAnalyticsService:
 
 # Factory function
 async def get_real_time_analytics_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> RealTimeAnalyticsService:
     """Get real-time analytics service instance"""
     service = RealTimeAnalyticsService(redis_client, db_session)

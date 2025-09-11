@@ -125,7 +125,7 @@ class OptionsPosition:
 class OptionsTradingService:
     """Comprehensive options trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.option_contracts: Dict[str, OptionContract] = {}
@@ -967,7 +967,7 @@ class OptionsTradingService:
 
 # Factory function
 async def get_options_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> OptionsTradingService:
     """Get options trading service instance"""
     service = OptionsTradingService(redis_client, db_session)

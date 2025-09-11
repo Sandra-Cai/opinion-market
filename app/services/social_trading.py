@@ -120,7 +120,7 @@ class CommunityPost:
 class SocialTradingService:
     """Comprehensive social trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.trader_profiles: Dict[int, TraderProfile] = {}
@@ -990,7 +990,7 @@ class SocialTradingService:
 
 # Factory function
 async def get_social_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> SocialTradingService:
     """Get social trading service instance"""
     service = SocialTradingService(redis_client, db_session)

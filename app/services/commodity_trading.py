@@ -128,7 +128,7 @@ class CommoditySpread:
 class CommodityTradingService:
     """Comprehensive commodity trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.commodities: Dict[str, Commodity] = {}
@@ -999,7 +999,7 @@ class CommodityTradingService:
 
 # Factory function
 async def get_commodity_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> CommodityTradingService:
     """Get commodity trading service instance"""
     service = CommodityTradingService(redis_client, db_session)

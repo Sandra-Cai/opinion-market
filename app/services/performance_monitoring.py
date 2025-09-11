@@ -80,7 +80,7 @@ class OptimizationRecommendation:
 class PerformanceMonitoringService:
     """Comprehensive performance monitoring and optimization service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.metrics_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
@@ -916,7 +916,7 @@ class PerformanceMonitoringService:
 
 # Factory function
 async def get_performance_monitoring_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> PerformanceMonitoringService:
     """Get performance monitoring service instance"""
     service = PerformanceMonitoringService(redis_client, db_session)

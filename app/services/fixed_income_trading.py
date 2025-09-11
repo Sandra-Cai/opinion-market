@@ -106,7 +106,7 @@ class YieldCurve:
 class FixedIncomeTradingService:
     """Comprehensive fixed income trading service"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
         self.bonds: Dict[str, Bond] = {}
@@ -850,7 +850,7 @@ class FixedIncomeTradingService:
 
 # Factory function
 async def get_fixed_income_trading_service(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> FixedIncomeTradingService:
     """Get fixed income trading service instance"""
     service = FixedIncomeTradingService(redis_client, db_session)

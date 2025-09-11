@@ -12,6 +12,7 @@ import json
 import numpy as np
 import pandas as pd
 from collections import defaultdict, deque
+import redis as redis_sync
 import redis.asyncio as redis
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc

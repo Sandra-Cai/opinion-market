@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
+import redis as redis_sync
 import redis.asyncio as redis
 import aiohttp
 

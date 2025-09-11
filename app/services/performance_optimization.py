@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass
 from functools import wraps
+import redis as redis_sync
 import redis.asyncio as redis
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker

@@ -15,6 +15,7 @@ from scipy.stats import pearsonr, spearmanr
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+import redis as redis_sync
 import redis.asyncio as redis
 from sqlalchemy.orm import Session
 import json

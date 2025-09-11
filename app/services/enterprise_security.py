@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
 from enum import Enum
+import redis as redis_sync
 import redis.asyncio as redis
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes

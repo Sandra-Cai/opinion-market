@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 import websockets
 import aiohttp
+import redis as redis_sync
 import redis.asyncio as redis
 
 from app.core.database import SessionLocal

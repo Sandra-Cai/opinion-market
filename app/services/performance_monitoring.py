@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 import numpy as np
+import redis as redis_sync
 import redis.asyncio as redis
 from sqlalchemy.orm import Session
 import json

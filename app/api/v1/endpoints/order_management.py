@@ -20,7 +20,7 @@ from app.services.order_management_system import (
     OrderStatus,
     TimeInForce,
     OrderRoute,
-    get_order_management_system,
+    get_order_management_system_dependency,
 )
 from app.services.execution_management_system import (
     ExecutionManagementSystem,
@@ -57,7 +57,7 @@ websocket_connections: Dict[str, Any] = {}
 )
 async def create_order(
     order_data: OrderCreate,
-    oms: OrderManagementSystem = Depends(get_order_management_system),
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Create a new order"""
     try:
@@ -107,7 +107,7 @@ async def create_order(
 async def get_order(
     order_id: str,
     user_id: int,
-    oms: OrderManagementSystem = Depends(get_order_management_system),
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Get order details"""
     try:
@@ -154,7 +154,7 @@ async def get_orders(
     symbol: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 100,
-    oms: OrderManagementSystem = Depends(get_order_management_system),
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Get orders for a user"""
     try:
@@ -202,7 +202,7 @@ async def get_orders(
 async def modify_order(
     order_id: str,
     modify_data: OrderModify,
-    oms: OrderManagementSystem = Depends(get_order_management_system),
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Modify an existing order"""
     try:
@@ -254,7 +254,7 @@ async def modify_order(
 async def cancel_order(
     order_id: str,
     cancel_data: OrderCancel,
-    oms: OrderManagementSystem = Depends(get_order_management_system),
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Cancel an order"""
     try:
@@ -281,7 +281,7 @@ async def cancel_order(
 async def get_order_fills(
     order_id: str,
     user_id: int,
-    oms: OrderManagementSystem = Depends(get_order_management_system),
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Get fills for an order"""
     try:
@@ -318,7 +318,7 @@ async def get_order_fills(
 async def get_execution_reports(
     order_id: str,
     user_id: int,
-    oms: OrderManagementSystem = Depends(get_order_management_system),
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Get execution reports for an order"""
     try:

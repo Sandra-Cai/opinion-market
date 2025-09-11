@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any, Tuple, Union
 from dataclasses import dataclass
 import numpy as np
 from collections import defaultdict, deque
+import redis as redis_sync
 import redis.asyncio as redis
 from sqlalchemy.orm import Session
 import json
@@ -143,7 +144,7 @@ class ExecutionMetrics:
 class ExecutionManagementSystem:
     """Advanced Execution Management System"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -890,7 +891,7 @@ class ExecutionManagementSystem:
 
 # Factory function
 async def get_execution_management_system(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> ExecutionManagementSystem:
     """Get Execution Management System instance"""
     ems = ExecutionManagementSystem(redis_client, db_session)

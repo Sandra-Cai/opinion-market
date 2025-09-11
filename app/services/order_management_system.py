@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Any, Tuple, Union
 from dataclasses import dataclass
 import numpy as np
 from collections import defaultdict, deque
+import redis as redis_sync
 import redis.asyncio as redis
 from sqlalchemy.orm import Session
 import json
@@ -226,7 +227,7 @@ class OrderRoute:
 class OrderManagementSystem:
     """Comprehensive Order Management System"""
 
-    def __init__(self, redis_client: redis.Redis, db_session: Session):
+    def __init__(self, redis_client: redis_sync.Redis, db_session: Session):
         self.redis = redis_client
         self.db = db_session
 
@@ -1315,7 +1316,7 @@ class OrderManagementSystem:
 
 # Factory function
 async def get_order_management_system(
-    redis_client: redis.Redis, db_session: Session
+    redis_client: redis_sync.Redis, db_session: Session
 ) -> OrderManagementSystem:
     """Get Order Management System instance"""
     oms = OrderManagementSystem(redis_client, db_session)

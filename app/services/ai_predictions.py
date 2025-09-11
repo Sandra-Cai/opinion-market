@@ -15,6 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import joblib
+import redis as redis_sync
 import redis.asyncio as redis
 from sqlalchemy.orm import Session
 

@@ -12,7 +12,11 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 import aiohttp
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
+try:
+    from web3.middleware import geth_poa_middleware
+except ImportError:
+    # Fallback for newer web3 versions
+    from web3.middleware import ExtraDataToPOAMiddleware as geth_poa_middleware
 from eth_account import Account
 import redis as redis_sync
 import redis.asyncio as redis

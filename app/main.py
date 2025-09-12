@@ -15,10 +15,10 @@ from app.services.performance_optimization import get_performance_optimizer
 from app.services.enterprise_security import get_enterprise_security
 from app.services.market_data_feed import get_market_data_feed
 from app.services.machine_learning import get_ml_service
-from app.services.blockchain_integration import get_blockchain_integration
+from app.services.blockchain_integration import get_blockchain_integration_service
 from app.services.social_features import get_social_features
 from app.services.advanced_orders import get_advanced_order_manager
-from app.services.system_monitor import get_system_monitor
+from app.services.monitoring import get_system_monitor
 from app.api.docs import custom_openapi
 
 # Create database tables

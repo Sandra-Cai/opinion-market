@@ -82,8 +82,8 @@ def get_mobile_portfolio(current_user: User = Depends(get_current_user)):
 
 @router.get("/leaderboard")
 def get_mobile_leaderboard(
-    category: str = Query("traders", regex="^(traders|volume|win_rate)$"),
-    period: str = Query("7d", regex="^(24h|7d|30d|all_time)$"),
+    category: str = Query("traders", pattern="^(traders|volume|win_rate)$"),
+    period: str = Query("7d", pattern="^(24h|7d|30d|all_time)$"),
     limit: int = Query(20, ge=1, le=100),
 ):
     """Get mobile-optimized leaderboard"""

@@ -60,8 +60,8 @@ def get_markets(
     category: Optional[MarketCategory] = None,
     status: Optional[MarketStatus] = None,
     search: Optional[str] = None,
-    sort_by: str = Query("created_at", regex="^(created_at|volume|price|closes_at)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    sort_by: str = Query("created_at", pattern="^(created_at|volume|price|closes_at)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Market)

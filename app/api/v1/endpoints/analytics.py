@@ -106,7 +106,7 @@ def get_trending_analytics(
 
 @router.get("/volume-by-category")
 def get_volume_by_category(
-    period: str = Query("all_time", regex="^(24h|7d|30d|all_time)$"),
+    period: str = Query("all_time", pattern="^(24h|7d|30d|all_time)$"),
     db: Session = Depends(get_db),
 ):
     """Get trading volume by market category"""

@@ -15,7 +15,7 @@ from app.core.database import SessionLocal
 from app.models.market import Market, MarketStatus
 from app.models.trade import Trade
 from app.models.user import User
-from app.services.notification_service import get_notification_service
+from app.services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class SystemMonitor:
 
     def __init__(self):
         self.redis_client: Optional[redis_sync.Redis] = None
-        self.notification_service = get_notification_service()
+        self.notification_service = notification_service
         self.metrics_history: List[SystemMetrics] = []
         self.application_metrics_history: List[ApplicationMetrics] = []
         self.active_alerts: Dict[str, Alert] = {}

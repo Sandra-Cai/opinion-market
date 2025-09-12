@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get("/traders")
 def get_top_traders(
-    period: str = Query("all_time", regex="^(24h|7d|30d|all_time)$"),
+    period: str = Query("all_time", pattern="^(24h|7d|30d|all_time)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
@@ -69,7 +69,7 @@ def get_top_traders(
 
 @router.get("/volume")
 def get_top_volume_traders(
-    period: str = Query("all_time", regex="^(24h|7d|30d|all_time)$"),
+    period: str = Query("all_time", pattern="^(24h|7d|30d|all_time)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
@@ -122,7 +122,7 @@ def get_top_volume_traders(
 
 @router.get("/markets")
 def get_top_market_creators(
-    period: str = Query("all_time", regex="^(24h|7d|30d|all_time)$"),
+    period: str = Query("all_time", pattern="^(24h|7d|30d|all_time)$"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):

@@ -624,11 +624,6 @@ async def get_order_book(
 
 
 # Dependency injection functions
-async def get_order_management_system() -> OrderManagementSystem:
-    """Get Order Management System instance"""
-    # This would be injected from the main app
-    # For now, return a mock instance
-    pass
 
 
 async def get_execution_management_system_sync() -> ExecutionManagementSystem:

@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
         print("✅ Machine learning service initialized")
 
         # Initialize blockchain integration
-        await get_blockchain_integration().initialize(settings.REDIS_URL)
+        await get_blockchain_integration_service().initialize(settings.REDIS_URL)
         print("✅ Blockchain integration initialized")
 
         # Initialize social features

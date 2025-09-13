@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from app.core.performance_optimizer import performance_monitor
 from app.core.health_monitor import health_monitor
+from app.core.metrics import metrics_collector, MetricsMiddleware
+from app.core.rate_limiter import rate_limiter
+from app.core.caching import memory_cache
+from app.api.v1.endpoints.analytics_enhanced import router as analytics_router
 
 app = FastAPI(
     title="Opinion Market API",
@@ -18,6 +22,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add metrics middleware
+app.add_middleware(MetricsMiddleware, metrics_collector=metrics_collector)
+
+# Include enhanced analytics router
+app.include_router(analytics_router, prefix="/api/v1", tags=["Enhanced Analytics"])
 
 
 @app.get("/")
@@ -56,15 +66,29 @@ async def readiness_check():
 
 
 @app.get("/metrics")
+@performance_monitor
 async def metrics():
-    return {
-        "metrics": {
-            "requests_total": 1000,
-            "active_users": 150,
-            "markets_created": 25,
-            "trades_executed": 500,
-        }
+    """Get comprehensive application metrics"""
+    # Collect system metrics
+    import psutil
+    import time
+    
+    # Get metrics from collector
+    metrics_data = await metrics_collector.get_metrics()
+    
+    # Add system metrics
+    metrics_data['system'] = {
+        'cpu_percent': psutil.cpu_percent(),
+        'memory_percent': psutil.virtual_memory().percent,
+        'disk_percent': psutil.disk_usage('/').percent,
+        'uptime': time.time()
     }
+    
+    # Add cache statistics
+    cache_stats = await memory_cache.get_stats()
+    metrics_data['cache'] = cache_stats
+    
+    return metrics_data
 
 
 @app.get("/api/v1/")

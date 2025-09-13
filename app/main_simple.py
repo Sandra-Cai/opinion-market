@@ -6,7 +6,12 @@ from app.core.health_monitor import health_monitor
 from app.core.metrics import metrics_collector, MetricsMiddleware
 from app.core.rate_limiter import rate_limiter
 from app.core.caching import memory_cache
+from app.core.security import SecurityManager, SecurityHeaders
+from app.core.database_pool import db_pool_manager
+from app.core.logging_config import app_logger, LoggingMiddleware
+from app.core.config_manager import config_manager
 from app.api.v1.endpoints.analytics_enhanced import router as analytics_router
+from app.api.v1.endpoints.security import router as security_router
 
 app = FastAPI(
     title="Opinion Market API",
@@ -26,19 +31,36 @@ app.add_middleware(
 # Add metrics middleware
 app.add_middleware(MetricsMiddleware, metrics_collector=metrics_collector)
 
+# Add logging middleware
+app.add_middleware(LoggingMiddleware, logger=app_logger)
+
 # Include enhanced analytics router
 app.include_router(analytics_router, prefix="/api/v1", tags=["Enhanced Analytics"])
 
+# Include security router
+app.include_router(security_router, prefix="/api/v1", tags=["Security & Authentication"])
+
 
 @app.get("/")
+@performance_monitor
 async def root():
+    """Root endpoint with enhanced information"""
+    # Get configuration
+    config = config_manager.get_config()
+    
+    # Get database health
+    db_health = await db_pool_manager.health_check()
+    
     return {
         "message": "Welcome to Opinion Market API",
-        "version": "2.0.0",
+        "version": config.api.version,
+        "environment": config.environment.value,
         "description": "A comprehensive prediction market platform with advanced features",
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "openapi": "/openapi.json",
+        "status": "operational",
+        "database_status": db_health["status"],
+        "docs": config.api.docs_url,
+        "redoc": config.api.redoc_url,
+        "openapi": config.api.openapi_url,
         "features": [
             "Prediction Markets",
             "Real-time Trading",
@@ -48,7 +70,16 @@ async def root():
             "Advanced Orders",
             "Enterprise Security",
             "Performance Optimization",
+            "Advanced Caching",
+            "Structured Logging",
+            "Rate Limiting",
+            "Health Monitoring"
         ],
+        "endpoints": {
+            "health": "/health",
+            "metrics": "/metrics",
+            "analytics": "/api/v1/analytics"
+        }
     }
 
 

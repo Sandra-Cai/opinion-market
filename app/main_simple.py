@@ -12,6 +12,8 @@ from app.core.logging_config import app_logger, LoggingMiddleware
 from app.core.config_manager import config_manager
 from app.api.v1.endpoints.analytics_enhanced import router as analytics_router
 from app.api.v1.endpoints.security import router as security_router
+from app.api.v1.endpoints.monitoring_dashboard import router as monitoring_router
+from app.api.v1.endpoints.admin import router as admin_router
 
 app = FastAPI(
     title="Opinion Market API",
@@ -39,6 +41,12 @@ app.include_router(analytics_router, prefix="/api/v1", tags=["Enhanced Analytics
 
 # Include security router
 app.include_router(security_router, prefix="/api/v1", tags=["Security & Authentication"])
+
+# Include monitoring dashboard router
+app.include_router(monitoring_router, prefix="/api/v1", tags=["Monitoring Dashboard"])
+
+# Include admin router
+app.include_router(admin_router, prefix="/api/v1", tags=["Administration"])
 
 
 @app.get("/")

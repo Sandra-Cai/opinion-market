@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from app.core.performance_optimizer import performance_monitor
+from app.core.health_monitor import health_monitor
 
 app = FastAPI(
     title="Opinion Market API",
@@ -41,8 +43,11 @@ async def root():
 
 
 @app.get("/health")
+@performance_monitor
 async def health_check():
-    return {"status": "healthy", "service": "opinion-market-api"}
+    """Enhanced health check endpoint"""
+    health_status = await health_monitor.get_comprehensive_health()
+    return health_status
 
 
 @app.get("/ready")

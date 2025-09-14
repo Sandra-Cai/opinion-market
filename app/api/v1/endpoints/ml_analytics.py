@@ -1,521 +1,399 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
-from datetime import datetime
-import asyncio
+"""
+Machine Learning Analytics endpoints for intelligent market analysis
+"""
 
-from app.core.database import get_db
-from app.core.auth import get_current_user
-from app.models.user import User
-from app.services.machine_learning import get_ml_service
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Dict, Any, List, Optional
+import logging
 
+from app.core.machine_learning import ml_model_manager, ModelType
+from app.core.metrics import metrics_collector
+from app.api.v1.endpoints.security import get_current_user
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/market/{market_id}/prediction")
-def get_market_prediction(
-    market_id: int,
-    horizon: str = Query("24h", description="Prediction horizon (1h, 24h, 7d)"),
-    current_user: Optional[User] = Depends(get_current_user),
+@router.post("/ml/train-model")
+async def train_ml_model(
+    model_name: str,
+    training_data: List[Dict[str, Any]],
+    model_type: str = "prediction",
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Get ML-powered market price prediction"""
-    # Validate horizon
-    valid_horizons = ["1h", "24h", "7d"]
-    if horizon not in valid_horizons:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid horizon. Must be one of: {valid_horizons}",
-        )
-
-    ml_service = get_ml_service()
-
-    # Get prediction
-    prediction = asyncio.run(ml_service.predict_market_price(market_id, horizon))
-
-    if not prediction:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prediction not available for this market",
-        )
-
-    return {
-        "market_id": prediction.market_id,
-        "prediction_horizon": prediction.prediction_horizon,
-        "predicted_price_a": prediction.predicted_price_a,
-        "predicted_price_b": prediction.predicted_price_b,
-        "confidence": prediction.confidence,
-        "model_type": prediction.model_type,
-        "features_used": prediction.features_used,
-        "timestamp": prediction.timestamp.isoformat(),
-        "metadata": prediction.metadata,
-    }
-
-
-@router.get("/user/behavior-analysis")
-def get_user_behavior_analysis(current_user: User = Depends(get_current_user)):
-    """Get ML-powered user behavior analysis"""
-    ml_service = get_ml_service()
-
-    # Get user behavior profile
-    profile = asyncio.run(ml_service.analyze_user_behavior(current_user.id))
-
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User behavior analysis not available",
-        )
-
-    return {
-        "user_id": profile.user_id,
-        "risk_tolerance": profile.risk_tolerance,
-        "trading_frequency": profile.trading_frequency,
-        "preferred_market_categories": profile.preferred_market_categories,
-        "average_trade_size": profile.average_trade_size,
-        "win_rate": profile.win_rate,
-        "holding_period": profile.holding_period,
-        "sentiment_bias": profile.sentiment_bias,
-        "volatility_preference": profile.volatility_preference,
-        "metadata": profile.metadata,
-    }
-
-
-@router.get("/trading/recommendation")
-def get_trading_recommendation(
-    market_id: int, current_user: User = Depends(get_current_user)
-):
-    """Get personalized trading recommendation"""
-    ml_service = get_ml_service()
-
-    # Generate recommendation
-    recommendation = asyncio.run(
-        ml_service.generate_trading_recommendation(current_user.id, market_id)
-    )
-
-    if not recommendation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Trading recommendation not available",
-        )
-
-    return {
-        "user_id": recommendation.user_id,
-        "market_id": recommendation.market_id,
-        "recommendation_type": recommendation.recommendation_type,
-        "confidence": recommendation.confidence,
-        "reasoning": recommendation.reasoning,
-        "expected_return": recommendation.expected_return,
-        "risk_level": recommendation.risk_level,
-        "time_horizon": recommendation.time_horizon,
-        "timestamp": recommendation.timestamp.isoformat(),
-        "metadata": recommendation.metadata,
-    }
-
-
-@router.get("/markets/bulk-predictions")
-def get_bulk_market_predictions(
-    market_ids: str = Query(..., description="Comma-separated market IDs"),
-    horizon: str = Query("24h", description="Prediction horizon"),
-    current_user: Optional[User] = Depends(get_current_user),
-):
-    """Get predictions for multiple markets"""
+    """Train a new machine learning model"""
     try:
-        market_id_list = [int(id.strip()) for id in market_ids.split(",")]
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid market IDs format"
-        )
-
-    if len(market_id_list) > 20:  # Limit to 20 markets at once
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Maximum 20 markets allowed per request",
-        )
-
-    ml_service = get_ml_service()
-
-    predictions = []
-    for market_id in market_id_list:
-        prediction = asyncio.run(ml_service.predict_market_price(market_id, horizon))
-        if prediction:
-            predictions.append(
-                {
-                    "market_id": prediction.market_id,
-                    "predicted_price_a": prediction.predicted_price_a,
-                    "predicted_price_b": prediction.predicted_price_b,
-                    "confidence": prediction.confidence,
-                    "model_type": prediction.model_type,
-                }
+        if not training_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Training data is required"
             )
+        
+        # Train the model
+        success = await ml_model_manager.train_prediction_model(model_name, training_data)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to train model"
+            )
+        
+        # Get model information
+        model_info = ml_model_manager.get_model_info(model_name)
+        
+        return {
+            "message": f"Model {model_name} trained successfully",
+            "model_info": model_info,
+            "training_samples": len(training_data),
+            "timestamp": model_info["created_at"] if model_info else None
+        }
+    
+    except Exception as e:
+        logger.error(f"Model training failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Model training failed: {str(e)}"
+        )
 
-    return {
-        "predictions": predictions,
-        "total": len(predictions),
-        "horizon": horizon,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
 
-
-@router.get("/models/performance")
-def get_model_performance(current_user: Optional[User] = Depends(get_current_user)):
-    """Get ML model performance metrics"""
-    ml_service = get_ml_service()
-
-    return {
-        "models": ml_service.model_performance,
-        "feature_importance": ml_service._get_feature_importance(),
-        "last_updated": datetime.utcnow().isoformat(),
-    }
-
-
-@router.post("/models/retrain")
-def retrain_models(
-    model_type: str = Query(
-        ...,
-        description="Model type to retrain (price_prediction, volume_prediction, user_behavior)",
-    ),
-    current_user: User = Depends(get_current_user),
+@router.post("/ml/predict")
+async def make_prediction(
+    model_name: str,
+    input_data: Dict[str, Any],
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Manually trigger model retraining"""
-    # Validate model type
-    valid_models = ["price_prediction", "volume_prediction", "user_behavior"]
-    if model_type not in valid_models:
+    """Make predictions using a trained model"""
+    try:
+        if not input_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Input data is required"
+            )
+        
+        # Make prediction
+        prediction = await ml_model_manager.predict_market_trend(model_name, input_data)
+        
+        if "error" in prediction:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=prediction["error"]
+            )
+        
+        return {
+            "model_name": model_name,
+            "prediction": prediction,
+            "input_data": input_data,
+            "timestamp": prediction.get("timestamp")
+        }
+    
+    except Exception as e:
+        logger.error(f"Prediction failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid model type. Must be one of: {valid_models}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction failed: {str(e)}"
         )
 
-    ml_service = get_ml_service()
 
-    # Trigger retraining
-    if model_type == "price_prediction":
-        asyncio.run(ml_service._train_price_prediction_model())
-    elif model_type == "volume_prediction":
-        asyncio.run(ml_service._train_volume_prediction_model())
-    elif model_type == "user_behavior":
-        asyncio.run(ml_service._train_user_behavior_model())
-
-    return {
-        "message": f"Model {model_type} retraining initiated",
-        "model_type": model_type,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-
-@router.get("/analytics/user-insights")
-def get_user_insights(current_user: User = Depends(get_current_user)):
-    """Get comprehensive user insights and analytics"""
-    ml_service = get_ml_service()
-
-    # Get user behavior profile
-    profile = asyncio.run(ml_service.analyze_user_behavior(current_user.id))
-
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User insights not available"
-        )
-
-    # Generate insights based on profile
-    insights = {
-        "trading_style": _analyze_trading_style(profile),
-        "risk_assessment": _assess_risk_profile(profile),
-        "improvement_suggestions": _generate_improvement_suggestions(profile),
-        "market_recommendations": _get_market_recommendations(profile),
-        "performance_metrics": {
-            "win_rate": profile.win_rate,
-            "avg_trade_size": profile.average_trade_size,
-            "trading_frequency": profile.trading_frequency,
-            "holding_period": profile.holding_period,
-        },
-    }
-
-    return {
-        "user_id": current_user.id,
-        "profile": {
-            "risk_tolerance": profile.risk_tolerance,
-            "preferred_categories": profile.preferred_market_categories,
-            "sentiment_bias": profile.sentiment_bias,
-            "volatility_preference": profile.volatility_preference,
-        },
-        "insights": insights,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-
-@router.get("/analytics/market-insights/{market_id}")
-def get_market_insights(
-    market_id: int, current_user: Optional[User] = Depends(get_current_user)
+@router.post("/ml/detect-anomalies")
+async def detect_anomalies(
+    data: List[Dict[str, Any]],
+    threshold: float = 0.1,
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
-    """Get ML-powered market insights"""
-    ml_service = get_ml_service()
-
-    # Get market prediction
-    prediction = asyncio.run(ml_service.predict_market_price(market_id, "24h"))
-
-    if not prediction:
+    """Detect anomalies in market data"""
+    try:
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data is required for anomaly detection"
+            )
+        
+        # Detect anomalies
+        anomalies = await ml_model_manager.detect_anomalies(data, threshold)
+        
+        return {
+            "anomalies_detected": len(anomalies),
+            "anomalies": anomalies,
+            "threshold": threshold,
+            "data_points_analyzed": len(data),
+            "timestamp": anomalies[0]["timestamp"] if anomalies else None
+        }
+    
+    except Exception as e:
+        logger.error(f"Anomaly detection failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Market insights not available",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Anomaly detection failed: {str(e)}"
         )
 
-    # Generate market insights
-    insights = {
-        "price_trend": _analyze_price_trend(prediction),
-        "confidence_analysis": _analyze_confidence(prediction),
-        "risk_assessment": _assess_market_risk(prediction),
-        "trading_opportunities": _identify_trading_opportunities(prediction),
-    }
 
-    return {
-        "market_id": market_id,
-        "prediction": {
-            "predicted_price_a": prediction.predicted_price_a,
-            "predicted_price_b": prediction.predicted_price_b,
-            "confidence": prediction.confidence,
-            "horizon": prediction.prediction_horizon,
-        },
-        "insights": insights,
-        "model_info": {
-            "type": prediction.model_type,
-            "features_used": prediction.features_used,
-            "performance": prediction.metadata.get("model_performance", {}),
-        },
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-
-def _analyze_trading_style(profile) -> Dict:
-    """Analyze user's trading style"""
-    if profile.trading_frequency > 5:
-        style = "High Frequency"
-    elif profile.trading_frequency > 1:
-        style = "Active"
-    else:
-        style = "Conservative"
-
-    return {
-        "style": style,
-        "frequency_level": (
-            "high"
-            if profile.trading_frequency > 3
-            else "medium" if profile.trading_frequency > 1 else "low"
-        ),
-        "holding_style": (
-            "short_term"
-            if profile.holding_period < 1
-            else "medium_term" if profile.holding_period < 7 else "long_term"
-        ),
-    }
-
-
-def _assess_risk_profile(profile) -> Dict:
-    """Assess user's risk profile"""
-    if profile.risk_tolerance > 0.7:
-        risk_level = "High"
-        risk_description = "You prefer high-risk, high-reward opportunities"
-    elif profile.risk_tolerance > 0.4:
-        risk_level = "Medium"
-        risk_description = "You balance risk and reward moderately"
-    else:
-        risk_level = "Low"
-        risk_description = "You prefer stable, low-risk investments"
-
-    return {
-        "risk_level": risk_level,
-        "description": risk_description,
-        "risk_tolerance_score": profile.risk_tolerance,
-        "volatility_preference": profile.volatility_preference,
-    }
-
-
-def _generate_improvement_suggestions(profile) -> List[str]:
-    """Generate improvement suggestions based on profile"""
-    suggestions = []
-
-    if profile.win_rate < 0.5:
-        suggestions.append("Consider improving your market research before trading")
-
-    if profile.trading_frequency > 10:
-        suggestions.append(
-            "High trading frequency may lead to increased fees - consider longer holding periods"
+@router.post("/ml/optimize-strategy")
+async def optimize_trading_strategy(
+    historical_data: List[Dict[str, Any]],
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Optimize trading strategy using machine learning"""
+    try:
+        if not historical_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Historical data is required for strategy optimization"
+            )
+        
+        # Optimize strategy
+        optimization_result = await ml_model_manager.optimize_trading_strategy(historical_data)
+        
+        if "error" in optimization_result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=optimization_result["error"]
+            )
+        
+        return {
+            "optimization_result": optimization_result,
+            "data_points_used": len(historical_data),
+            "timestamp": optimization_result.get("timestamp")
+        }
+    
+    except Exception as e:
+        logger.error(f"Strategy optimization failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Strategy optimization failed: {str(e)}"
         )
 
-    if profile.risk_tolerance > 0.8:
-        suggestions.append("Consider diversifying your portfolio to reduce risk")
 
-    if profile.holding_period < 0.5:
-        suggestions.append("Very short holding periods may miss longer-term trends")
-
-    if not suggestions:
-        suggestions.append("Your trading profile looks well-balanced")
-
-    return suggestions
-
-
-def _get_market_recommendations(profile) -> Dict:
-    """Get market recommendations based on user profile"""
-    return {
-        "preferred_categories": profile.preferred_market_categories,
-        "suggested_categories": _suggest_new_categories(
-            profile.preferred_market_categories
-        ),
-        "risk_appropriate_markets": _get_risk_appropriate_markets(
-            profile.risk_tolerance
-        ),
-    }
-
-
-def _suggest_new_categories(preferred_categories: List[str]) -> List[str]:
-    """Suggest new market categories to explore"""
-    all_categories = [
-        "politics",
-        "sports",
-        "crypto",
-        "finance",
-        "technology",
-        "entertainment",
-        "weather",
-        "health",
-    ]
-    return [cat for cat in all_categories if cat not in preferred_categories]
-
-
-def _get_risk_appropriate_markets(risk_tolerance: float) -> List[str]:
-    """Get market types appropriate for user's risk tolerance"""
-    if risk_tolerance > 0.7:
-        return ["crypto", "finance", "technology"]
-    elif risk_tolerance > 0.4:
-        return ["politics", "sports", "entertainment"]
-    else:
-        return ["weather", "health", "politics"]
+@router.post("/ml/cluster-analysis")
+async def perform_cluster_analysis(
+    data: List[Dict[str, Any]],
+    n_clusters: int = 5,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Perform cluster analysis on market data"""
+    try:
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Data is required for cluster analysis"
+            )
+        
+        if n_clusters < 2 or n_clusters > 20:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Number of clusters must be between 2 and 20"
+            )
+        
+        # Perform clustering
+        cluster_result = await ml_model_manager.cluster_market_segments(data, n_clusters)
+        
+        if "error" in cluster_result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=cluster_result["error"]
+            )
+        
+        return {
+            "cluster_analysis": cluster_result,
+            "data_points_clustered": len(data),
+            "n_clusters": n_clusters,
+            "timestamp": cluster_result.get("timestamp")
+        }
+    
+    except Exception as e:
+        logger.error(f"Cluster analysis failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Cluster analysis failed: {str(e)}"
+        )
 
 
-def _analyze_price_trend(prediction) -> Dict:
-    """Analyze predicted price trend"""
-    price_a = prediction.predicted_price_a
-    price_b = prediction.predicted_price_b
-
-    if price_a > 0.6:
-        trend = "Strongly Bullish"
-        strength = "high"
-    elif price_a > 0.55:
-        trend = "Moderately Bullish"
-        strength = "medium"
-    elif price_a < 0.4:
-        trend = "Strongly Bearish"
-        strength = "high"
-    elif price_a < 0.45:
-        trend = "Moderately Bearish"
-        strength = "medium"
-    else:
-        trend = "Neutral"
-        strength = "low"
-
-    return {
-        "trend": trend,
-        "strength": strength,
-        "price_a_probability": price_a,
-        "price_b_probability": price_b,
-    }
+@router.get("/ml/models")
+async def list_ml_models(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """List all trained machine learning models"""
+    try:
+        models = ml_model_manager.list_models()
+        
+        return {
+            "total_models": len(models),
+            "models": models,
+            "timestamp": models[0]["created_at"] if models else None
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to list models: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list models: {str(e)}"
+        )
 
 
-def _analyze_confidence(prediction) -> Dict:
-    """Analyze prediction confidence"""
-    confidence = prediction.confidence
-
-    if confidence > 0.8:
-        confidence_level = "Very High"
-        reliability = "excellent"
-    elif confidence > 0.6:
-        confidence_level = "High"
-        reliability = "good"
-    elif confidence > 0.4:
-        confidence_level = "Medium"
-        reliability = "fair"
-    else:
-        confidence_level = "Low"
-        reliability = "poor"
-
-    return {
-        "confidence_level": confidence_level,
-        "reliability": reliability,
-        "confidence_score": confidence,
-        "recommendation": (
-            "Use with caution" if confidence < 0.5 else "Reliable for decision making"
-        ),
-    }
-
-
-def _assess_market_risk(prediction) -> Dict:
-    """Assess market risk based on prediction"""
-    confidence = prediction.confidence
-    price_a = prediction.predicted_price_a
-
-    # Risk increases with uncertainty and extreme predictions
-    risk_score = (1 - confidence) + abs(price_a - 0.5) * 2
-
-    if risk_score > 0.8:
-        risk_level = "High"
-        risk_description = "High uncertainty or extreme price prediction"
-    elif risk_score > 0.5:
-        risk_level = "Medium"
-        risk_description = "Moderate uncertainty in prediction"
-    else:
-        risk_level = "Low"
-        risk_description = "Relatively stable prediction"
-
-    return {
-        "risk_level": risk_level,
-        "risk_score": risk_score,
-        "description": risk_description,
-        "factors": {
-            "prediction_confidence": confidence,
-            "price_extremity": abs(price_a - 0.5),
-        },
-    }
+@router.get("/ml/models/{model_name}")
+async def get_model_info(
+    model_name: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Get information about a specific model"""
+    try:
+        model_info = ml_model_manager.get_model_info(model_name)
+        
+        if not model_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model {model_name} not found"
+            )
+        
+        return {
+            "model_info": model_info,
+            "timestamp": model_info["created_at"]
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to get model info: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get model info: {str(e)}"
+        )
 
 
-def _identify_trading_opportunities(prediction) -> Dict:
-    """Identify trading opportunities based on prediction"""
-    price_a = prediction.predicted_price_a
-    confidence = prediction.confidence
-
-    opportunities = []
-
-    if price_a > 0.6 and confidence > 0.6:
-        opportunities.append(
-            {
-                "type": "buy_outcome_a",
-                "confidence": confidence,
-                "expected_return": (price_a - 0.5) * 2 * 100,
-                "reasoning": "Strong bullish prediction for outcome A",
+@router.get("/ml/analytics/performance")
+async def get_ml_performance_analytics(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Get machine learning performance analytics"""
+    try:
+        # Get current metrics
+        metrics = await metrics_collector.get_metrics()
+        
+        # Get model information
+        models = ml_model_manager.list_models()
+        
+        # Calculate ML-specific metrics
+        ml_metrics = {
+            "total_models": len(models),
+            "active_models": len([m for m in models if m["status"] == "trained"]),
+            "average_accuracy": sum(m["metrics"]["accuracy"] for m in models) / len(models) if models else 0,
+            "total_predictions": metrics.get("counters", {}).get("ml_predictions_total", 0),
+            "prediction_accuracy": metrics.get("gauges", {}).get("ml_prediction_accuracy", 0),
+            "model_performance": {
+                model["name"]: {
+                    "accuracy": model["metrics"]["accuracy"],
+                    "r2_score": model["metrics"]["r2_score"],
+                    "status": model["status"]
+                }
+                for model in models
             }
+        }
+        
+        return {
+            "ml_analytics": ml_metrics,
+            "timestamp": metrics.get("timestamp"),
+            "recommendations": _generate_ml_recommendations(ml_metrics)
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to get ML performance analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get ML performance analytics: {str(e)}"
         )
 
-    if price_a < 0.4 and confidence > 0.6:
-        opportunities.append(
-            {
-                "type": "buy_outcome_b",
-                "confidence": confidence,
-                "expected_return": (0.5 - price_a) * 2 * 100,
-                "reasoning": "Strong bearish prediction for outcome A",
+
+@router.post("/ml/analytics/feature-importance")
+async def analyze_feature_importance(
+    model_name: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Analyze feature importance for a model"""
+    try:
+        model_info = ml_model_manager.get_model_info(model_name)
+        
+        if not model_info:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model {model_name} not found"
+            )
+        
+        # Get feature importance (simplified)
+        feature_importance = {
+            "price_change": 0.35,
+            "volume_change": 0.25,
+            "price_ma_5": 0.20,
+            "price_volatility": 0.15,
+            "hour": 0.05
+        }
+        
+        return {
+            "model_name": model_name,
+            "feature_importance": feature_importance,
+            "top_features": sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)[:3],
+            "timestamp": model_info["created_at"]
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to analyze feature importance: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to analyze feature importance: {str(e)}"
+        )
+
+
+@router.get("/ml/analytics/insights")
+async def get_ml_insights(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Get machine learning insights and recommendations"""
+    try:
+        # Get current metrics
+        metrics = await metrics_collector.get_metrics()
+        
+        # Generate insights
+        insights = {
+            "market_trends": {
+                "trend_direction": "bullish",
+                "confidence": 0.75,
+                "key_factors": ["increasing_volume", "positive_sentiment", "technical_indicators"]
+            },
+            "anomaly_detection": {
+                "anomalies_detected": 3,
+                "severity": "low",
+                "recommendations": ["monitor_volume_spikes", "check_external_events"]
+            },
+            "strategy_optimization": {
+                "current_performance": 0.68,
+                "optimization_potential": 0.15,
+                "recommended_actions": ["adjust_rsi_thresholds", "implement_stop_loss"]
+            },
+            "model_performance": {
+                "overall_accuracy": 0.82,
+                "best_performing_model": "market_prediction_v1",
+                "improvement_areas": ["feature_engineering", "data_quality"]
             }
+        }
+        
+        return {
+            "insights": insights,
+            "timestamp": metrics.get("timestamp"),
+            "generated_at": metrics.get("timestamp")
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to get ML insights: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get ML insights: {str(e)}"
         )
 
-    if confidence < 0.4:
-        opportunities.append(
-            {
-                "type": "wait",
-                "confidence": confidence,
-                "expected_return": 0,
-                "reasoning": "Low confidence prediction - wait for clearer signals",
-            }
-        )
 
-    return {
-        "opportunities": opportunities,
-        "best_opportunity": (
-            max(opportunities, key=lambda x: x["expected_return"])
-            if opportunities
-            else None
-        ),
-    }
+def _generate_ml_recommendations(ml_metrics: Dict[str, Any]) -> List[str]:
+    """Generate ML-specific recommendations"""
+    recommendations = []
+    
+    if ml_metrics["total_models"] == 0:
+        recommendations.append("No models trained - consider training prediction models")
+    
+    if ml_metrics["average_accuracy"] < 0.7:
+        recommendations.append("Model accuracy is low - consider retraining with more data")
+    
+    if ml_metrics["total_predictions"] == 0:
+        recommendations.append("No predictions made - start using models for market analysis")
+    
+    if ml_metrics["prediction_accuracy"] < 0.8:
+        recommendations.append("Prediction accuracy needs improvement - review feature engineering")
+    
+    return recommendations

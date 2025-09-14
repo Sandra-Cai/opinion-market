@@ -14,6 +14,7 @@ from app.api.v1.endpoints.analytics_enhanced import router as analytics_router
 from app.api.v1.endpoints.security import router as security_router
 from app.api.v1.endpoints.monitoring_dashboard import router as monitoring_router
 from app.api.v1.endpoints.admin import router as admin_router
+from app.api.v1.endpoints.ai_optimization import router as ai_router
 
 app = FastAPI(
     title="Opinion Market API",
@@ -47,6 +48,9 @@ app.include_router(monitoring_router, prefix="/api/v1", tags=["Monitoring Dashbo
 
 # Include admin router
 app.include_router(admin_router, prefix="/api/v1", tags=["Administration"])
+
+# Include AI optimization router
+app.include_router(ai_router, prefix="/api/v1", tags=["AI Optimization"])
 
 
 @app.get("/")

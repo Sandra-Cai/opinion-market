@@ -10,7 +10,6 @@ from app.core.config_manager import config_manager
 from app.core.database_pool import db_pool_manager
 from app.core.metrics import metrics_collector
 from app.core.caching import memory_cache
-from app.core.security import get_current_user
 from app.api.v1.endpoints.security import get_current_user
 
 logger = logging.getLogger(__name__)

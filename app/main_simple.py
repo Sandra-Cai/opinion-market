@@ -16,6 +16,7 @@ from app.api.v1.endpoints.monitoring_dashboard import router as monitoring_route
 from app.api.v1.endpoints.admin import router as admin_router
 from app.api.v1.endpoints.ai_optimization import router as ai_router
 from app.api.v1.endpoints.ml_analytics import router as ml_router
+from app.api.v1.endpoints.blockchain_advanced import router as blockchain_router
 
 app = FastAPI(
     title="Opinion Market API",
@@ -55,6 +56,9 @@ app.include_router(ai_router, prefix="/api/v1", tags=["AI Optimization"])
 
 # Include ML analytics router
 app.include_router(ml_router, prefix="/api/v1", tags=["Machine Learning Analytics"])
+
+# Include blockchain router
+app.include_router(blockchain_router, prefix="/api/v1", tags=["Blockchain Integration"])
 
 
 @app.get("/")

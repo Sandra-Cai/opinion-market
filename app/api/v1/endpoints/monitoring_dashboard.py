@@ -91,11 +91,11 @@ async def get_dashboard_overview(current_user: Dict[str, Any] = Depends(get_curr
                 "cache_stats": cache_stats,
                 "metrics": {
                     "total_requests": metrics.get("counters", {}).get("http_requests_total", 0),
-                    "error_rate": self._calculate_error_rate(metrics),
-                    "avg_response_time": self._calculate_avg_response_time(metrics)
+                    "error_rate": _calculate_error_rate(metrics),
+                    "avg_response_time": _calculate_avg_response_time(metrics)
                 }
             },
-            "alerts": self._get_active_alerts(cpu_percent, memory.percent, db_health["status"])
+            "alerts": _get_active_alerts(cpu_percent, memory.percent, db_health["status"])
         }
     
     except Exception as e:
@@ -116,7 +116,7 @@ async def get_dashboard_metrics(
         metrics = await metrics_collector.get_metrics()
         
         # Simulate time series data (in real app, this would come from time series DB)
-        time_series_data = self._generate_time_series_data(time_range)
+        time_series_data = _generate_time_series_data(time_range)
         
         return {
             "timestamp": datetime.now().isoformat(),
@@ -126,7 +126,7 @@ async def get_dashboard_metrics(
             "summary": {
                 "total_requests": metrics.get("counters", {}).get("http_requests_total", 0),
                 "active_connections": len(manager.active_connections),
-                "cache_hit_rate": self._calculate_cache_hit_rate(cache_stats),
+                "cache_hit_rate": _calculate_cache_hit_rate(cache_stats),
                 "error_count": metrics.get("counters", {}).get("http_requests_500", 0)
             }
         }

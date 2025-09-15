@@ -8,8 +8,9 @@ import hmac
 import secrets
 import time
 import ipaddress
+import functools
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Set, Tuple
+from typing import Dict, List, Optional, Any, Set, Tuple, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 import json
@@ -17,6 +18,7 @@ import logging
 from collections import defaultdict, deque
 import asyncio
 import re
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 

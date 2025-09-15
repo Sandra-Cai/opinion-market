@@ -9,6 +9,7 @@ import time
 import json
 import random
 import string
+import functools
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Callable, Union
 from dataclasses import dataclass, field

@@ -6,6 +6,7 @@ Advanced configuration with validation, hot reloading, and environment-specific 
 import os
 import json
 import yaml
+import functools
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union, Type, TypeVar
 from dataclasses import dataclass, field

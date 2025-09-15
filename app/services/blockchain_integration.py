@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 import aiohttp
 from web3 import Web3
+
 try:
     from web3.middleware import geth_poa_middleware
 except ImportError:
@@ -822,7 +823,8 @@ class BlockchainIntegrationService:
         # Implementation would query DEX APIs or price feeds
         # Use hashlib for deterministic hash instead of built-in hash()
         deterministic_hash = int(
-            hashlib.md5(token_address.encode(), usedforsecurity=False).hexdigest()[:8], 16
+            hashlib.md5(token_address.encode(), usedforsecurity=False).hexdigest()[:8],
+            16,
         )
         return 0.5 + (deterministic_hash % 100) / 1000  # Simulated price
 
@@ -831,7 +833,8 @@ class BlockchainIntegrationService:
         # Implementation would query blockchain or indexer
         # Use hashlib for deterministic hash instead of built-in hash()
         deterministic_hash = int(
-            hashlib.md5(token_address.encode(), usedforsecurity=False).hexdigest()[:8], 16
+            hashlib.md5(token_address.encode(), usedforsecurity=False).hexdigest()[:8],
+            16,
         )
         return deterministic_hash % 1000  # Simulated holder count
 

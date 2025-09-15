@@ -1157,7 +1157,8 @@ class QuantitativeResearchService:
                 # Generate realistic price data
                 # Use hashlib for deterministic hash instead of built-in hash()
                 deterministic_hash = int(
-                    hashlib.md5(symbol.encode(), usedforsecurity=False).hexdigest()[:8], 16
+                    hashlib.md5(symbol.encode(), usedforsecurity=False).hexdigest()[:8],
+                    16,
                 )
                 base_price = 100 + deterministic_hash % 1000
                 returns = np.random.normal(0, 0.02, len(date_range))

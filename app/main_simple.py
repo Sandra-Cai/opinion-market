@@ -43,7 +43,9 @@ app.add_middleware(LoggingMiddleware, logger=app_logger)
 app.include_router(analytics_router, prefix="/api/v1", tags=["Enhanced Analytics"])
 
 # Include security router
-app.include_router(security_router, prefix="/api/v1", tags=["Security & Authentication"])
+app.include_router(
+    security_router, prefix="/api/v1", tags=["Security & Authentication"]
+)
 
 # Include monitoring dashboard router
 app.include_router(monitoring_router, prefix="/api/v1", tags=["Monitoring Dashboard"])
@@ -67,10 +69,10 @@ async def root():
     """Root endpoint with enhanced information"""
     # Get configuration
     config = config_manager.get_config()
-    
+
     # Get database health
     db_health = await db_pool_manager.health_check()
-    
+
     return {
         "message": "Welcome to Opinion Market API",
         "version": config.api.version,
@@ -93,13 +95,13 @@ async def root():
             "Advanced Caching",
             "Structured Logging",
             "Rate Limiting",
-            "Health Monitoring"
+            "Health Monitoring",
         ],
         "endpoints": {
             "health": "/health",
             "metrics": "/metrics",
-            "analytics": "/api/v1/analytics"
-        }
+            "analytics": "/api/v1/analytics",
+        },
     }
 
 
@@ -123,22 +125,22 @@ async def metrics():
     # Collect system metrics
     import psutil
     import time
-    
+
     # Get metrics from collector
     metrics_data = await metrics_collector.get_metrics()
-    
+
     # Add system metrics
-    metrics_data['system'] = {
-        'cpu_percent': psutil.cpu_percent(),
-        'memory_percent': psutil.virtual_memory().percent,
-        'disk_percent': psutil.disk_usage('/').percent,
-        'uptime': time.time()
+    metrics_data["system"] = {
+        "cpu_percent": psutil.cpu_percent(),
+        "memory_percent": psutil.virtual_memory().percent,
+        "disk_percent": psutil.disk_usage("/").percent,
+        "uptime": time.time(),
     }
-    
+
     # Add cache statistics
     cache_stats = await memory_cache.get_stats()
-    metrics_data['cache'] = cache_stats
-    
+    metrics_data["cache"] = cache_stats
+
     return metrics_data
 
 

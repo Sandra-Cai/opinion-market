@@ -1014,7 +1014,9 @@ class OrderManagementSystem:
         try:
             # Generate random market data
             # Use hashlib for deterministic hash instead of built-in hash()
-            deterministic_hash = int(hashlib.md5(symbol.encode(), usedforsecurity=False).hexdigest()[:8], 16)
+            deterministic_hash = int(
+                hashlib.md5(symbol.encode(), usedforsecurity=False).hexdigest()[:8], 16
+            )
             base_price = 100.0 + deterministic_hash % 1000
 
             market_data = MarketData(
@@ -1331,7 +1333,7 @@ def get_order_management_system_dependency() -> OrderManagementSystem:
     # In a real app, you'd get these from your dependency injection container
     from app.core.database import get_db
     from app.core.redis_client import get_redis_sync
-    
+
     # For now, return a mock instance to avoid dependency issues
     # In production, you'd properly inject these dependencies
     return OrderManagementSystem(None, None)

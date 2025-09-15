@@ -554,7 +554,8 @@ async def cancel_execution(
 
 @router.get("/market-data/{symbol}", response_model=MarketDataResponse)
 async def get_market_data(
-    symbol: str, oms: OrderManagementSystem = Depends(get_order_management_system_dependency)
+    symbol: str,
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Get market data for a symbol"""
     try:
@@ -591,7 +592,8 @@ async def get_market_data(
 
 @router.get("/order-book/{symbol}", response_model=OrderBookResponse)
 async def get_order_book(
-    symbol: str, oms: OrderManagementSystem = Depends(get_order_management_system_dependency)
+    symbol: str,
+    oms: OrderManagementSystem = Depends(get_order_management_system_dependency),
 ):
     """Get order book for a symbol"""
     try:

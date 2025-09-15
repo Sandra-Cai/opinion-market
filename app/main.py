@@ -21,6 +21,14 @@ from app.services.advanced_orders import get_advanced_order_manager
 from app.services.monitoring import get_system_monitor
 from app.api.docs import custom_openapi
 
+# Import enhanced systems
+from app.core.enhanced_error_handler import enhanced_error_handler
+from app.core.advanced_performance_optimizer import advanced_performance_optimizer
+from app.core.advanced_security import advanced_security_manager
+from app.core.enhanced_testing import enhanced_test_manager
+from app.core.enhanced_config import enhanced_config_manager
+from app.api.enhanced_docs import create_enhanced_openapi_schema
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
@@ -66,6 +74,13 @@ async def lifespan(app: FastAPI):
         await get_system_monitor().initialize(settings.REDIS_URL)
         print("✅ System monitor initialized")
 
+        # Initialize enhanced systems
+        await advanced_performance_optimizer.start_monitoring()
+        print("✅ Advanced performance optimizer initialized")
+        
+        enhanced_config_manager.start_file_watching()
+        print("✅ Enhanced configuration manager initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -78,6 +93,11 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("👋 Shutting down Opinion Market API...")
     price_feed_task.cancel()
+    
+    # Stop enhanced systems
+    await advanced_performance_optimizer.stop_monitoring()
+    enhanced_config_manager.stop_file_watching()
+    print("✅ Enhanced systems stopped")
 
 
 app = FastAPI(
@@ -87,8 +107,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Set custom OpenAPI schema
-app.openapi = lambda: custom_openapi(app)
+# Set enhanced OpenAPI schema
+app.openapi = lambda: create_enhanced_openapi_schema(app)
 
 # CORS middleware
 app.add_middleware(

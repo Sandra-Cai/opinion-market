@@ -431,3 +431,146 @@ def _generate_performance_recommendations(self, metrics: Dict[str, Any]) -> List
             })
     
     return recommendations
+
+
+# Helper functions
+def _calculate_error_rate(metrics: Dict[str, Any]) -> float:
+    """Calculate error rate from metrics"""
+    counters = metrics.get("counters", {})
+    total_requests = counters.get("http_requests_total", 0)
+    error_requests = counters.get("http_requests_500", 0)
+    
+    if total_requests == 0:
+        return 0.0
+    
+    return (error_requests / total_requests) * 100
+
+
+def _calculate_avg_response_time(metrics: Dict[str, Any]) -> float:
+    """Calculate average response time from metrics"""
+    timers = metrics.get("timers", {})
+    http_timer = timers.get("http_request_duration", {})
+    return http_timer.get("avg", 0.0)
+
+
+def _get_active_alerts(cpu_percent: float, memory_percent: float, db_status: str) -> List[Dict[str, Any]]:
+    """Get active system alerts"""
+    alerts = []
+    
+    if cpu_percent > 80:
+        alerts.append({
+            "type": "warning",
+            "title": "High CPU Usage",
+            "message": f"CPU usage is {cpu_percent:.1f}%",
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    if memory_percent > 85:
+        alerts.append({
+            "type": "warning", 
+            "title": "High Memory Usage",
+            "message": f"Memory usage is {memory_percent:.1f}%",
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    if db_status != "healthy":
+        alerts.append({
+            "type": "error",
+            "title": "Database Issue",
+            "message": f"Database status: {db_status}",
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    return alerts
+
+
+def _generate_time_series_data(time_range: str) -> Dict[str, Any]:
+    """Generate time series data for dashboard"""
+    # This would typically come from a time series database
+    # For now, return mock data
+    import random
+    
+    points = 24 if time_range == "24h" else 168  # 24h or 7d
+    
+    return {
+        "cpu_usage": [random.uniform(20, 80) for _ in range(points)],
+        "memory_usage": [random.uniform(30, 70) for _ in range(points)],
+        "response_times": [random.uniform(0.1, 0.5) for _ in range(points)],
+        "request_count": [random.randint(100, 1000) for _ in range(points)],
+        "error_rate": [random.uniform(0, 5) for _ in range(points)]
+    }
+
+
+def _calculate_cache_hit_rate(cache_stats: Dict[str, Any]) -> float:
+    """Calculate cache hit rate"""
+    hits = cache_stats.get("hits", 0)
+    misses = cache_stats.get("misses", 0)
+    total = hits + misses
+    
+    if total == 0:
+        return 0.0
+    
+    return (hits / total) * 100
+
+
+def _analyze_response_times(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """Analyze response time metrics"""
+    timers = metrics.get("timers", {})
+    http_timer = timers.get("http_request_duration", {})
+    
+    return {
+        "avg": http_timer.get("avg", 0.0),
+        "min": http_timer.get("min", 0.0),
+        "max": http_timer.get("max", 0.0),
+        "p95": http_timer.get("p95", 0.0),
+        "p99": http_timer.get("p99", 0.0)
+    }
+
+
+def _analyze_throughput(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """Analyze throughput metrics"""
+    counters = metrics.get("counters", {})
+    
+    return {
+        "requests_per_second": counters.get("http_requests_total", 0) / 3600,  # Approximate
+        "total_requests": counters.get("http_requests_total", 0),
+        "successful_requests": counters.get("http_requests_200", 0),
+        "failed_requests": counters.get("http_requests_500", 0)
+    }
+
+
+def _analyze_error_rates(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """Analyze error rate metrics"""
+    counters = metrics.get("counters", {})
+    total = counters.get("http_requests_total", 0)
+    
+    if total == 0:
+        return {"overall": 0.0, "by_status": {}}
+    
+    return {
+        "overall": (counters.get("http_requests_500", 0) / total) * 100,
+        "by_status": {
+            "4xx": (counters.get("http_requests_400", 0) / total) * 100,
+            "5xx": (counters.get("http_requests_500", 0) / total) * 100
+        }
+    }
+
+
+def _analyze_resource_usage() -> Dict[str, Any]:
+    """Analyze system resource usage"""
+    import psutil
+    
+    return {
+        "cpu": {
+            "percent": psutil.cpu_percent(interval=1),
+            "count": psutil.cpu_count()
+        },
+        "memory": {
+            "percent": psutil.virtual_memory().percent,
+            "available_gb": round(psutil.virtual_memory().available / (1024**3), 2)
+        },
+        "disk": {
+            "percent": psutil.disk_usage('/').percent,
+            "free_gb": round(psutil.disk_usage('/').free / (1024**3), 2)
+        }
+    }

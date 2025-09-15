@@ -164,6 +164,8 @@ class LoggingMiddleware:
     
     async def __call__(self, request, call_next):
         start_time = datetime.utcnow()
+        import uuid
+        import time
         request_id = str(uuid.uuid4()) if 'uuid' in globals() else f"req_{int(time.time())}"
         
         # Log request start

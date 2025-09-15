@@ -110,6 +110,7 @@ class RetryHandler:
                 
                 delay = min(base_delay * (2 ** attempt), max_delay)
                 logger.warning(f"Attempt {attempt + 1} failed, retrying in {delay}s: {e}")
+                import asyncio
                 await asyncio.sleep(delay)
         
         raise last_exception

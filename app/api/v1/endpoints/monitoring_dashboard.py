@@ -133,6 +133,9 @@ async def get_dashboard_metrics(
     """Get detailed metrics for dashboard"""
     try:
         metrics = await metrics_collector.get_metrics()
+        
+        # Get cache statistics
+        cache_stats = await memory_cache.get_stats()
 
         # Simulate time series data (in real app, this would come from time series DB)
         time_series_data = _generate_time_series_data(time_range)

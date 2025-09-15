@@ -260,11 +260,11 @@ async def get_performance_analysis(current_user: Dict[str, Any] = Depends(get_cu
         # Analyze performance metrics
         performance_analysis = {
             "timestamp": datetime.now().isoformat(),
-            "response_times": self._analyze_response_times(metrics),
-            "throughput": self._analyze_throughput(metrics),
-            "error_rates": self._analyze_error_rates(metrics),
-            "resource_usage": self._analyze_resource_usage(),
-            "recommendations": self._generate_performance_recommendations(metrics)
+            "response_times": _analyze_response_times(metrics),
+            "throughput": _analyze_throughput(metrics),
+            "error_rates": _analyze_error_rates(metrics),
+            "resource_usage": _analyze_resource_usage(),
+            "recommendations": _generate_performance_recommendations(metrics)
         }
         
         return performance_analysis

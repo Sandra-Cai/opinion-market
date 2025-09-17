@@ -360,11 +360,11 @@ class EnhancedConfigManager:
                     except (ValueError, TypeError):
                         raise ValueError(f"Invalid type for {rule.field_name}: expected {rule.field_type.__name__}")
                 
-                # Range validation
-                if rule.min_value is not None and value < rule.min_value:
+                # Range validation (only for numeric types)
+                if rule.min_value is not None and isinstance(value, (int, float)) and value < rule.min_value:
                     raise ValueError(f"Value too small for {rule.field_name}: {value} < {rule.min_value}")
                 
-                if rule.max_value is not None and value > rule.max_value:
+                if rule.max_value is not None and isinstance(value, (int, float)) and value > rule.max_value:
                     raise ValueError(f"Value too large for {rule.field_name}: {value} > {rule.max_value}")
                 
                 # Allowed values validation

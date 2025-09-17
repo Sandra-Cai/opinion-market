@@ -7,6 +7,8 @@ import asyncio
 
 from app.core.config import settings
 from app.core.database import engine, Base
+# Use enhanced configuration for database
+from app.core.enhanced_config import enhanced_config_manager
 from app.api.v1.api import api_router
 from app.core.auth import get_current_user
 from app.models import user, market, trade, vote, position
@@ -29,8 +31,9 @@ from app.core.enhanced_testing import enhanced_test_manager
 from app.core.enhanced_config import enhanced_config_manager
 from app.api.enhanced_docs import create_enhanced_openapi_schema
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables (only if using SQLite for development)
+if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
+    Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager

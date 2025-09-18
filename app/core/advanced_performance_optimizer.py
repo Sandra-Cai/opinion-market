@@ -270,9 +270,14 @@ class AdvancedPerformanceOptimizer:
         if not threshold:
             return
 
-        # Check for critical anomalies
-        for i, value in enumerate(values[-5:]):  # Check last 5 values
-            if value > threshold.critical_threshold:
+        # Only check for anomalies if we have enough data and reasonable variance
+        if std_dev < 0.1:  # Skip if no meaningful variation
+            return
+
+        # Check for critical anomalies with more sophisticated logic
+        for i, value in enumerate(values[-3:]):  # Check last 3 values only
+            # Use statistical significance (2 standard deviations) for anomaly detection
+            if abs(value - mean_val) > 2 * std_dev and value > threshold.critical_threshold:
                 await self._handle_critical_anomaly(metric, value, mean_val, std_dev)
 
     async def _analyze_trends(self, metric: PerformanceMetric, values: List[float]):

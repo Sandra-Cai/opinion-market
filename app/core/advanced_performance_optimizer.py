@@ -222,14 +222,20 @@ class AdvancedPerformanceOptimizer:
 
     async def _get_application_metrics(self) -> Dict[PerformanceMetric, float]:
         """Get application-specific metrics"""
-        # This would integrate with your existing metrics system
+        import random
+        import time
+        
+        # Generate realistic mock data with some variation
+        base_time = time.time()
+        variation = random.uniform(0.9, 1.1)  # ±10% variation
+        
         return {
-            PerformanceMetric.RESPONSE_TIME: 150.0,  # Mock data
-            PerformanceMetric.THROUGHPUT: 1000.0,  # Mock data
-            PerformanceMetric.ERROR_RATE: 0.5,  # Mock data
-            PerformanceMetric.CACHE_HIT_RATE: 85.0,  # Mock data
-            PerformanceMetric.DATABASE_QUERY_TIME: 50.0,  # Mock data
-            PerformanceMetric.ACTIVE_CONNECTIONS: 150.0  # Mock data
+            PerformanceMetric.RESPONSE_TIME: 150.0 * variation,  # Mock data with variation
+            PerformanceMetric.THROUGHPUT: 1000.0 * variation,  # Mock data with variation
+            PerformanceMetric.ERROR_RATE: max(0.1, 0.5 * variation),  # Mock data with variation
+            PerformanceMetric.CACHE_HIT_RATE: 85.0 + random.uniform(-5, 5),  # Mock data with variation
+            PerformanceMetric.DATABASE_QUERY_TIME: 50.0 * variation,  # Mock data with variation
+            PerformanceMetric.ACTIVE_CONNECTIONS: 150.0 + random.uniform(-10, 10)  # Mock data with variation
         }
 
     async def _analyze_performance(self):

@@ -48,7 +48,7 @@ class User(Base):
     last_login = Column(DateTime)
 
     # Relationships
-    markets_created = relationship("Market", back_populates="creator")
+    markets_created = relationship("Market", foreign_keys="Market.creator_id", back_populates="creator")
     trades = relationship("Trade", back_populates="user")
     votes = relationship("Vote", back_populates="user")
 

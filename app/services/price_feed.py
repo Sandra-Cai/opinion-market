@@ -132,6 +132,10 @@ class PriceFeedManager:
 
     async def start_price_feed(self):
         """Start background price feed updates"""
+        print("🔄 Starting price feed service...")
+        error_count = 0
+        max_errors = 10
+        
         while True:
             try:
                 # Update all active markets
@@ -147,10 +151,20 @@ class PriceFeedManager:
                     for market in active_markets:
                         if market.id in self.active_connections:
                             await self.send_market_update(market.id)
+                    
+                    # Reset error count on successful operation
+                    error_count = 0
 
                 except Exception as db_error:
-                    print(f"Database error in price feed: {db_error}")
-                    # Continue without crashing
+                    error_count += 1
+                    print(f"⚠️  Database error in price feed (attempt {error_count}): {str(db_error)[:100]}...")
+                    
+                    # If too many errors, wait longer before retrying
+                    if error_count >= max_errors:
+                        print(f"🛑 Too many database errors ({error_count}), waiting 30 seconds before retry...")
+                        await asyncio.sleep(30)
+                        error_count = 0
+                    
                 finally:
                     db.close()
 
@@ -158,8 +172,16 @@ class PriceFeedManager:
                 await asyncio.sleep(5)
 
             except Exception as e:
-                print(f"Error in price feed: {e}")
-                await asyncio.sleep(5)
+                error_count += 1
+                print(f"❌ Critical error in price feed (attempt {error_count}): {str(e)[:100]}...")
+                
+                # If too many critical errors, wait longer
+                if error_count >= max_errors:
+                    print(f"🛑 Too many critical errors ({error_count}), waiting 60 seconds before retry...")
+                    await asyncio.sleep(60)
+                    error_count = 0
+                else:
+                    await asyncio.sleep(5)
 
 
 # Global price feed manager

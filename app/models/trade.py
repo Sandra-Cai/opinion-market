@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -44,7 +44,7 @@ class Trade(Base):
 
     # Market and user
     market_id = Column(Integer, nullable=False)
-    user_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Trade metadata
     trade_hash = Column(String, unique=True)  # Unique trade identifier

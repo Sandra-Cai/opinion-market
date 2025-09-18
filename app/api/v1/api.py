@@ -80,5 +80,5 @@ api_router.include_router(
     monitoring_dashboard.router, prefix="/monitoring", tags=["monitoring"]
 )
 api_router.include_router(
-    health.router, prefix="/health", tags=["health"]
+    health.router, tags=["health"]
 )

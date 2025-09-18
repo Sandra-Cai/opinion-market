@@ -93,7 +93,7 @@ class Market(Base):
     resolved_at = Column(DateTime)
 
     # Creator
-    creator_id = Column(Integer, nullable=False)
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Additional metadata
     tags = Column(JSON, default=list)  # Market tags
@@ -110,8 +110,8 @@ class Market(Base):
     creator = relationship(
         "User", foreign_keys=[creator_id], back_populates="markets_created"
     )
-    verifier = relationship("User", foreign_keys=[verified_by])
-    dispute_resolver = relationship("User", foreign_keys=[dispute_resolved_by])
+    verifier = relationship("User", foreign_keys=[verified_by], overlaps="dispute_resolver")
+    dispute_resolver = relationship("User", foreign_keys=[dispute_resolved_by], overlaps="verifier")
     trades = relationship("Trade", back_populates="market")
     votes = relationship("Vote", back_populates="market")
     disputes = relationship("MarketDispute", back_populates="market")

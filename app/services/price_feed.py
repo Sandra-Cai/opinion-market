@@ -137,14 +137,20 @@ class PriceFeedManager:
                 # Update all active markets
                 db = SessionLocal()
                 try:
+                    # Use a simple query without relationships to avoid SQLAlchemy issues
                     active_markets = (
-                        db.query(Market).filter(Market.status == "open").all()
+                        db.query(Market.id, Market.status)
+                        .filter(Market.status == "open")
+                        .all()
                     )
 
                     for market in active_markets:
                         if market.id in self.active_connections:
                             await self.send_market_update(market.id)
 
+                except Exception as db_error:
+                    print(f"Database error in price feed: {db_error}")
+                    # Continue without crashing
                 finally:
                     db.close()
 

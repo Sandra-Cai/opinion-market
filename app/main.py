@@ -43,23 +43,46 @@ async def lifespan(app: FastAPI):
 
     # Initialize all services
     try:
-        # Initialize performance optimizer
-        await get_performance_optimizer().initialize(
-            settings.REDIS_URL, settings.DATABASE_URL
-        )
-        print("✅ Performance optimizer initialized")
+        # Check if Redis is available
+        redis_available = True
+        try:
+            import redis
+            r = redis.Redis.from_url(settings.REDIS_URL)
+            r.ping()
+            print("✅ Redis connection available")
+        except:
+            redis_available = False
+            print("⚠️  Redis not available - running in development mode without Redis")
 
-        # Initialize enterprise security
-        await get_enterprise_security().initialize(settings.REDIS_URL)
-        print("✅ Enterprise security initialized")
+        # Initialize performance optimizer (with Redis if available)
+        if redis_available:
+            await get_performance_optimizer().initialize(
+                settings.REDIS_URL, settings.DATABASE_URL
+            )
+            print("✅ Performance optimizer initialized")
+        else:
+            print("⚠️  Performance optimizer skipped (Redis not available)")
 
-        # Initialize market data feed
-        await get_market_data_feed().initialize(settings.REDIS_URL)
-        print("✅ Market data feed initialized")
+        # Initialize enterprise security (with Redis if available)
+        if redis_available:
+            await get_enterprise_security().initialize(settings.REDIS_URL)
+            print("✅ Enterprise security initialized")
+        else:
+            print("⚠️  Enterprise security skipped (Redis not available)")
 
-        # Initialize machine learning service
-        await get_ml_service().initialize(settings.REDIS_URL)
-        print("✅ Machine learning service initialized")
+        # Initialize market data feed (with Redis if available)
+        if redis_available:
+            await get_market_data_feed().initialize(settings.REDIS_URL)
+            print("✅ Market data feed initialized")
+        else:
+            print("⚠️  Market data feed skipped (Redis not available)")
+
+        # Initialize machine learning service (with Redis if available)
+        if redis_available:
+            await get_ml_service().initialize(settings.REDIS_URL)
+            print("✅ Machine learning service initialized")
+        else:
+            print("⚠️  Machine learning service skipped (Redis not available)")
 
         # Initialize blockchain integration
         await get_blockchain_integration_service().initialize(settings.REDIS_URL)

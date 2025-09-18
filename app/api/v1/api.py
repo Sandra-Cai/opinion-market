@@ -25,6 +25,7 @@ from app.api.v1.endpoints import (
     forex_trading,
     order_management,
     derivatives,
+    monitoring_dashboard,
 )
 
 api_router = APIRouter()
@@ -73,4 +74,7 @@ api_router.include_router(
 )
 api_router.include_router(
     derivatives.router, prefix="/derivatives", tags=["derivatives"]
+)
+api_router.include_router(
+    monitoring_dashboard.router, prefix="/monitoring", tags=["monitoring"]
 )

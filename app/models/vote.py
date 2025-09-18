@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -21,7 +21,7 @@ class Vote(Base):
 
     # Market and user
     market_id = Column(Integer, nullable=False)
-    user_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

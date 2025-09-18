@@ -84,21 +84,33 @@ async def lifespan(app: FastAPI):
         else:
             print("⚠️  Machine learning service skipped (Redis not available)")
 
-        # Initialize blockchain integration
-        await get_blockchain_integration_service().initialize(settings.REDIS_URL)
-        print("✅ Blockchain integration initialized")
+        # Initialize blockchain integration (with Redis if available)
+        if redis_available:
+            await get_blockchain_integration_service().initialize(settings.REDIS_URL)
+            print("✅ Blockchain integration initialized")
+        else:
+            print("⚠️  Blockchain integration skipped (Redis not available)")
 
-        # Initialize social features
-        await get_social_features().initialize(settings.REDIS_URL)
-        print("✅ Social features initialized")
+        # Initialize social features (with Redis if available)
+        if redis_available:
+            await get_social_features().initialize(settings.REDIS_URL)
+            print("✅ Social features initialized")
+        else:
+            print("⚠️  Social features skipped (Redis not available)")
 
-        # Initialize advanced orders
-        await get_advanced_order_manager().initialize(settings.REDIS_URL)
-        print("✅ Advanced orders initialized")
+        # Initialize advanced orders (with Redis if available)
+        if redis_available:
+            await get_advanced_order_manager().initialize(settings.REDIS_URL)
+            print("✅ Advanced orders initialized")
+        else:
+            print("⚠️  Advanced orders skipped (Redis not available)")
 
-        # Initialize system monitor
-        await get_system_monitor().initialize(settings.REDIS_URL)
-        print("✅ System monitor initialized")
+        # Initialize system monitor (with Redis if available)
+        if redis_available:
+            await get_system_monitor().initialize(settings.REDIS_URL)
+            print("✅ System monitor initialized")
+        else:
+            print("⚠️  System monitor skipped (Redis not available)")
 
         # Initialize enhanced systems
         await advanced_performance_optimizer.start_monitoring()

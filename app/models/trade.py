@@ -43,7 +43,7 @@ class Trade(Base):
     slippage = Column(Float, default=0.0)  # Slippage from expected price
 
     # Market and user
-    market_id = Column(Integer, nullable=False)
+    market_id = Column(Integer, ForeignKey("markets.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Trade metadata

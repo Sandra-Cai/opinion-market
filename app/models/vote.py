@@ -20,7 +20,7 @@ class Vote(Base):
     confidence = Column(Float, default=1.0)  # Confidence level (0-1)
 
     # Market and user
-    market_id = Column(Integer, nullable=False)
+    market_id = Column(Integer, ForeignKey("markets.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     # Timestamps

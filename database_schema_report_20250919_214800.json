@@ -1,0 +1,2151 @@
+{
+  "database_url": "sqlite:///./opinion_market.db",
+  "total_tables": 20,
+  "tables": {
+    "conditional_markets": {
+      "columns": 10,
+      "foreign_keys": 3,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "condition_description",
+          "type": "TEXT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "trigger_condition",
+          "type": "JSON",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "trigger_market_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "activated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "activated_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "trigger_market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "activated_by"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "dispute_votes": {
+      "columns": 6,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "dispute_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "voter_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "vote_for_dispute",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "reason",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "dispute_id"
+          ],
+          "referred_table": "market_disputes",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "voter_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "futures_contracts": {
+      "columns": 12,
+      "foreign_keys": 1,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "contract_size",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "tick_size",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "margin_requirement",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "settlement_date",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "settlement_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "cash_settlement",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "max_position_size",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "daily_price_limit",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "futures_positions": {
+      "columns": 12,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "contract_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "long_contracts",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "short_contracts",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "average_entry_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "margin_used",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "unrealized_pnl",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "realized_pnl",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "liquidation_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "contract_id"
+          ],
+          "referred_table": "futures_contracts",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "governance_proposals": {
+      "columns": 21,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "proposal_type",
+          "type": "VARCHAR(18)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(8)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "voting_start",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "voting_end",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "quorum_required",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "majority_required",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_votes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "yes_votes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "no_votes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "abstain_votes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_voting_power",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "executed_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "executed_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "execution_notes",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "additional_data",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "created_by"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "executed_by"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "governance_tokens": {
+      "columns": 8,
+      "foreign_keys": 1,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "token_amount",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "locked_amount",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "staked_amount",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "staking_rewards",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "governance_votes": {
+      "columns": 8,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "proposal_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "voter_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "vote_type",
+          "type": "VARCHAR(7)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "voting_power",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "voting_weight",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "reason",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "proposal_id"
+          ],
+          "referred_table": "governance_proposals",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "voter_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "market_disputes": {
+      "columns": 15,
+      "foreign_keys": 3,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "dispute_type",
+          "type": "VARCHAR(20)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "reason",
+          "type": "TEXT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "evidence",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(12)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "reviewed_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "reviewed_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "resolution_notes",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "votes_for_dispute",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "votes_against_dispute",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "required_votes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "created_by"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "reviewed_by"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "markets": {
+      "columns": 38,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "category",
+          "type": "VARCHAR(13)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "market_type",
+          "type": "VARCHAR(15)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "question",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "outcome_a",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "outcome_b",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "outcomes",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "current_price_a",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "current_price_b",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_liquidity",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "liquidity_pool_a",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "liquidity_pool_b",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "fee_rate",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "min_trade_amount",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "max_trade_amount",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(20)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "resolved_outcome",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "resolution_source",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "verification_required",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "verified_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "verified_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "dispute_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "dispute_reason",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "dispute_resolved_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "dispute_resolved_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "closes_at",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "resolved_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "creator_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "tags",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "image_url",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "volume_24h",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "volume_total",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "unique_traders",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "market_quality_score",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "trending_score",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "verified_by"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "dispute_resolved_by"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "notification_preferences": {
+      "columns": 18,
+      "foreign_keys": 1,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "email_enabled",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "email_market_resolved",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "email_trade_executed",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "email_price_alerts",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "email_disputes",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "email_system",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "push_enabled",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "push_market_resolved",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "push_trade_executed",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "push_price_alerts",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "push_disputes",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "push_system",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "price_alert_threshold",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "price_alert_frequency",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "notifications": {
+      "columns": 15,
+      "foreign_keys": 4,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "notification_type",
+          "type": "VARCHAR(19)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "message",
+          "type": "TEXT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "priority",
+          "type": "VARCHAR(6)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "trade_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "dispute_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "data",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "is_read",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "is_sent",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "read_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "sent_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "trade_id"
+          ],
+          "referred_table": "trades",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "dispute_id"
+          ],
+          "referred_table": "market_disputes",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "options_contracts": {
+      "columns": 13,
+      "foreign_keys": 1,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "option_type",
+          "type": "VARCHAR(4)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "strike_price",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "expiration_date",
+          "type": "DATETIME",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "contract_size",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "premium",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "delta",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "gamma",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "theta",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "vega",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "options_positions": {
+      "columns": 10,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "contract_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "long_contracts",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "short_contracts",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "average_entry_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "unrealized_pnl",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "realized_pnl",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "contract_id"
+          ],
+          "referred_table": "options_contracts",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "order_fills": {
+      "columns": 7,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "order_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "trade_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "amount",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "price",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "total_value",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "order_id"
+          ],
+          "referred_table": "orders",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "trade_id"
+          ],
+          "referred_table": "trades",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "orders": {
+      "columns": 18,
+      "foreign_keys": 2,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "order_type",
+          "type": "VARCHAR(6)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "side",
+          "type": "VARCHAR(4)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "outcome",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "original_amount",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "remaining_amount",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "filled_amount",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "limit_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "stop_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "average_fill_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(9)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "expires_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "order_hash",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "additional_data",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "constrained_columns": [
+            "market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "positions": {
+      "columns": 14,
+      "foreign_keys": 0,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "outcome",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "shares_owned",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "average_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_invested",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "current_price",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "current_value",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "unrealized_pnl",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "realized_pnl",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_pnl",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "last_updated",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": []
+    },
+    "spread_markets": {
+      "columns": 9,
+      "foreign_keys": 1,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "spread_type",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "min_value",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "max_value",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "tick_size",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "outcomes",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": [
+        {
+          "constrained_columns": [
+            "market_id"
+          ],
+          "referred_table": "markets",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    "trades": {
+      "columns": 17,
+      "foreign_keys": 0,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "trade_type",
+          "type": "VARCHAR(4)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "outcome",
+          "type": "VARCHAR(9)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "amount",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "price_per_share",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "total_value",
+          "type": "FLOAT",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(9)",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "fee_amount",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "price_impact",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "slippage",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "trade_hash",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "gas_fee",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "additional_data",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "executed_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": []
+    },
+    "users": {
+      "columns": 27,
+      "foreign_keys": 0,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "username",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "email",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "hashed_password",
+          "type": "VARCHAR",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "full_name",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "bio",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "avatar_url",
+          "type": "VARCHAR",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_trades",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "successful_trades",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_profit",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_volume",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "reputation_score",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "portfolio_value",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "available_balance",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "total_invested",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "win_rate",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "avg_trade_size",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "largest_win",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "largest_loss",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "is_verified",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "is_premium",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "preferences",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "notification_settings",
+          "type": "JSON",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "last_login",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": []
+    },
+    "votes": {
+      "columns": 7,
+      "foreign_keys": 0,
+      "column_details": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 1
+        },
+        {
+          "name": "outcome",
+          "type": "VARCHAR(9)",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "confidence",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "market_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": 0
+        },
+        {
+          "name": "created_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "DATETIME",
+          "nullable": true,
+          "primary_key": 0
+        }
+      ],
+      "foreign_key_details": []
+    }
+  }
+}

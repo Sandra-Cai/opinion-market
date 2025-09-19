@@ -59,7 +59,7 @@ def create_database():
         
         # Show table information
         print("\n📊 Database tables created:")
-        inspector = engine.dialect.inspector(engine)
+        inspector = inspect(engine)
         tables = inspector.get_table_names()
         for table in sorted(tables):
             print(f"   ✅ {table}")
@@ -99,7 +99,7 @@ def show_database_info():
         print(f"   URL: {database_url}")
         
         engine = create_engine(database_url)
-        inspector = engine.dialect.inspector(engine)
+        inspector = inspect(engine)
         tables = inspector.get_table_names()
         
         print(f"   Tables: {len(tables)}")

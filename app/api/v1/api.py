@@ -84,5 +84,5 @@ api_router.include_router(
     health.router, tags=["health"]
 )
 api_router.include_router(
-    api_docs.router, prefix="/docs", tags=["documentation"]
+    api_docs.router, tags=["documentation"]
 )

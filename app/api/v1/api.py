@@ -27,6 +27,7 @@ from app.api.v1.endpoints import (
     derivatives,
     monitoring_dashboard,
     health,
+    api_docs,
 )
 
 api_router = APIRouter()
@@ -81,4 +82,7 @@ api_router.include_router(
 )
 api_router.include_router(
     health.router, tags=["health"]
+)
+api_router.include_router(
+    api_docs.router, prefix="/docs", tags=["documentation"]
 )

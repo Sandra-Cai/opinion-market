@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -16,8 +16,8 @@ class Position(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Position details
-    user_id = Column(Integer, nullable=False)
-    market_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    market_id = Column(Integer, ForeignKey("markets.id"), nullable=False)
     outcome = Column(String, nullable=False)  # Which outcome they hold
 
     # Position amounts

@@ -29,6 +29,7 @@ from app.api.v1.endpoints import (
     health,
     api_docs,
     system_monitor,
+    metrics_dashboard,
 )
 
 api_router = APIRouter()
@@ -89,4 +90,7 @@ api_router.include_router(
 )
 api_router.include_router(
     system_monitor.router, prefix="/system-monitor", tags=["system-monitoring"]
+)
+api_router.include_router(
+    metrics_dashboard.router, prefix="/metrics-dashboard", tags=["metrics-dashboard"]
 )

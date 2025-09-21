@@ -17,14 +17,35 @@ from collections import defaultdict, Counter
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import IsolationForest
-import seaborn as sns
-from wordcloud import WordCloud
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
+
+# Optional advanced dependencies
+try:
+    from sklearn.cluster import DBSCAN
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.ensemble import IsolationForest
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+
+try:
+    import seaborn as sns
+    SEABORN_AVAILABLE = True
+except ImportError:
+    SEABORN_AVAILABLE = False
+
+try:
+    from wordcloud import WordCloud
+    WORDCLOUD_AVAILABLE = True
+except ImportError:
+    WORDCLOUD_AVAILABLE = False
+
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 @dataclass
 class LogEntry:
@@ -366,6 +387,10 @@ class LogAnalyzer:
     
     def detect_anomalies(self) -> Dict[str, Any]:
         """Detect anomalies in log data using machine learning"""
+        if not SKLEARN_AVAILABLE:
+            print("⚠️  Scikit-learn not available - skipping anomaly detection")
+            return {"anomalies": [], "clusters": [], "outliers": []}
+        
         print("🤖 Detecting anomalies using machine learning...")
         
         if not self.log_entries:
@@ -487,6 +512,10 @@ class LogAnalyzer:
     
     def generate_word_cloud(self, output_dir: str = "log_analysis_charts"):
         """Generate word cloud from log messages"""
+        if not WORDCLOUD_AVAILABLE:
+            print("⚠️  WordCloud not available - skipping word cloud generation")
+            return
+        
         print("☁️  Generating word cloud...")
         
         if not self.log_entries:
@@ -533,6 +562,10 @@ class LogAnalyzer:
     
     def create_interactive_dashboard(self, output_dir: str = "log_analysis_charts"):
         """Create interactive dashboard using Plotly"""
+        if not PLOTLY_AVAILABLE:
+            print("⚠️  Plotly not available - skipping interactive dashboard")
+            return
+        
         print("📊 Creating interactive dashboard...")
         
         if not self.log_entries:

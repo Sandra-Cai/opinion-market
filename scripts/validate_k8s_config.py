@@ -90,6 +90,14 @@ class KubernetesValidator:
         self._check_pod_security(resource, file_path, kind, name)
         self._check_service_configuration(resource, file_path, kind, name)
         self._check_ingress_security(resource, file_path, kind, name)
+        self._check_pod_disruption_budget(resource, file_path, kind, name)
+        self._check_horizontal_pod_autoscaler(resource, file_path, kind, name)
+        self._check_volume_security(resource, file_path, kind, name)
+        self._check_environment_variables(resource, file_path, kind, name)
+        self._check_image_pull_policy(resource, file_path, kind, name)
+        self._check_service_account(resource, file_path, kind, name)
+        self._check_affinity_rules(resource, file_path, kind, name)
+        self._check_termination_grace_period(resource, file_path, kind, name)
     
     def _check_required_fields(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
         """Check for required fields"""
@@ -419,6 +427,207 @@ class KubernetesValidator:
                     rule_name="no_ssl_redirect",
                     severity="info",
                     message="Ingress should redirect HTTP to HTTPS",
+                    file_path=file_path,
+                    resource_name=name,
+                    resource_type=kind
+                ))
+            
+            # Check for rate limiting
+            if not annotations.get('nginx.ingress.kubernetes.io/rate-limit'):
+                self.results.append(ValidationResult(
+                    rule_name="no_rate_limit",
+                    severity="warning",
+                    message="Ingress should have rate limiting configured",
+                    file_path=file_path,
+                    resource_name=name,
+                    resource_type=kind
+                ))
+            
+            # Check for CORS configuration
+            if not annotations.get('nginx.ingress.kubernetes.io/enable-cors'):
+                self.results.append(ValidationResult(
+                    rule_name="no_cors",
+                    severity="info",
+                    message="Consider enabling CORS for web applications",
+                    file_path=file_path,
+                    resource_name=name,
+                    resource_type=kind
+                ))
+    
+    def _check_pod_disruption_budget(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check for Pod Disruption Budget configuration"""
+        if kind in ['Deployment', 'StatefulSet', 'DaemonSet']:
+            # Check if there's a corresponding PDB
+            # This is a simplified check - in practice, you'd need to check all files
+            self.results.append(ValidationResult(
+                rule_name="missing_pdb",
+                severity="info",
+                message=f"Consider creating a PodDisruptionBudget for {kind} '{name}'",
+                file_path=file_path,
+                resource_name=name,
+                resource_type=kind
+            ))
+    
+    def _check_horizontal_pod_autoscaler(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check for Horizontal Pod Autoscaler configuration"""
+        if kind in ['Deployment', 'StatefulSet']:
+            # Check if there's a corresponding HPA
+            # This is a simplified check - in practice, you'd need to check all files
+            self.results.append(ValidationResult(
+                rule_name="missing_hpa",
+                severity="info",
+                message=f"Consider creating a HorizontalPodAutoscaler for {kind} '{name}'",
+                file_path=file_path,
+                resource_name=name,
+                resource_type=kind
+            ))
+    
+    def _check_volume_security(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check volume security configuration"""
+        if kind in ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob']:
+            pod_spec = self._get_pod_spec(resource)
+            volumes = pod_spec.get('volumes', [])
+            
+            for volume in volumes:
+                # Check for hostPath volumes
+                if 'hostPath' in volume:
+                    self.results.append(ValidationResult(
+                        rule_name="hostpath_volume",
+                        severity="warning",
+                        message=f"Volume '{volume['name']}' uses hostPath - consider using persistent volumes",
+                        file_path=file_path,
+                        resource_name=name,
+                        resource_type=kind
+                    ))
+                
+                # Check for emptyDir volumes
+                if 'emptyDir' in volume:
+                    empty_dir = volume['emptyDir']
+                    if empty_dir.get('sizeLimit'):
+                        size_limit = empty_dir['sizeLimit']
+                        if self._parse_memory_value(size_limit) > 1024 * 1024 * 1024:  # 1GB
+                            self.results.append(ValidationResult(
+                                rule_name="large_emptydir",
+                                severity="warning",
+                                message=f"Volume '{volume['name']}' has large size limit: {size_limit}",
+                                file_path=file_path,
+                                resource_name=name,
+                                resource_type=kind
+                            ))
+    
+    def _check_environment_variables(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check environment variable configuration"""
+        if kind in ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob']:
+            containers = self._get_containers(resource)
+            
+            for i, container in enumerate(containers):
+                env_vars = container.get('env', [])
+                
+                # Check for environment variables without valueFrom
+                for env_var in env_vars:
+                    if 'value' in env_var and not env_var.get('valueFrom'):
+                        var_name = env_var.get('name', 'unknown')
+                        var_value = env_var.get('value', '')
+                        
+                        # Check for potential secrets in environment variables
+                        if any(keyword in var_value.lower() for keyword in ['password', 'secret', 'key', 'token']):
+                            self.results.append(ValidationResult(
+                                rule_name="potential_secret_env",
+                                severity="warning",
+                                message=f"Container '{container.get('name', f'container-{i}')}' has potential secret in env var '{var_name}'",
+                                file_path=file_path,
+                                resource_name=name,
+                                resource_type=kind
+                            ))
+    
+    def _check_image_pull_policy(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check image pull policy configuration"""
+        if kind in ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob']:
+            containers = self._get_containers(resource)
+            
+            for i, container in enumerate(containers):
+                image_pull_policy = container.get('imagePullPolicy', 'IfNotPresent')
+                
+                # Check for Always pull policy
+                if image_pull_policy == 'Always':
+                    self.results.append(ValidationResult(
+                        rule_name="always_pull_policy",
+                        severity="warning",
+                        message=f"Container '{container.get('name', f'container-{i}')}' uses 'Always' pull policy - may impact performance",
+                        file_path=file_path,
+                        resource_name=name,
+                        resource_type=kind
+                    ))
+                
+                # Check for Never pull policy
+                if image_pull_policy == 'Never':
+                    self.results.append(ValidationResult(
+                        rule_name="never_pull_policy",
+                        severity="error",
+                        message=f"Container '{container.get('name', f'container-{i}')}' uses 'Never' pull policy - may cause deployment issues",
+                        file_path=file_path,
+                        resource_name=name,
+                        resource_type=kind
+                    ))
+    
+    def _check_service_account(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check service account configuration"""
+        if kind in ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob']:
+            pod_spec = self._get_pod_spec(resource)
+            service_account = pod_spec.get('serviceAccountName')
+            
+            # Check for default service account
+            if not service_account or service_account == 'default':
+                self.results.append(ValidationResult(
+                    rule_name="default_service_account",
+                    severity="warning",
+                    message="Pod uses default service account - consider creating a dedicated service account",
+                    file_path=file_path,
+                    resource_name=name,
+                    resource_type=kind
+                ))
+    
+    def _check_affinity_rules(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check affinity and anti-affinity rules"""
+        if kind in ['Deployment', 'StatefulSet', 'DaemonSet']:
+            pod_spec = self._get_pod_spec(resource)
+            affinity = pod_spec.get('affinity', {})
+            
+            # Check for pod anti-affinity
+            pod_anti_affinity = affinity.get('podAntiAffinity', {})
+            if not pod_anti_affinity:
+                self.results.append(ValidationResult(
+                    rule_name="no_pod_anti_affinity",
+                    severity="info",
+                    message="Consider adding pod anti-affinity rules for high availability",
+                    file_path=file_path,
+                    resource_name=name,
+                    resource_type=kind
+                ))
+    
+    def _check_termination_grace_period(self, resource: Dict[str, Any], file_path: str, kind: str, name: str):
+        """Check termination grace period configuration"""
+        if kind in ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob']:
+            pod_spec = self._get_pod_spec(resource)
+            termination_grace_period = pod_spec.get('terminationGracePeriodSeconds', 30)
+            
+            # Check for very short grace period
+            if termination_grace_period < 10:
+                self.results.append(ValidationResult(
+                    rule_name="short_grace_period",
+                    severity="warning",
+                    message=f"Termination grace period is very short: {termination_grace_period}s",
+                    file_path=file_path,
+                    resource_name=name,
+                    resource_type=kind
+                ))
+            
+            # Check for very long grace period
+            if termination_grace_period > 300:
+                self.results.append(ValidationResult(
+                    rule_name="long_grace_period",
+                    severity="warning",
+                    message=f"Termination grace period is very long: {termination_grace_period}s",
                     file_path=file_path,
                     resource_name=name,
                     resource_type=kind

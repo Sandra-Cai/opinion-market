@@ -16,6 +16,15 @@ from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import IsolationForest
+import seaborn as sns
+from wordcloud import WordCloud
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 
 @dataclass
 class LogEntry:
@@ -93,6 +102,26 @@ class LogAnalyzer:
             r'Suspicious activity',
             r'Brute force',
             r'Unauthorized access'
+        ]
+        
+        # Advanced analysis patterns
+        self.anomaly_patterns = [
+            r'(\d+\.\d+)ms',  # Response times
+            r'(\d+) requests',  # Request counts
+            r'(\d+) errors',  # Error counts
+            r'(\d+)% CPU',  # CPU usage
+            r'(\d+)% memory',  # Memory usage
+        ]
+        
+        # Business logic patterns
+        self.business_patterns = [
+            r'trade executed',
+            r'market created',
+            r'user registered',
+            r'payment processed',
+            r'order placed',
+            r'position opened',
+            r'position closed'
         ]
     
     def load_logs(self, days_back: int = 7) -> int:

@@ -95,3 +95,6 @@ api_router.include_router(
 api_router.include_router(
     metrics_dashboard.router, prefix="/metrics-dashboard", tags=["metrics-dashboard"]
 )
+api_router.include_router(
+    performance_profiler.router, prefix="/performance-profiler", tags=["performance-profiler"]
+)

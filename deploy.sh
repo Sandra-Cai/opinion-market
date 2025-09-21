@@ -18,6 +18,10 @@ CLUSTER_NAME="opinion-market-${ENVIRONMENT}"
 NAMESPACE="opinion-market"
 REGION="us-east-1"
 DOMAIN="opinionmarket.com"
+BACKUP_ENABLED=${BACKUP_ENABLED:-true}
+MONITORING_ENABLED=${MONITORING_ENABLED:-true}
+SECURITY_SCAN_ENABLED=${SECURITY_SCAN_ENABLED:-true}
+ROLLBACK_ENABLED=${ROLLBACK_ENABLED:-true}
 
 # Logging function
 log() {
@@ -48,6 +52,10 @@ check_prerequisites() {
     command -v aws >/dev/null 2>&1 || error "aws CLI is required but not installed"
     command -v docker >/dev/null 2>&1 || error "docker is required but not installed"
     
+    # Check optional tools
+    command -v trivy >/dev/null 2>&1 && info "Trivy security scanner found" || warn "Trivy not found - security scanning disabled"
+    command -v kube-score >/dev/null 2>&1 && info "kube-score found" || warn "kube-score not found - Kubernetes best practices check disabled"
+    
     # Check AWS credentials
     if ! aws sts get-caller-identity >/dev/null 2>&1; then
         error "AWS credentials not configured"
@@ -58,7 +66,154 @@ check_prerequisites() {
         error "kubectl is not connected to a cluster"
     fi
     
+    # Check cluster resources
+    check_cluster_resources
+    
     log "Prerequisites check passed"
+}
+
+# Check cluster resources
+check_cluster_resources() {
+    log "Checking cluster resources..."
+    
+    # Check available nodes
+    NODE_COUNT=$(kubectl get nodes --no-headers | wc -l)
+    if [ $NODE_COUNT -lt 2 ]; then
+        warn "Cluster has only $NODE_COUNT nodes. Consider using at least 2 nodes for production."
+    fi
+    
+    # Check available memory
+    AVAILABLE_MEMORY=$(kubectl top nodes --no-headers | awk '{sum+=$5} END {print sum}')
+    if [ $AVAILABLE_MEMORY -lt 4000 ]; then
+        warn "Low available memory: ${AVAILABLE_MEMORY}Mi. Consider scaling up nodes."
+    fi
+    
+    # Check available CPU
+    AVAILABLE_CPU=$(kubectl top nodes --no-headers | awk '{sum+=$3} END {print sum}')
+    if [ $AVAILABLE_CPU -lt 2000 ]; then
+        warn "Low available CPU: ${AVAILABLE_CPU}m. Consider scaling up nodes."
+    fi
+    
+    info "Cluster resources check completed"
+}
+
+# Create deployment backup
+create_backup() {
+    if [ "$BACKUP_ENABLED" = "true" ]; then
+        log "Creating deployment backup..."
+        
+        BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
+        mkdir -p $BACKUP_DIR
+        
+        # Backup current deployments
+        kubectl get deployments -n $NAMESPACE -o yaml > $BACKUP_DIR/deployments.yaml
+        kubectl get services -n $NAMESPACE -o yaml > $BACKUP_DIR/services.yaml
+        kubectl get configmaps -n $NAMESPACE -o yaml > $BACKUP_DIR/configmaps.yaml
+        kubectl get secrets -n $NAMESPACE -o yaml > $BACKUP_DIR/secrets.yaml
+        
+        # Backup database if exists
+        if kubectl get deployment postgres -n $NAMESPACE >/dev/null 2>&1; then
+            log "Creating database backup..."
+            kubectl exec -n $NAMESPACE deployment/postgres -- pg_dump -U postgres opinion_market > $BACKUP_DIR/database.sql
+        fi
+        
+        # Create backup metadata
+        cat > $BACKUP_DIR/metadata.json << EOF
+{
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "environment": "$ENVIRONMENT",
+    "namespace": "$NAMESPACE",
+    "cluster": "$CLUSTER_NAME",
+    "backup_type": "pre_deployment"
+}
+EOF
+        
+        log "Backup created in $BACKUP_DIR"
+        echo $BACKUP_DIR
+    else
+        info "Backup creation disabled"
+        echo ""
+    fi
+}
+
+# Run security scans
+run_security_scans() {
+    if [ "$SECURITY_SCAN_ENABLED" = "true" ]; then
+        log "Running security scans..."
+        
+        # Scan Docker images
+        if command -v trivy >/dev/null 2>&1; then
+            log "Scanning Docker images for vulnerabilities..."
+            trivy image --exit-code 1 --severity HIGH,CRITICAL ${REGISTRY}/api:latest || warn "Security vulnerabilities found in API image"
+            trivy image --exit-code 1 --severity HIGH,CRITICAL ${REGISTRY}/worker:latest || warn "Security vulnerabilities found in worker image"
+        fi
+        
+        # Scan Kubernetes manifests
+        if command -v kube-score >/dev/null 2>&1; then
+            log "Scanning Kubernetes manifests..."
+            find deployment/kubernetes -name "*.yaml" -exec kube-score score {} \; || warn "Kubernetes best practices issues found"
+        fi
+        
+        # Scan for secrets
+        log "Scanning for exposed secrets..."
+        kubectl get secrets -n $NAMESPACE -o yaml | grep -E "(password|secret|key|token)" && warn "Potential secrets found in cluster"
+        
+        log "Security scans completed"
+    else
+        info "Security scanning disabled"
+    fi
+}
+
+# Health check after deployment
+health_check() {
+    log "Performing health check..."
+    
+    # Wait for deployments to be ready
+    kubectl wait --for=condition=available --timeout=300s deployment/api -n $NAMESPACE
+    kubectl wait --for=condition=available --timeout=300s deployment/worker -n $NAMESPACE
+    
+    # Check pod status
+    FAILED_PODS=$(kubectl get pods -n $NAMESPACE --field-selector=status.phase=Failed --no-headers | wc -l)
+    if [ $FAILED_PODS -gt 0 ]; then
+        error "$FAILED_PODS pods are in Failed state"
+    fi
+    
+    # Check service endpoints
+    kubectl get endpoints -n $NAMESPACE
+    
+    # Test API endpoint
+    API_URL=$(kubectl get service api -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+    if [ -n "$API_URL" ]; then
+        log "Testing API endpoint: http://$API_URL/health"
+        curl -f http://$API_URL/health || warn "API health check failed"
+    fi
+    
+    log "Health check completed successfully"
+}
+
+# Rollback deployment
+rollback_deployment() {
+    if [ "$ROLLBACK_ENABLED" = "true" ]; then
+        log "Rolling back deployment..."
+        
+        # Get last successful deployment
+        LAST_DEPLOYMENT=$(kubectl rollout history deployment/api -n $NAMESPACE --no-headers | tail -1 | awk '{print $1}')
+        
+        if [ -n "$LAST_DEPLOYMENT" ]; then
+            kubectl rollout undo deployment/api -n $NAMESPACE --to-revision=$LAST_DEPLOYMENT
+            kubectl rollout undo deployment/worker -n $NAMESPACE --to-revision=$LAST_DEPLOYMENT
+            
+            # Wait for rollback to complete
+            kubectl rollout status deployment/api -n $NAMESPACE
+            kubectl rollout status deployment/worker -n $NAMESPACE
+            
+            log "Rollback completed successfully"
+        else
+            error "No previous deployment found for rollback"
+        fi
+    else
+        info "Rollback disabled"
+    fi
 }
 
 # Initialize Terraform
@@ -365,6 +520,12 @@ main() {
     # Check prerequisites
     check_prerequisites
     
+    # Create backup before deployment
+    BACKUP_DIR=$(create_backup)
+    
+    # Run security scans
+    run_security_scans
+    
     # Initialize Terraform (optional - comment out if using existing infrastructure)
     # init_terraform
     
@@ -396,7 +557,7 @@ main() {
     configure_logging
     
     # Run health checks
-    health_checks
+    health_check
     
     # Run performance tests
     performance_tests
@@ -406,9 +567,30 @@ main() {
     
     log "Opinion Market platform deployment completed successfully!"
     log "Access your application at: https://api.${DOMAIN}"
+    
+    # Cleanup old backups (keep last 5)
+    if [ -n "$BACKUP_DIR" ]; then
+        log "Cleaning up old backups..."
+        find backups -type d -name "backup_*" | sort | head -n -5 | xargs rm -rf
+    fi
     log "Access Grafana at: https://grafana.${DOMAIN}"
     log "Access Prometheus at: https://prometheus.${DOMAIN}"
 }
 
-# Run main function
+# Error handling with rollback
+handle_deployment_error() {
+    error "Deployment failed at step: $1"
+    
+    if [ "$ROLLBACK_ENABLED" = "true" ] && [ -n "$BACKUP_DIR" ]; then
+        log "Attempting to rollback deployment..."
+        rollback_deployment
+    fi
+    
+    exit 1
+}
+
+# Run main function with error handling
+set -e
+trap 'handle_deployment_error "Unknown error"' ERR
+
 main "$@"

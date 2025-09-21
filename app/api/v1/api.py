@@ -28,6 +28,7 @@ from app.api.v1.endpoints import (
     monitoring_dashboard,
     health,
     api_docs,
+    system_monitor,
 )
 
 api_router = APIRouter()
@@ -85,4 +86,7 @@ api_router.include_router(
 )
 api_router.include_router(
     api_docs.router, tags=["documentation"]
+)
+api_router.include_router(
+    system_monitor.router, prefix="/system-monitor", tags=["system-monitoring"]
 )

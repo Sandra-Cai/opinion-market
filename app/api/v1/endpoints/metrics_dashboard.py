@@ -828,5 +828,5 @@ async def collect_metrics_background():
             logger.error(f"Error in metrics collection: {e}")
             await asyncio.sleep(5)
 
-# Start background task
-asyncio.create_task(collect_metrics_background())
+# Background task will be started when the module is imported in the main application
+# asyncio.create_task(collect_metrics_background())

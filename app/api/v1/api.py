@@ -30,6 +30,7 @@ from app.api.v1.endpoints import (
     api_docs,
     system_monitor,
     metrics_dashboard,
+    performance_profiler,
 )
 
 api_router = APIRouter()

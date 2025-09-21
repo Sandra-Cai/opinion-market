@@ -13,6 +13,10 @@ import time
 from datetime import datetime, timedelta
 from collections import deque, defaultdict
 import logging
+import threading
+from typing import Dict, List, Any, Optional, Callable
+from dataclasses import dataclass
+from enum import Enum
 
 from app.core.database import get_db
 from sqlalchemy.orm import Session
@@ -25,6 +29,175 @@ metrics_history = deque(maxlen=1000)
 active_connections: List[WebSocket] = []
 metrics_cache: Dict[str, Any] = {}
 last_metrics_update = time.time()
+
+class AlertLevel(Enum):
+    """Alert severity levels"""
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
+    EMERGENCY = "emergency"
+
+@dataclass
+class Alert:
+    """Represents a system alert"""
+    id: str
+    timestamp: datetime
+    level: AlertLevel
+    metric: str
+    value: float
+    threshold: float
+    message: str
+    resolved: bool = False
+    resolved_at: Optional[datetime] = None
+
+@dataclass
+class MetricThreshold:
+    """Defines thresholds for a metric"""
+    metric_name: str
+    warning_threshold: float
+    critical_threshold: float
+    emergency_threshold: float
+    enabled: bool = True
+
+class AlertManager:
+    """Manages system alerts and notifications"""
+    
+    def __init__(self):
+        self.active_alerts: Dict[str, Alert] = {}
+        self.alert_history: List[Alert] = []
+        self.thresholds: Dict[str, MetricThreshold] = {}
+        self.alert_listeners: List[Callable[[Alert], None]] = []
+        self._setup_default_thresholds()
+    
+    def _setup_default_thresholds(self):
+        """Setup default metric thresholds"""
+        self.thresholds = {
+            "cpu_percent": MetricThreshold("cpu_percent", 70.0, 85.0, 95.0),
+            "memory_percent": MetricThreshold("memory_percent", 80.0, 90.0, 95.0),
+            "disk_percent": MetricThreshold("disk_percent", 85.0, 95.0, 98.0),
+            "error_rate": MetricThreshold("error_rate", 5.0, 10.0, 20.0),
+            "response_time": MetricThreshold("response_time", 1000.0, 2000.0, 5000.0),
+            "request_rate": MetricThreshold("request_rate", 1000.0, 2000.0, 5000.0),
+        }
+    
+    def add_alert_listener(self, listener: Callable[[Alert], None]):
+        """Add an alert listener"""
+        self.alert_listeners.append(listener)
+    
+    def check_metrics(self, metrics: Dict[str, Any]):
+        """Check metrics against thresholds and generate alerts"""
+        current_time = datetime.utcnow()
+        
+        # Check CPU usage
+        if "system" in metrics and "cpu" in metrics["system"]:
+            cpu_percent = metrics["system"]["cpu"]["percent"]
+            self._check_threshold("cpu_percent", cpu_percent, current_time)
+        
+        # Check memory usage
+        if "system" in metrics and "memory" in metrics["system"]:
+            memory_percent = metrics["system"]["memory"]["percent"]
+            self._check_threshold("memory_percent", memory_percent, current_time)
+        
+        # Check disk usage
+        if "system" in metrics and "disk" in metrics["system"]:
+            disk_percent = metrics["system"]["disk"]["percent"]
+            self._check_threshold("disk_percent", disk_percent, current_time)
+        
+        # Check error rate
+        if "application" in metrics and "requests" in metrics["application"]:
+            error_rate = 100 - metrics["application"]["requests"]["success_rate"]
+            self._check_threshold("error_rate", error_rate, current_time)
+        
+        # Check response time
+        if "application" in metrics and "response_times" in metrics["application"]:
+            response_time = metrics["application"]["response_times"]["avg_ms"]
+            self._check_threshold("response_time", response_time, current_time)
+    
+    def _check_threshold(self, metric_name: str, value: float, timestamp: datetime):
+        """Check a single metric against its thresholds"""
+        if metric_name not in self.thresholds:
+            return
+        
+        threshold = self.thresholds[metric_name]
+        if not threshold.enabled:
+            return
+        
+        alert_level = None
+        threshold_value = None
+        
+        if value >= threshold.emergency_threshold:
+            alert_level = AlertLevel.EMERGENCY
+            threshold_value = threshold.emergency_threshold
+        elif value >= threshold.critical_threshold:
+            alert_level = AlertLevel.CRITICAL
+            threshold_value = threshold.critical_threshold
+        elif value >= threshold.warning_threshold:
+            alert_level = AlertLevel.WARNING
+            threshold_value = threshold.warning_threshold
+        
+        if alert_level:
+            alert_id = f"{metric_name}_{alert_level.value}"
+            
+            # Check if alert already exists
+            if alert_id in self.active_alerts:
+                return  # Alert already active
+            
+            # Create new alert
+            alert = Alert(
+                id=alert_id,
+                timestamp=timestamp,
+                level=alert_level,
+                metric=metric_name,
+                value=value,
+                threshold=threshold_value,
+                message=f"{metric_name} is {value:.1f}, exceeding {alert_level.value} threshold of {threshold_value}"
+            )
+            
+            self.active_alerts[alert_id] = alert
+            self.alert_history.append(alert)
+            
+            # Notify listeners
+            for listener in self.alert_listeners:
+                try:
+                    listener(alert)
+                except Exception as e:
+                    logger.error(f"Error in alert listener: {e}")
+            
+            logger.warning(f"Alert triggered: {alert.message}")
+        else:
+            # Check if we need to resolve existing alerts
+            alert_id = f"{metric_name}_"
+            for level in [AlertLevel.WARNING, AlertLevel.CRITICAL, AlertLevel.EMERGENCY]:
+                full_alert_id = f"{metric_name}_{level.value}"
+                if full_alert_id in self.active_alerts:
+                    alert = self.active_alerts[full_alert_id]
+                    alert.resolved = True
+                    alert.resolved_at = timestamp
+                    del self.active_alerts[full_alert_id]
+                    logger.info(f"Alert resolved: {alert.message}")
+                    break
+    
+    def get_active_alerts(self) -> List[Alert]:
+        """Get all active alerts"""
+        return list(self.active_alerts.values())
+    
+    def get_alert_history(self, limit: int = 100) -> List[Alert]:
+        """Get alert history"""
+        return self.alert_history[-limit:]
+    
+    def resolve_alert(self, alert_id: str) -> bool:
+        """Manually resolve an alert"""
+        if alert_id in self.active_alerts:
+            alert = self.active_alerts[alert_id]
+            alert.resolved = True
+            alert.resolved_at = datetime.utcnow()
+            del self.active_alerts[alert_id]
+            logger.info(f"Alert manually resolved: {alert.message}")
+            return True
+        return False
+
+# Global alert manager
+alert_manager = AlertManager()
 
 class MetricsCollector:
     """Collects and manages system metrics"""
@@ -202,6 +375,113 @@ async def get_endpoint_metrics():
     return {
         "endpoints": endpoint_metrics,
         "timestamp": datetime.utcnow().isoformat()
+    }
+
+@router.get("/alerts/active")
+async def get_active_alerts():
+    """Get all active alerts"""
+    alerts = alert_manager.get_active_alerts()
+    return {
+        "alerts": [
+            {
+                "id": alert.id,
+                "timestamp": alert.timestamp.isoformat(),
+                "level": alert.level.value,
+                "metric": alert.metric,
+                "value": alert.value,
+                "threshold": alert.threshold,
+                "message": alert.message,
+                "resolved": alert.resolved
+            }
+            for alert in alerts
+        ],
+        "count": len(alerts),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@router.get("/alerts/history")
+async def get_alert_history(limit: int = 100):
+    """Get alert history"""
+    if limit > 1000:
+        limit = 1000
+    
+    alerts = alert_manager.get_alert_history(limit)
+    return {
+        "alerts": [
+            {
+                "id": alert.id,
+                "timestamp": alert.timestamp.isoformat(),
+                "level": alert.level.value,
+                "metric": alert.metric,
+                "value": alert.value,
+                "threshold": alert.threshold,
+                "message": alert.message,
+                "resolved": alert.resolved,
+                "resolved_at": alert.resolved_at.isoformat() if alert.resolved_at else None
+            }
+            for alert in alerts
+        ],
+        "count": len(alerts),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@router.post("/alerts/{alert_id}/resolve")
+async def resolve_alert(alert_id: str):
+    """Manually resolve an alert"""
+    success = alert_manager.resolve_alert(alert_id)
+    if success:
+        return {"message": f"Alert {alert_id} resolved successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+@router.get("/thresholds")
+async def get_thresholds():
+    """Get current metric thresholds"""
+    thresholds = {}
+    for metric_name, threshold in alert_manager.thresholds.items():
+        thresholds[metric_name] = {
+            "warning_threshold": threshold.warning_threshold,
+            "critical_threshold": threshold.critical_threshold,
+            "emergency_threshold": threshold.emergency_threshold,
+            "enabled": threshold.enabled
+        }
+    
+    return {
+        "thresholds": thresholds,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@router.post("/thresholds/{metric_name}")
+async def update_threshold(
+    metric_name: str,
+    warning_threshold: Optional[float] = None,
+    critical_threshold: Optional[float] = None,
+    emergency_threshold: Optional[float] = None,
+    enabled: Optional[bool] = None
+):
+    """Update metric thresholds"""
+    if metric_name not in alert_manager.thresholds:
+        raise HTTPException(status_code=404, detail="Metric not found")
+    
+    threshold = alert_manager.thresholds[metric_name]
+    
+    if warning_threshold is not None:
+        threshold.warning_threshold = warning_threshold
+    if critical_threshold is not None:
+        threshold.critical_threshold = critical_threshold
+    if emergency_threshold is not None:
+        threshold.emergency_threshold = emergency_threshold
+    if enabled is not None:
+        threshold.enabled = enabled
+    
+    return {
+        "message": f"Thresholds updated for {metric_name}",
+        "threshold": {
+            "warning_threshold": threshold.warning_threshold,
+            "critical_threshold": threshold.critical_threshold,
+            "emergency_threshold": threshold.emergency_threshold,
+            "enabled": threshold.enabled
+        }
     }
 
 @router.websocket("/metrics/ws")
@@ -505,13 +785,30 @@ async def collect_metrics_background():
                 "application": app_metrics
             }
             
+            # Check for alerts
+            alert_manager.check_metrics(combined_metrics)
+            
             metrics_history.append(combined_metrics)
             
             # Broadcast to WebSocket connections
             if active_connections:
+                # Get active alerts for the broadcast
+                active_alerts = alert_manager.get_active_alerts()
+                
                 metrics_data = {
                     "type": "metrics_update",
-                    **combined_metrics
+                    **combined_metrics,
+                    "alerts": [
+                        {
+                            "id": alert.id,
+                            "level": alert.level.value,
+                            "metric": alert.metric,
+                            "value": alert.value,
+                            "message": alert.message,
+                            "timestamp": alert.timestamp.isoformat()
+                        }
+                        for alert in active_alerts
+                    ]
                 }
                 
                 disconnected = []

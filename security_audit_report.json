@@ -1,0 +1,663 @@
+{
+  "timestamp": "2025-09-21T00:55:44.662360",
+  "summary": {
+    "total_issues": 65,
+    "critical": 5,
+    "high": 10,
+    "medium": 7,
+    "low": 43,
+    "info": 0
+  },
+  "issues": [
+    {
+      "severity": "high",
+      "category": "code_security",
+      "title": "Use of shell=True in subprocess calls",
+      "description": "Found in line 17: result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)",
+      "file_path": "setup.py",
+      "line_number": 17,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-78"
+    },
+    {
+      "severity": "high",
+      "category": "secrets_management",
+      "title": "Hardcoded password",
+      "description": "Found in line 24: password = \"test_password_123\"...",
+      "file_path": "tests/test_advanced_features.py",
+      "line_number": 24,
+      "recommendation": "Use environment variables or secure secret management",
+      "cwe_id": "CWE-798"
+    },
+    {
+      "severity": "high",
+      "category": "secrets_management",
+      "title": "Hardcoded password",
+      "description": "Found in line 52: weak_password = \"123\"...",
+      "file_path": "tests/test_advanced_features.py",
+      "line_number": 52,
+      "recommendation": "Use environment variables or secure secret management",
+      "cwe_id": "CWE-798"
+    },
+    {
+      "severity": "high",
+      "category": "secrets_management",
+      "title": "Hardcoded password",
+      "description": "Found in line 53: strong_password = \"StrongPass123!\"...",
+      "file_path": "tests/test_advanced_features.py",
+      "line_number": 53,
+      "recommendation": "Use environment variables or secure secret management",
+      "cwe_id": "CWE-798"
+    },
+    {
+      "severity": "critical",
+      "category": "code_security",
+      "title": "Use of eval() function",
+      "description": "Found in line 107: (r'eval\\s*\\(', 'critical', 'Use of eval() function', 'CWE-95'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 107,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-95"
+    },
+    {
+      "severity": "critical",
+      "category": "code_security",
+      "title": "Use of exec() function",
+      "description": "Found in line 108: (r'exec\\s*\\(', 'critical', 'Use of exec() function', 'CWE-95'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 108,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-95"
+    },
+    {
+      "severity": "high",
+      "category": "code_security",
+      "title": "Use of __import__() function",
+      "description": "Found in line 109: (r'__import__\\s*\\(', 'high', 'Use of __import__() function', 'CWE-95'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 109,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-95"
+    },
+    {
+      "severity": "high",
+      "category": "code_security",
+      "title": "Use of pickle.loads() - potential code injection",
+      "description": "Found in line 110: (r'pickle\\.loads?\\s*\\(', 'high', 'Use of pickle.loads() - potential code injection', 'CWE-502'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 110,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-502"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "title": "Use of yaml.load() - use yaml.safe_load()",
+      "description": "Found in line 111: (r'yaml\\.load\\s*\\(', 'medium', 'Use of yaml.load() - use yaml.safe_load()', 'CWE-502'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 111,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-502"
+    },
+    {
+      "severity": "high",
+      "category": "code_security",
+      "title": "Use of shell=True in subprocess calls",
+      "description": "Found in line 112: (r'shell=True', 'high', 'Use of shell=True in subprocess calls', 'CWE-78'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 112,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-78"
+    },
+    {
+      "severity": "high",
+      "category": "code_security",
+      "title": "Use of os.system() - use subprocess instead",
+      "description": "Found in line 113: (r'os\\.system\\s*\\(', 'high', 'Use of os.system() - use subprocess instead', 'CWE-78'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 113,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-78"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "title": "Use of input() in production code",
+      "description": "Found in line 114: (r'input\\s*\\(', 'medium', 'Use of input() in production code', 'CWE-20'),",
+      "file_path": "scripts/security_audit.py",
+      "line_number": 114,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-20"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "title": "Use of input() in production code",
+      "description": "Found in line 134: confirm = input(\"Are you sure? Type 'yes' to continue: \")",
+      "file_path": "scripts/migrate_database.py",
+      "line_number": 134,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-20"
+    },
+    {
+      "severity": "high",
+      "category": "secrets_management",
+      "title": "Hardcoded token",
+      "description": "Found in line 42: INVALID_TOKEN = \"invalid_token\"...",
+      "file_path": "app/core/advanced_security.py",
+      "line_number": 42,
+      "recommendation": "Use environment variables or secure secret management",
+      "cwe_id": "CWE-798"
+    },
+    {
+      "severity": "critical",
+      "category": "code_security",
+      "title": "Use of eval() function",
+      "description": "Found in line 264: result = await self.redis.eval(lua_script, 1, self.key, self.identifier)",
+      "file_path": "app/core/advanced_features.py",
+      "line_number": 264,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-95"
+    },
+    {
+      "severity": "critical",
+      "category": "code_security",
+      "title": "Use of eval() function",
+      "description": "Found in line 280: result = await self.redis.eval(",
+      "file_path": "app/core/advanced_features.py",
+      "line_number": 280,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-95"
+    },
+    {
+      "severity": "critical",
+      "category": "code_security",
+      "title": "Use of eval() function",
+      "description": "Found in line 382: data = json.loads(cached_data)  # Safe JSON parsing instead of eval()",
+      "file_path": "app/services/ai_predictions.py",
+      "line_number": 382,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-95"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "title": "Use of input() in production code",
+      "description": "Found in line 765: decoded_input = self._decode_transaction_input(tx.input, contract.abi)",
+      "file_path": "app/services/blockchain_integration.py",
+      "line_number": 765,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-20"
+    },
+    {
+      "severity": "medium",
+      "category": "code_security",
+      "title": "Use of input() in production code",
+      "description": "Found in line 794: def _decode_transaction_input(",
+      "file_path": "app/services/blockchain_integration.py",
+      "line_number": 794,
+      "recommendation": "Review and replace with safer alternatives",
+      "cwe_id": "CWE-20"
+    },
+    {
+      "severity": "medium",
+      "category": "api_security",
+      "title": "API endpoint without authentication",
+      "description": "Router found without authentication dependencies",
+      "file_path": "app/api/v1/api.py",
+      "line_number": null,
+      "recommendation": "Add authentication dependencies to protected endpoints",
+      "cwe_id": "CWE-306"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/api.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/auth.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/system_monitor.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/monitoring_dashboard.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/risk_management.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/verification.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/market_microstructure.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/social.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/quantitative_trading.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/leaderboard.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/disputes.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/analytics_enhanced.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/users.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/health.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/ai_optimization.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/security.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/mobile.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/orders.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/positions.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/votes.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/advanced_markets.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/advanced_orders.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/forex_trading.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/advanced_analytics.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/markets.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/ai_analytics.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/admin.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/trades.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/market_data.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/order_management.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/esg_investing.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/notifications.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/rewards.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/blockchain.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/analytics.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/api_docs.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/ml_analytics.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/social_trading.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/crypto_trading.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/blockchain_advanced.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/derivatives.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/governance.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "low",
+      "category": "api_security",
+      "title": "Missing CORS configuration",
+      "description": "API router without CORS middleware",
+      "file_path": "app/api/v1/endpoints/websocket.py",
+      "line_number": null,
+      "recommendation": "Configure CORS middleware for web applications",
+      "cwe_id": "CWE-346"
+    },
+    {
+      "severity": "high",
+      "category": "authentication",
+      "title": "Weak or missing password hashing",
+      "description": "No strong password hashing algorithm found",
+      "file_path": "app/api/v1/endpoints/auth.py",
+      "line_number": null,
+      "recommendation": "Use bcrypt, argon2, or scrypt for password hashing",
+      "cwe_id": "CWE-916"
+    },
+    {
+      "severity": "medium",
+      "category": "authentication",
+      "title": "Weak JWT configuration",
+      "description": "JWT using weak algorithm or missing algorithm specification",
+      "file_path": "app/core/security.py",
+      "line_number": null,
+      "recommendation": "Use RS256 or ES256 for JWT signing",
+      "cwe_id": "CWE-327"
+    }
+  ]
+}

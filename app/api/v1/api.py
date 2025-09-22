@@ -31,6 +31,7 @@ from app.api.v1.endpoints import (
     system_monitor,
     metrics_dashboard,
     performance_profiler,
+    rate_limiting,
 )
 
 api_router = APIRouter()
@@ -97,4 +98,7 @@ api_router.include_router(
 )
 api_router.include_router(
     performance_profiler.router, prefix="/performance-profiler", tags=["performance-profiler"]
+)
+api_router.include_router(
+    rate_limiting.router, prefix="/rate-limiting", tags=["rate-limiting"]
 )

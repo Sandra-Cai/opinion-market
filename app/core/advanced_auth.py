@@ -17,7 +17,7 @@ from collections import defaultdict, deque
 import threading
 import json
 
-from fastapi import HTTPException, status, Request
+from fastapi import HTTPException, status, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 logger = logging.getLogger(__name__)

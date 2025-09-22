@@ -32,6 +32,7 @@ from app.api.v1.endpoints import (
     metrics_dashboard,
     performance_profiler,
     rate_limiting,
+    api_versioning,
 )
 
 api_router = APIRouter()
@@ -101,4 +102,7 @@ api_router.include_router(
 )
 api_router.include_router(
     rate_limiting.router, prefix="/rate-limiting", tags=["rate-limiting"]
+)
+api_router.include_router(
+    api_versioning.router, prefix="/api-versioning", tags=["api-versioning"]
 )

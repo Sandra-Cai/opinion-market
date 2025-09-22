@@ -33,6 +33,7 @@ from app.api.v1.endpoints import (
     performance_profiler,
     rate_limiting,
     api_versioning,
+    cache_management,
 )
 
 api_router = APIRouter()
@@ -105,4 +106,7 @@ api_router.include_router(
 )
 api_router.include_router(
     api_versioning.router, prefix="/api-versioning", tags=["api-versioning"]
+)
+api_router.include_router(
+    cache_management.router, prefix="/cache-management", tags=["cache-management"]
 )

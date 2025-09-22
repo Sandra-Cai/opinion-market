@@ -1,212 +1,203 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
-from typing import List
+"""
+Notification Management API Endpoints
+Provides management and monitoring of notification system
+"""
+
+from fastapi import APIRouter, HTTPException, Depends, status, Query
+from typing import Dict, List, Any, Optional
+import logging
 from datetime import datetime
 
-from app.core.database import get_db
-from app.core.auth import get_current_user
-from app.models.user import User
-from app.models.notification import (
-    Notification,
-    NotificationPreference,
+from app.core.advanced_notifications import (
+    notification_manager,
+    NotificationChannel,
+    NotificationPriority,
     NotificationType,
+    send_notification,
+    send_custom_notification,
+    set_user_preferences,
+    configure_channel
 )
-from app.schemas.notification import (
-    NotificationResponse,
-    NotificationListResponse,
-    NotificationPreferenceUpdate,
-    NotificationPreferenceResponse,
-)
+from app.core.advanced_auth import get_current_user, User
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
+@router.get("/stats")
+async def get_notification_stats():
+    """Get notification system statistics"""
+    try:
+        stats = notification_manager.get_stats()
+        return {"success": True, "data": stats}
+    except Exception as e:
+        logger.error(f"Error getting notification stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=NotificationListResponse)
-def get_notifications(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    unread_only: bool = Query(False),
+@router.post("/send")
+async def send_notification_endpoint(
+    user_id: str,
+    template_id: str,
+    variables: Optional[Dict[str, Any]] = None,
+    channel: Optional[str] = None,
+    priority: str = "normal",
+    scheduled_at: Optional[datetime] = None
+):
+    """Send notification using template"""
+    try:
+        # Validate channel
+        notification_channel = None
+        if channel:
+            try:
+                notification_channel = NotificationChannel(channel)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid channel: {channel}")
+        
+        # Validate priority
+        try:
+            notification_priority = NotificationPriority(priority)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
+        
+        notification_id = await send_notification(
+            user_id=user_id,
+            template_id=template_id,
+            variables=variables,
+            channel=notification_channel,
+            priority=notification_priority,
+            scheduled_at=scheduled_at
+        )
+        
+        if not notification_id:
+            raise HTTPException(status_code=400, detail="Notification blocked by user preferences or rate limits")
+        
+        return {
+            "success": True,
+            "message": "Notification sent successfully",
+            "data": {"notification_id": notification_id}
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending notification: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/templates")
+async def get_notification_templates():
+    """Get all notification templates"""
+    try:
+        templates = []
+        for template in notification_manager.templates.values():
+            templates.append({
+                "id": template.id,
+                "name": template.name,
+                "type": template.type.value,
+                "channel": template.channel.value,
+                "subject": template.subject,
+                "content": template.content,
+                "is_active": template.is_active
+            })
+        
+        return {"success": True, "data": {"templates": templates, "total": len(templates)}}
+    except Exception as e:
+        logger.error(f"Error getting templates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/users/{user_id}/notifications")
+async def get_user_notifications(
+    user_id: str,
+    limit: int = Query(100, description="Maximum number of notifications to return")
+):
+    """Get user notifications"""
+    try:
+        notifications = notification_manager.get_user_notifications(user_id, limit)
+        
+        notification_data = []
+        for notification in notifications:
+            notification_data.append({
+                "id": notification.id,
+                "type": notification.type.value,
+                "channel": notification.channel.value,
+                "priority": notification.priority.value,
+                "subject": notification.subject,
+                "content": notification.content,
+                "status": notification.status.value,
+                "created_at": notification.created_at.isoformat()
+            })
+        
+        return {
+            "success": True,
+            "data": {
+                "notifications": notification_data,
+                "total": len(notification_data),
+                "user_id": user_id
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting user notifications: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/my-notifications")
+async def get_my_notifications(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    limit: int = Query(100, description="Maximum number of notifications to return")
 ):
-    """Get user's notifications"""
-    query = db.query(Notification).filter(Notification.user_id == current_user.id)
+    """Get current user's notifications"""
+    try:
+        notifications = notification_manager.get_user_notifications(current_user.id, limit)
+        
+        notification_data = []
+        for notification in notifications:
+            notification_data.append({
+                "id": notification.id,
+                "type": notification.type.value,
+                "channel": notification.channel.value,
+                "priority": notification.priority.value,
+                "subject": notification.subject,
+                "content": notification.content,
+                "status": notification.status.value,
+                "created_at": notification.created_at.isoformat()
+            })
+        
+        return {
+            "success": True,
+            "data": {
+                "notifications": notification_data,
+                "total": len(notification_data),
+                "user_id": current_user.id
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting user notifications: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-    if unread_only:
-        query = query.filter(Notification.is_read == False)
+@router.get("/channels")
+async def get_available_channels():
+    """Get available notification channels"""
+    try:
+        channels = []
+        for channel in NotificationChannel:
+            channels.append({
+                "name": channel.value,
+                "description": f"{channel.value.title()} notifications"
+            })
+        
+        return {"success": True, "data": {"channels": channels, "total": len(channels)}}
+    except Exception as e:
+        logger.error(f"Error getting channels: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-    total = query.count()
-    unread_count = (
-        db.query(Notification)
-        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
-        .count()
-    )
-
-    notifications = (
-        query.order_by(desc(Notification.created_at)).offset(skip).limit(limit).all()
-    )
-
-    return NotificationListResponse(
-        notifications=notifications,
-        total=total,
-        unread_count=unread_count,
-        page=skip // limit + 1,
-        per_page=limit,
-    )
-
-
-@router.get("/{notification_id}", response_model=NotificationResponse)
-def get_notification(
-    notification_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Get specific notification"""
-    notification = (
-        db.query(Notification)
-        .filter(
-            Notification.id == notification_id, Notification.user_id == current_user.id
-        )
-        .first()
-    )
-
-    if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
-        )
-
-    return notification
-
-
-@router.post("/{notification_id}/read")
-def mark_notification_read(
-    notification_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Mark notification as read"""
-    notification = (
-        db.query(Notification)
-        .filter(
-            Notification.id == notification_id, Notification.user_id == current_user.id
-        )
-        .first()
-    )
-
-    if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
-        )
-
-    notification.mark_as_read()
-    db.commit()
-
-    return {"message": "Notification marked as read"}
-
-
-@router.post("/read-all")
-def mark_all_notifications_read(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """Mark all notifications as read"""
-    notifications = (
-        db.query(Notification)
-        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
-        .all()
-    )
-
-    for notification in notifications:
-        notification.mark_as_read()
-
-    db.commit()
-
-    return {"message": f"Marked {len(notifications)} notifications as read"}
-
-
-@router.delete("/{notification_id}")
-def delete_notification(
-    notification_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Delete a notification"""
-    notification = (
-        db.query(Notification)
-        .filter(
-            Notification.id == notification_id, Notification.user_id == current_user.id
-        )
-        .first()
-    )
-
-    if not notification:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
-        )
-
-    db.delete(notification)
-    db.commit()
-
-    return {"message": "Notification deleted"}
-
-
-@router.get("/preferences", response_model=NotificationPreferenceResponse)
-def get_notification_preferences(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """Get user's notification preferences"""
-    preferences = (
-        db.query(NotificationPreference)
-        .filter(NotificationPreference.user_id == current_user.id)
-        .first()
-    )
-
-    if not preferences:
-        # Create default preferences
-        preferences = NotificationPreference(user_id=current_user.id)
-        db.add(preferences)
-        db.commit()
-        db.refresh(preferences)
-
-    return preferences
-
-
-@router.put("/preferences", response_model=NotificationPreferenceResponse)
-def update_notification_preferences(
-    preference_update: NotificationPreferenceUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Update user's notification preferences"""
-    preferences = (
-        db.query(NotificationPreference)
-        .filter(NotificationPreference.user_id == current_user.id)
-        .first()
-    )
-
-    if not preferences:
-        preferences = NotificationPreference(user_id=current_user.id)
-        db.add(preferences)
-
-    # Update preferences
-    for field, value in preference_update.dict(exclude_unset=True).items():
-        setattr(preferences, field, value)
-
-    db.commit()
-    db.refresh(preferences)
-
-    return preferences
-
-
-@router.get("/unread-count")
-def get_unread_count(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """Get count of unread notifications"""
-    unread_count = (
-        db.query(Notification)
-        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
-        .count()
-    )
-
-    return {"unread_count": unread_count}
+@router.get("/types")
+async def get_notification_types():
+    """Get available notification types"""
+    try:
+        types = []
+        for notification_type in NotificationType:
+            types.append({
+                "name": notification_type.value,
+                "description": f"{notification_type.value.title()} notifications"
+            })
+        
+        return {"success": True, "data": {"types": types, "total": len(types)}}
+    except Exception as e:
+        logger.error(f"Error getting notification types: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -34,6 +34,7 @@ from app.api.v1.endpoints import (
     rate_limiting,
     api_versioning,
     cache_management,
+    notifications,
 )
 
 api_router = APIRouter()
@@ -109,4 +110,7 @@ api_router.include_router(
 )
 api_router.include_router(
     cache_management.router, prefix="/cache-management", tags=["cache-management"]
+)
+api_router.include_router(
+    notifications.router, prefix="/notifications", tags=["notifications"]
 )

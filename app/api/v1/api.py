@@ -37,6 +37,8 @@ from app.api.v1.endpoints import (
     performance_monitor,
     security_audit,
     enhanced_cache,
+    performance_dashboard,
+    business_intelligence,
 )
 
 api_router = APIRouter()
@@ -121,6 +123,12 @@ api_router.include_router(
 )
 api_router.include_router(
     enhanced_cache.router, prefix="/enhanced-cache", tags=["enhanced-cache"]
+)
+api_router.include_router(
+    performance_dashboard.router, prefix="/performance-dashboard", tags=["performance-dashboard"]
+)
+api_router.include_router(
+    business_intelligence.router, prefix="/business-intelligence", tags=["business-intelligence"]
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]

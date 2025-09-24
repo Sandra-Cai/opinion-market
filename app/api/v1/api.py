@@ -39,6 +39,7 @@ from app.api.v1.endpoints import (
     enhanced_cache,
     performance_dashboard,
     business_intelligence,
+    ai_optimization,
 )
 
 api_router = APIRouter()
@@ -129,6 +130,9 @@ api_router.include_router(
 )
 api_router.include_router(
     business_intelligence.router, prefix="/business-intelligence", tags=["business-intelligence"]
+)
+api_router.include_router(
+    ai_optimization.router, prefix="/ai-optimization", tags=["ai-optimization"]
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]

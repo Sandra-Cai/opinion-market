@@ -75,14 +75,18 @@ class NotificationService:
     def _send_email_notification(self, notification: Notification):
         """Send email notification (placeholder for email service integration)"""
         # TODO: Integrate with email service (SendGrid, AWS SES, etc.)
-        print(f"📧 Email notification sent: {notification.title}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"📧 Email notification sent: {notification.title}")
         notification.mark_as_sent()
         self.db.commit()
 
     def _send_push_notification(self, notification: Notification):
         """Send push notification (placeholder for push service integration)"""
         # TODO: Integrate with push notification service (Firebase, OneSignal, etc.)
-        print(f"📱 Push notification sent: {notification.title}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"📱 Push notification sent: {notification.title}")
         notification.mark_as_sent()
         self.db.commit()
 

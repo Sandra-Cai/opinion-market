@@ -34,6 +34,72 @@ from contextlib import asynccontextmanager
 logger = logging.getLogger(__name__)
 
 
+class CacheError(Exception):
+    """Base exception for cache operations"""
+    pass
+
+
+class CacheCompressionError(CacheError):
+    """Exception raised during compression/decompression"""
+    pass
+
+
+class CacheSerializationError(CacheError):
+    """Exception raised during serialization/deserialization"""
+    pass
+
+
+class CacheMemoryError(CacheError):
+    """Exception raised when memory limits are exceeded"""
+    pass
+
+
+def cache_operation_retry(max_retries: int = 3, delay: float = 0.1):
+    """Decorator for retrying cache operations with exponential backoff"""
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            last_exception = None
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except (CacheCompressionError, CacheSerializationError) as e:
+                    last_exception = e
+                    if attempt < max_retries:
+                        wait_time = delay * (2 ** attempt)  # Exponential backoff
+                        logger.warning(f"Cache operation failed (attempt {attempt + 1}/{max_retries + 1}): {e}. Retrying in {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.error(f"Cache operation failed after {max_retries + 1} attempts: {e}")
+                        raise
+                except Exception as e:
+                    # Don't retry on other exceptions
+                    logger.error(f"Non-retryable cache error: {e}")
+                    raise
+            
+            if last_exception:
+                raise last_exception
+                
+        return wrapper
+    return decorator
+
+
+def safe_cache_operation(func):
+    """Decorator for safe cache operations with error handling"""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except CacheError as e:
+            logger.error(f"Cache error in {func.__name__}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in {func.__name__}: {e}\n{traceback.format_exc()}")
+            raise CacheError(f"Unexpected error in {func.__name__}: {e}") from e
+    return wrapper
+
+
 class EvictionPolicy(Enum):
     """Cache eviction policies"""
     LRU = "lru"  # Least Recently Used
@@ -239,6 +305,7 @@ class EnhancedCache:
         except Exception:
             return 1024  # Default size estimate
     
+    @cache_operation_retry(max_retries=2)
     def _compress_value(self, value: Any) -> Tuple[bytes, float]:
         """Compress cache value and return compressed data with ratio"""
         try:
@@ -246,7 +313,10 @@ class EnhancedCache:
             if isinstance(value, (str, bytes)):
                 data = value.encode('utf-8') if isinstance(value, str) else value
             else:
-                data = pickle.dumps(value)
+                try:
+                    data = pickle.dumps(value)
+                except (pickle.PicklingError, TypeError) as e:
+                    raise CacheSerializationError(f"Failed to serialize value: {e}") from e
             
             original_size = len(data)
             
@@ -254,33 +324,52 @@ class EnhancedCache:
                 return data, 1.0
             
             # Compress using gzip
-            compressed = gzip.compress(data, compresslevel=self.compression_level.value)
-            compressed_size = len(compressed)
-            ratio = compressed_size / original_size if original_size > 0 else 1.0
-            
-            # Only use compression if it actually saves space
-            if ratio < 0.9:  # At least 10% savings
-                return compressed, ratio
-            else:
-                return data, 1.0
+            try:
+                compressed = gzip.compress(data, compresslevel=self.compression_level.value)
+                compressed_size = len(compressed)
+                ratio = compressed_size / original_size if original_size > 0 else 1.0
                 
+                # Only use compression if it actually saves space
+                if ratio < 0.9:  # At least 10% savings
+                    return compressed, ratio
+                else:
+                    return data, 1.0
+            except Exception as e:
+                raise CacheCompressionError(f"Failed to compress data: {e}") from e
+                
+        except (CacheSerializationError, CacheCompressionError):
+            raise
         except Exception as e:
-            logger.warning(f"Compression failed: {e}")
-            return pickle.dumps(value), 1.0
+            logger.warning(f"Unexpected compression error: {e}")
+            try:
+                return pickle.dumps(value), 1.0
+            except Exception as fallback_e:
+                raise CacheSerializationError(f"Fallback serialization failed: {fallback_e}") from fallback_e
     
+    @cache_operation_retry(max_retries=2)
     def _decompress_value(self, compressed_data: bytes, compression_ratio: float) -> Any:
         """Decompress cache value"""
         try:
             if compression_ratio >= 1.0:
                 # Not compressed
-                return pickle.loads(compressed_data)
+                try:
+                    return pickle.loads(compressed_data)
+                except (pickle.UnpicklingError, TypeError) as e:
+                    raise CacheSerializationError(f"Failed to deserialize uncompressed data: {e}") from e
             else:
                 # Decompress
-                decompressed = gzip.decompress(compressed_data)
-                return pickle.loads(decompressed)
+                try:
+                    decompressed = gzip.decompress(compressed_data)
+                    return pickle.loads(decompressed)
+                except (gzip.BadGzipFile, OSError) as e:
+                    raise CacheCompressionError(f"Failed to decompress data: {e}") from e
+                except (pickle.UnpicklingError, TypeError) as e:
+                    raise CacheSerializationError(f"Failed to deserialize decompressed data: {e}") from e
+        except (CacheSerializationError, CacheCompressionError):
+            raise
         except Exception as e:
-            logger.error(f"Decompression failed: {e}")
-            return None
+            logger.error(f"Unexpected decompression error: {e}")
+            raise CacheError(f"Decompression failed: {e}") from e
     
     def _update_analytics(self, operation: str, key: str = None, access_time: float = None):
         """Update analytics data"""
@@ -316,55 +405,66 @@ class EnhancedCache:
         key_data = f"{prefix}:{args}:{sorted(kwargs.items())}"
         return hashlib.md5(key_data.encode()).hexdigest()
         
+    @safe_cache_operation
     async def get(self, key: str) -> Optional[Any]:
-        """Get value from cache with enhanced analytics"""
+        """Get value from cache with enhanced analytics and error handling"""
         start_time = time.time()
         
-        with self.lock:
-            if key in self.cache:
-                entry = self.cache[key]
-                
-                # Check if expired
-                if entry.expires_at and entry.expires_at <= datetime.now():
-                    del self.cache[key]
-                    self.stats.misses += 1
-                    self.stats.total_size -= entry.size_bytes
-                    self.stats.compressed_size -= entry.compressed_size
-                    self._update_analytics("miss_expired", key, time.time() - start_time)
-                    return None
+        try:
+            with self.lock:
+                if key in self.cache:
+                    entry = self.cache[key]
                     
-                # Update access info
-                entry.access_count += 1
-                entry.last_accessed = datetime.now()
-                
-                # Move to end (most recently used)
-                self.cache.move_to_end(key)
-                
-                self.stats.hits += 1
-                self.stats.total_requests += 1
-                
-                # Decompress if needed
-                if entry.compression_ratio < 1.0:
-                    value = self._decompress_value(entry.value, entry.compression_ratio)
-                    if value is None:
-                        # Decompression failed, remove entry
+                    # Check if expired
+                    if entry.expires_at and entry.expires_at <= datetime.now():
                         del self.cache[key]
                         self.stats.misses += 1
                         self.stats.total_size -= entry.size_bytes
                         self.stats.compressed_size -= entry.compressed_size
-                        self._update_analytics("miss_decompression_failed", key, time.time() - start_time)
+                        self._update_analytics("miss_expired", key, time.time() - start_time)
                         return None
+                        
+                    # Update access info
+                    entry.access_count += 1
+                    entry.last_accessed = datetime.now()
+                    
+                    # Move to end (most recently used)
+                    self.cache.move_to_end(key)
+                    
+                    self.stats.hits += 1
+                    self.stats.total_requests += 1
+                    
+                    # Decompress if needed
+                    if entry.compression_ratio < 1.0:
+                        try:
+                            value = self._decompress_value(entry.value, entry.compression_ratio)
+                        except (CacheCompressionError, CacheSerializationError) as e:
+                            # Decompression failed, remove corrupted entry
+                            logger.error(f"Failed to decompress cache entry {key}: {e}")
+                            del self.cache[key]
+                            self.stats.misses += 1
+                            self.stats.total_size -= entry.size_bytes
+                            self.stats.compressed_size -= entry.compressed_size
+                            self._update_analytics("miss_decompression_failed", key, time.time() - start_time)
+                            return None
+                    else:
+                        value = entry.value
+                    
+                    self._update_analytics("hit", key, time.time() - start_time)
+                    return value
                 else:
-                    value = entry.value
+                    self.stats.misses += 1
+                    self.stats.total_requests += 1
+                    self._update_analytics("miss_not_found", key, time.time() - start_time)
+                    return None
+        except Exception as e:
+            logger.error(f"Error getting cache entry {key}: {e}")
+            self.stats.misses += 1
+            self.stats.total_requests += 1
+            self._update_analytics("miss_error", key, time.time() - start_time)
+            raise
                 
-                self._update_analytics("hit", key, time.time() - start_time)
-                return value
-            else:
-                self.stats.misses += 1
-                self.stats.total_requests += 1
-                self._update_analytics("miss_not_found", key, time.time() - start_time)
-                return None
-                
+    @safe_cache_operation
     async def set(
         self, 
         key: str, 
@@ -375,7 +475,7 @@ class EnhancedCache:
         cost: float = 0.0,
         metadata: Dict[str, Any] = None
     ) -> bool:
-        """Set value in cache with enhanced features"""
+        """Set value in cache with enhanced features and error handling"""
         try:
             expires_at = None
             if ttl is not None:
@@ -383,10 +483,19 @@ class EnhancedCache:
             elif self.default_ttl:
                 expires_at = datetime.now() + timedelta(seconds=self.default_ttl)
             
-            # Compress the value
-            compressed_data, compression_ratio = self._compress_value(value)
+            # Compress the value with error handling
+            try:
+                compressed_data, compression_ratio = self._compress_value(value)
+            except (CacheCompressionError, CacheSerializationError) as e:
+                logger.error(f"Failed to compress value for key {key}: {e}")
+                return False
+            
             original_size = self._calculate_size(value)
             compressed_size = len(compressed_data)
+            
+            # Check memory limits before adding
+            if compressed_size > self.max_memory_bytes:
+                raise CacheMemoryError(f"Entry size {compressed_size} exceeds memory limit {self.max_memory_bytes}")
             
             # Update compression stats
             self.compression_stats["total_original"] += original_size
@@ -423,13 +532,24 @@ class EnhancedCache:
                 
                 # Check memory limits and evict if necessary
                 if self.stats.compressed_size > self.max_memory_bytes:
-                    await self._evict_entries_by_memory()
+                    try:
+                        await self._evict_entries_by_memory()
+                    except Exception as e:
+                        logger.error(f"Failed to evict entries: {e}")
+                        # Remove the entry we just added if eviction failed
+                        del self.cache[key]
+                        self.stats.total_size -= original_size
+                        self.stats.compressed_size -= compressed_size
+                        self.stats.entry_count = len(self.cache)
+                        raise CacheMemoryError("Failed to free memory for new entry")
                 
             self._update_analytics("set", key)
             return True
             
+        except (CacheMemoryError, CacheCompressionError, CacheSerializationError):
+            raise
         except Exception as e:
-            logger.error(f"Error setting cache entry {key}: {e}")
+            logger.error(f"Unexpected error setting cache entry {key}: {e}")
             return False
             
     async def delete(self, key: str) -> bool:

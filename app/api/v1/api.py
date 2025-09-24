@@ -34,7 +34,8 @@ from app.api.v1.endpoints import (
     rate_limiting,
     api_versioning,
     cache_management,
-    notifications,
+    performance_monitor,
+    security_audit,
 )
 
 api_router = APIRouter()
@@ -110,6 +111,12 @@ api_router.include_router(
 )
 api_router.include_router(
     cache_management.router, prefix="/cache-management", tags=["cache-management"]
+)
+api_router.include_router(
+    performance_monitor.router, prefix="/performance", tags=["performance-monitoring"]
+)
+api_router.include_router(
+    security_audit.router, prefix="/security", tags=["security-audit"]
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]

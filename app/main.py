@@ -123,6 +123,13 @@ async def lifespan(app: FastAPI):
         enhanced_config_manager.start_file_watching()
         print("✅ Enhanced configuration manager initialized")
 
+        # Initialize new performance monitoring systems
+        await performance_monitor.start_monitoring(interval=30)
+        print("✅ Performance monitor initialized")
+        
+        await enhanced_cache.start_cleanup()
+        print("✅ Enhanced cache system initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -139,6 +146,11 @@ async def lifespan(app: FastAPI):
     # Stop enhanced systems
     await advanced_performance_optimizer.stop_monitoring()
     enhanced_config_manager.stop_file_watching()
+    
+    # Stop new performance monitoring systems
+    await performance_monitor.stop_monitoring()
+    await enhanced_cache.stop_cleanup()
+    
     print("✅ Enhanced systems stopped")
 
 

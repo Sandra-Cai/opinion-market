@@ -13,7 +13,7 @@ def create_enhanced_openapi_schema(app: FastAPI) -> Dict[str, Any]:
     
     if app.openapi_schema:
         return app.openapi_schema
-    
+
     openapi_schema = get_openapi(
         title="Opinion Market API",
         version="2.0.0",
@@ -43,7 +43,7 @@ def create_enhanced_openapi_schema(app: FastAPI) -> Dict[str, Any]:
         """,
         routes=app.routes,
     )
-    
+
     # Add interactive examples
     openapi_schema = _add_interactive_examples(openapi_schema)
     
@@ -57,8 +57,8 @@ def _add_interactive_examples(openapi_schema: Dict[str, Any]) -> Dict[str, Any]:
     examples = {
         "/api/v1/auth/register": {
             "requestBody": {
-                "content": {
-                    "application/json": {
+            "content": {
+                "application/json": {
                         "examples": {
                             "basic_registration": {
                                 "summary": "Basic User Registration",
@@ -76,8 +76,8 @@ def _add_interactive_examples(openapi_schema: Dict[str, Any]) -> Dict[str, Any]:
         },
         "/api/v1/markets/": {
             "requestBody": {
-                "content": {
-                    "application/json": {
+            "content": {
+                "application/json": {
                         "examples": {
                             "binary_market": {
                                 "summary": "Binary Prediction Market",
@@ -97,8 +97,8 @@ def _add_interactive_examples(openapi_schema: Dict[str, Any]) -> Dict[str, Any]:
         },
         "/api/v1/enhanced-cache/set": {
             "requestBody": {
-                "content": {
-                    "application/json": {
+            "content": {
+                "application/json": {
                         "examples": {
                             "advanced_cache": {
                                 "summary": "Advanced Cache Entry",

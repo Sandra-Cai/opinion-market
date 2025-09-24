@@ -31,6 +31,10 @@ from app.core.enhanced_testing import enhanced_test_manager
 from app.core.enhanced_config import enhanced_config_manager
 from app.api.enhanced_docs import create_enhanced_openapi_schema
 
+# Import new performance monitoring systems
+from app.core.performance_monitor import performance_monitor
+from app.core.enhanced_cache import enhanced_cache
+
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
     Base.metadata.create_all(bind=engine)

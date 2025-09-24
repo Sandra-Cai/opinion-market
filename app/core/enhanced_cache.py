@@ -804,6 +804,124 @@ class EnhancedCache:
                 "analytics": self.get_analytics().__dict__ if self.analytics else None,
                 "memory_usage": self.get_memory_usage()
             }
+    
+    async def recover_from_errors(self) -> Dict[str, Any]:
+        """Recover from cache errors and clean up corrupted entries"""
+        recovery_stats = {
+            "corrupted_entries_removed": 0,
+            "memory_freed_bytes": 0,
+            "recovery_errors": [],
+            "success": True
+        }
+        
+        try:
+            with self.lock:
+                corrupted_keys = []
+                
+                # Check each entry for corruption
+                for key, entry in list(self.cache.items()):
+                    try:
+                        # Try to decompress/deserialize the entry
+                        if entry.compression_ratio < 1.0:
+                            self._decompress_value(entry.value, entry.compression_ratio)
+                        else:
+                            pickle.loads(entry.value)
+                    except (CacheCompressionError, CacheSerializationError, Exception) as e:
+                        logger.warning(f"Found corrupted cache entry {key}: {e}")
+                        corrupted_keys.append(key)
+                        recovery_stats["corrupted_entries_removed"] += 1
+                        recovery_stats["memory_freed_bytes"] += entry.compressed_size
+                
+                # Remove corrupted entries
+                for key in corrupted_keys:
+                    entry = self.cache.pop(key, None)
+                    if entry:
+                        self.stats.total_size -= entry.size_bytes
+                        self.stats.compressed_size -= entry.compressed_size
+                        self.stats.entry_count = len(self.cache)
+                
+                # Reset compression stats if they seem inconsistent
+                if self.stats.compressed_size < 0 or self.stats.total_size < 0:
+                    logger.warning("Resetting inconsistent cache statistics")
+                    self.stats.total_size = sum(entry.size_bytes for entry in self.cache.values())
+                    self.stats.compressed_size = sum(entry.compressed_size for entry in self.cache.values())
+                    self.stats.entry_count = len(self.cache)
+                
+                logger.info(f"Cache recovery completed: removed {recovery_stats['corrupted_entries_removed']} corrupted entries")
+                
+        except Exception as e:
+            logger.error(f"Error during cache recovery: {e}")
+            recovery_stats["recovery_errors"].append(str(e))
+            recovery_stats["success"] = False
+        
+        return recovery_stats
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """Comprehensive health check for the cache system"""
+        health_status = {
+            "status": "healthy",
+            "checks": {},
+            "timestamp": time.time(),
+            "errors": []
+        }
+        
+        try:
+            # Test basic operations
+            test_key = "health_check_test"
+            test_value = {"test": True, "timestamp": time.time()}
+            
+            # Test set operation
+            try:
+                set_success = await self.set(test_key, test_value, ttl=60)
+                health_status["checks"]["set_operation"] = set_success
+            except Exception as e:
+                health_status["checks"]["set_operation"] = False
+                health_status["errors"].append(f"Set operation failed: {e}")
+            
+            # Test get operation
+            try:
+                retrieved_value = await self.get(test_key)
+                health_status["checks"]["get_operation"] = retrieved_value is not None
+            except Exception as e:
+                health_status["checks"]["get_operation"] = False
+                health_status["errors"].append(f"Get operation failed: {e}")
+            
+            # Test delete operation
+            try:
+                delete_success = await self.delete(test_key)
+                health_status["checks"]["delete_operation"] = delete_success
+            except Exception as e:
+                health_status["checks"]["delete_operation"] = False
+                health_status["errors"].append(f"Delete operation failed: {e}")
+            
+            # Check memory usage
+            memory_info = self.get_memory_usage()
+            memory_usage_percent = memory_info["memory_utilization_percent"]
+            health_status["checks"]["memory_usage"] = memory_usage_percent < 95  # Healthy if < 95%
+            
+            if memory_usage_percent >= 95:
+                health_status["errors"].append(f"High memory usage: {memory_usage_percent}%")
+            
+            # Check for corrupted entries
+            try:
+                recovery_stats = await self.recover_from_errors()
+                health_status["checks"]["corruption_check"] = recovery_stats["success"]
+                if recovery_stats["corrupted_entries_removed"] > 0:
+                    health_status["errors"].append(f"Found {recovery_stats['corrupted_entries_removed']} corrupted entries")
+            except Exception as e:
+                health_status["checks"]["corruption_check"] = False
+                health_status["errors"].append(f"Corruption check failed: {e}")
+            
+            # Overall health status
+            all_checks_passed = all(health_status["checks"].values())
+            if not all_checks_passed or health_status["errors"]:
+                health_status["status"] = "unhealthy"
+            
+        except Exception as e:
+            health_status["status"] = "critical"
+            health_status["errors"].append(f"Health check failed: {e}")
+        
+        return health_status
 
 
 # Global cache instance with enhanced features

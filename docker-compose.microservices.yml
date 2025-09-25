@@ -1,0 +1,286 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/opinion_market
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=development-secret-key
+      - ENVIRONMENT=development
+      - SERVICE_NAME=api-gateway
+      - SERVICE_PORT=8000
+    depends_on:
+      - db
+      - redis
+      - consul
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - microservices-network
+
+  # Market Service
+  market-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/opinion_market
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=development-secret-key
+      - ENVIRONMENT=development
+      - SERVICE_NAME=market-service
+      - SERVICE_PORT=8001
+    depends_on:
+      - db
+      - redis
+      - consul
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - microservices-network
+
+  # Trading Service
+  trading-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/opinion_market
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=development-secret-key
+      - ENVIRONMENT=development
+      - SERVICE_NAME=trading-service
+      - SERVICE_PORT=8002
+    depends_on:
+      - db
+      - redis
+      - consul
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - microservices-network
+
+  # User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/opinion_market
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=development-secret-key
+      - ENVIRONMENT=development
+      - SERVICE_NAME=user-service
+      - SERVICE_PORT=8003
+    depends_on:
+      - db
+      - redis
+      - consul
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - microservices-network
+
+  # Notification Service
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/opinion_market
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=development-secret-key
+      - ENVIRONMENT=development
+      - SERVICE_NAME=notification-service
+      - SERVICE_PORT=8004
+    depends_on:
+      - db
+      - redis
+      - consul
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - microservices-network
+
+  # Analytics Service
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/opinion_market
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=development-secret-key
+      - ENVIRONMENT=development
+      - SERVICE_NAME=analytics-service
+      - SERVICE_PORT=8005
+    depends_on:
+      - db
+      - redis
+      - consul
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    networks:
+      - microservices-network
+
+  # PostgreSQL Database
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=opinion_market
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployment/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - microservices-network
+
+  # Redis Cache
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - microservices-network
+
+  # Consul for Service Discovery
+  consul:
+    image: consul:1.15
+    ports:
+      - "8500:8500"
+    command: consul agent -server -bootstrap-expect=1 -data-dir=/consul/data -ui -client=0.0.0.0
+    volumes:
+      - consul_data:/consul/data
+    networks:
+      - microservices-network
+
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx-microservices.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - api-gateway
+    networks:
+      - microservices-network
+
+  # Prometheus for Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus-microservices.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - microservices-network
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployment/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - microservices-network
+
+  # Jaeger for Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.45
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - microservices-network
+
+  # Elasticsearch for Logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.0
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - microservices-network
+
+  # Kibana for Log Analysis
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.15.0
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - microservices-network
+
+  # Logstash for Log Processing
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.15.0
+    volumes:
+      - ./deployment/logstash-microservices.conf:/usr/share/logstash/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch
+    networks:
+      - microservices-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  consul_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  microservices-network:
+    driver: bridge

@@ -40,6 +40,8 @@ from app.api.v1.endpoints import (
     performance_dashboard,
     business_intelligence,
     ai_optimization,
+    security,
+    database_optimization,
 )
 
 api_router = APIRouter()
@@ -133,6 +135,12 @@ api_router.include_router(
 )
 api_router.include_router(
     ai_optimization.router, prefix="/ai-optimization", tags=["ai-optimization"]
+)
+api_router.include_router(
+    security.router, prefix="/security", tags=["security"]
+)
+api_router.include_router(
+    database_optimization.router, prefix="/database-optimization", tags=["database-optimization"]
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]

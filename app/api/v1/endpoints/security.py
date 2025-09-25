@@ -1,196 +1,163 @@
 """
-Security endpoints and authentication
+Security API Endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional, Dict, Any
-import logging
+from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Dict, Any, List
+import time
 
-from app.core.security import SecurityManager, InputValidator, SecurityHeaders
-from app.core.config_manager import config_manager
+from app.core.auth import get_current_user
+from app.models.user import User
+from app.core.security_manager import security_manager
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Security dependencies
-security = HTTPBearer()
-security_manager = SecurityManager(
-    secret_key=config_manager.get_config().security.secret_key,
-    algorithm=config_manager.get_config().security.algorithm,
-)
+
+@router.get("/metrics")
+async def get_security_metrics(current_user: User = Depends(get_current_user)):
+    """Get security metrics"""
+    try:
+        metrics = security_manager.get_metrics()
+        return {
+            "success": True,
+            "data": metrics,
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get security metrics: {str(e)}")
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> Dict[str, Any]:
-    """Get current authenticated user"""
-    token = credentials.credentials
-    payload = security_manager.verify_token(token)
-
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return {
-        "user_id": payload.get("user_id"),
-        "token_id": payload.get("jti"),
-        "expires_at": payload.get("exp"),
-    }
-
-
-@router.post("/auth/login")
-async def login(request: Request, username: str, password: str):
-    """User login with security checks"""
-    # Check if account is locked
-    if security_manager.is_account_locked(username):
-        raise HTTPException(
-            status_code=status.HTTP_423_LOCKED,
-            detail="Account is temporarily locked due to too many failed attempts",
-        )
-
-    # Validate input
-    if not InputValidator.validate_sql_injection(
-        username
-    ) or not InputValidator.validate_sql_injection(password):
-        security_manager.record_failed_attempt(username)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid input detected"
-        )
-
-    # Simulate password verification (in real app, check against database)
-    # For demo purposes, accept any password
-    if len(password) < 8:
-        security_manager.record_failed_attempt(username)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-        )
-
-    # Reset failed attempts on successful login
-    security_manager.reset_failed_attempts(username)
-
-    # Generate token
-    token = security_manager.generate_token(username)
-
-    # Log security event
-    logger.info(f"User {username} logged in successfully")
-
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "expires_in": config_manager.get_config().security.access_token_expire_minutes
-        * 60,
-    }
-
-
-@router.post("/auth/register")
-async def register(username: str, email: str, password: str):
-    """User registration with validation"""
-    # Validate email
-    if not InputValidator.validate_email(email):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format"
-        )
-
-    # Validate password strength
-    password_validation = InputValidator.validate_password_strength(password)
-    if not password_validation["is_valid"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Password validation failed: {', '.join(password_validation['issues'])}",
-        )
-
-    # Sanitize inputs
-    username = InputValidator.sanitize_string(username, 50)
-    email = InputValidator.sanitize_string(email, 100)
-
-    # Hash password
-    hashed_password = security_manager.hash_password(password)
-
-    # In a real app, save to database
-    logger.info(f"User {username} registered successfully")
-
-    return {
-        "message": "User registered successfully",
-        "username": username,
-        "email": email,
-    }
-
-
-@router.get("/auth/me")
-async def get_current_user_info(
-    current_user: Dict[str, Any] = Depends(get_current_user)
+@router.get("/events")
+async def get_security_events(
+    limit: int = 100,
+    current_user: User = Depends(get_current_user)
 ):
-    """Get current user information"""
-    return {
-        "user_id": current_user["user_id"],
-        "authenticated": True,
-        "token_expires_at": current_user["expires_at"],
-    }
+    """Get recent security events"""
+    try:
+        events = list(security_manager.security_events)[-limit:]
+        return {
+            "success": True,
+            "data": events,
+            "count": len(events),
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get security events: {str(e)}")
 
 
-@router.post("/auth/refresh")
-async def refresh_token(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Refresh authentication token"""
-    new_token = security_manager.generate_token(current_user["user_id"])
-
-    return {
-        "access_token": new_token,
-        "token_type": "bearer",
-        "expires_in": config_manager.get_config().security.access_token_expire_minutes
-        * 60,
-    }
-
-
-@router.post("/auth/logout")
-async def logout(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """User logout"""
-    # In a real app, invalidate token in database
-    logger.info(f"User {current_user['user_id']} logged out")
-
-    return {"message": "Logged out successfully"}
+@router.post("/check-threats")
+async def check_threats(
+    request_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
+):
+    """Check for security threats in data"""
+    try:
+        threats = await security_manager.detect_threats(request_data)
+        return {
+            "success": True,
+            "threats_detected": len(threats),
+            "threats": threats,
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check threats: {str(e)}")
 
 
-@router.get("/security/headers")
-async def get_security_headers():
-    """Get security headers configuration"""
-    return SecurityHeaders.get_security_headers()
+@router.get("/blocked-ips")
+async def get_blocked_ips(current_user: User = Depends(get_current_user)):
+    """Get list of blocked IP addresses"""
+    try:
+        blocked_ips = list(security_manager.blocked_ips)
+        return {
+            "success": True,
+            "data": blocked_ips,
+            "count": len(blocked_ips),
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get blocked IPs: {str(e)}")
 
 
-@router.get("/security/status")
-async def get_security_status():
-    """Get security system status"""
-    config = config_manager.get_config()
-
-    return {
-        "authentication_enabled": True,
-        "rate_limiting_enabled": True,
-        "input_validation_enabled": True,
-        "password_policy": {
-            "min_length": config.security.password_min_length,
-            "require_special_chars": config.security.require_special_chars,
-        },
-        "session_settings": {
-            "timeout_minutes": config.security.session_timeout_minutes,
-            "max_login_attempts": config.security.max_login_attempts,
-            "lockout_duration_minutes": config.security.lockout_duration_minutes,
-        },
-    }
+@router.post("/block-ip")
+async def block_ip(
+    ip_address: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Block an IP address"""
+    try:
+        security_manager.blocked_ips.add(ip_address)
+        return {
+            "success": True,
+            "message": f"IP {ip_address} blocked successfully",
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to block IP: {str(e)}")
 
 
-@router.post("/security/validate-password")
-async def validate_password_strength(password: str):
-    """Validate password strength"""
-    validation_result = InputValidator.validate_password_strength(password)
+@router.delete("/unblock-ip/{ip_address}")
+async def unblock_ip(
+    ip_address: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Unblock an IP address"""
+    try:
+        security_manager.blocked_ips.discard(ip_address)
+        return {
+            "success": True,
+            "message": f"IP {ip_address} unblocked successfully",
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to unblock IP: {str(e)}")
 
-    return {
-        "password": (
-            password[:3] + "*" * (len(password) - 3) if len(password) > 3 else "***"
-        ),
-        "is_valid": validation_result["is_valid"],
-        "score": validation_result["score"],
-        "issues": validation_result["issues"],
-    }
+
+@router.get("/rate-limit-status")
+async def get_rate_limit_status(
+    ip_address: str,
+    limit_type: str = "api",
+    current_user: User = Depends(get_current_user)
+):
+    """Get rate limit status for an IP"""
+    try:
+        allowed = await security_manager.check_rate_limit(ip_address, limit_type)
+        return {
+            "success": True,
+            "ip_address": ip_address,
+            "limit_type": limit_type,
+            "allowed": allowed,
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check rate limit: {str(e)}")
+
+
+@router.get("/security-status")
+async def get_security_status(current_user: User = Depends(get_current_user)):
+    """Get overall security status"""
+    try:
+        metrics = security_manager.get_metrics()
+        recent_events = list(security_manager.security_events)[-10:]
+        
+        # Calculate security score
+        security_score = 100
+        if metrics["events_count"] > 100:
+            security_score -= 20
+        if metrics["blocked_ips"] > 10:
+            security_score -= 10
+        
+        status = {
+            "security_score": max(security_score, 0),
+            "status": "healthy" if security_score > 80 else "warning" if security_score > 60 else "critical",
+            "metrics": metrics,
+            "recent_events": recent_events,
+            "blocked_ips_count": len(security_manager.blocked_ips)
+        }
+        
+        return {
+            "success": True,
+            "data": status,
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get security status: {str(e)}")

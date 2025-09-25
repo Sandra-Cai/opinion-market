@@ -42,6 +42,7 @@ from app.api.v1.endpoints import (
     ai_optimization,
     security,
     database_optimization,
+    microservices,
 )
 
 api_router = APIRouter()
@@ -141,6 +142,9 @@ api_router.include_router(
 )
 api_router.include_router(
     database_optimization.router, prefix="/database-optimization", tags=["database-optimization"]
+)
+api_router.include_router(
+    microservices.router, prefix="/microservices", tags=["microservices"]
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]

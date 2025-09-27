@@ -1,0 +1,100 @@
+[run]
+# Coverage configuration for Opinion Market platform
+
+# Source paths
+source = app
+
+# Omit patterns
+omit = 
+    */tests/*
+    */test_*
+    */__pycache__/*
+    */venv/*
+    */env/*
+    */migrations/*
+    */alembic/*
+    */node_modules/*
+    */build/*
+    */dist/*
+    */*.egg-info/*
+    */setup.py
+    */conftest.py
+    */pytest.ini
+    */tox.ini
+    */manage.py
+    */wsgi.py
+    */asgi.py
+
+# Branch coverage
+branch = True
+
+# Parallel execution
+parallel = True
+
+# Data file
+data_file = .coverage
+
+[report]
+# Report configuration
+
+# Exclude lines
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+
+    # Don't complain about missing debug-only code:
+    def __repr__
+    if self\.debug
+
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run:
+    if 0:
+    if __name__ == .__main__.:
+
+    # Don't complain about abstract methods
+    @(abc\.)?abstractmethod
+
+    # Don't complain about type checking
+    if TYPE_CHECKING:
+
+# Ignore errors
+ignore_errors = True
+
+# Show missing
+show_missing = True
+
+# Skip covered
+skip_covered = False
+
+# Skip empty
+skip_empty = False
+
+# Sort by
+sort = Cover
+
+# Precision
+precision = 2
+
+# Fail under
+fail_under = 80
+
+[html]
+# HTML report configuration
+
+# Directory
+directory = htmlcov
+
+# Title
+title = Opinion Market Coverage Report
+
+# Show contexts
+show_contexts = True
+
+[xml]
+# XML report configuration
+
+# Output file
+output = coverage.xml

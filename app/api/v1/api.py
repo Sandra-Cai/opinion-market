@@ -43,6 +43,7 @@ from app.api.v1.endpoints import (
     security,
     database_optimization,
     microservices,
+    data_pipeline,
 )
 
 api_router = APIRouter()
@@ -145,6 +146,9 @@ api_router.include_router(
 )
 api_router.include_router(
     microservices.router, prefix="/microservices", tags=["microservices"]
+)
+api_router.include_router(
+    data_pipeline.router, prefix="/data-pipeline", tags=["data-pipeline"]
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]

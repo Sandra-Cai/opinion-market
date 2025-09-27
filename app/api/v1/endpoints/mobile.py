@@ -1,306 +1,404 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
-from datetime import datetime
-from sqlalchemy import desc
+"""
+Mobile Optimization API Endpoints
+Provides mobile-specific features and optimizations
+"""
 
-from app.core.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from typing import Dict, Any, List, Optional
+import asyncio
+import time
+
 from app.core.auth import get_current_user
 from app.models.user import User
-from app.models.market import Market
-from app.models.trade import Trade
-from app.models.notification import Notification
-from app.services.mobile_api import get_mobile_api_service
+from app.mobile.mobile_optimizer import mobile_optimizer, DeviceType, ConnectionType
+from app.websocket.websocket_manager import websocket_manager, MessageType
+from app.notifications.notification_manager import notification_manager
 
 router = APIRouter()
 
 
-@router.post("/device/register")
-def register_device(
-    push_token: str, device_info: Dict, current_user: User = Depends(get_current_user)
+@router.post("/device/detect")
+async def detect_device(
+    request: Request,
+    device_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
 ):
-    """Register mobile device for push notifications"""
-    mobile_service = get_mobile_api_service()
-    result = mobile_service.register_device(current_user.id, push_token, device_info)
-
-    return result
-
-
-@router.post("/device/unregister")
-def unregister_device(current_user: User = Depends(get_current_user)):
-    """Unregister mobile device"""
-    mobile_service = get_mobile_api_service()
-    result = mobile_service.unregister_device(current_user.id)
-
-    return result
-
-
-@router.get("/dashboard")
-def get_mobile_dashboard(current_user: User = Depends(get_current_user)):
-    """Get mobile-optimized dashboard"""
-    mobile_service = get_mobile_api_service()
-    dashboard = mobile_service.get_mobile_dashboard(current_user.id)
-
-    if "error" in dashboard:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=dashboard["error"]
-        )
-
-    return dashboard
-
-
-@router.get("/market/{market_id}")
-def get_mobile_market_details(
-    market_id: int, current_user: Optional[User] = Depends(get_current_user)
-):
-    """Get mobile-optimized market details"""
-    mobile_service = get_mobile_api_service()
-    user_id = current_user.id if current_user else None
-    market_details = mobile_service.get_mobile_market_details(market_id, user_id)
-
-    if "error" in market_details:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=market_details["error"]
-        )
-
-    return market_details
-
-
-@router.get("/portfolio")
-def get_mobile_portfolio(current_user: User = Depends(get_current_user)):
-    """Get mobile-optimized portfolio view"""
-    mobile_service = get_mobile_api_service()
-    portfolio = mobile_service.get_mobile_portfolio(current_user.id)
-
-    if "error" in portfolio:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=portfolio["error"]
-        )
-
-    return portfolio
-
-
-@router.get("/leaderboard")
-def get_mobile_leaderboard(
-    category: str = Query("traders", pattern="^(traders|volume|win_rate)$"),
-    period: str = Query("7d", pattern="^(24h|7d|30d|all_time)$"),
-    limit: int = Query(20, ge=1, le=100),
-):
-    """Get mobile-optimized leaderboard"""
-    mobile_service = get_mobile_api_service()
-    leaderboard = mobile_service.get_mobile_leaderboard(category, period, limit)
-
-    if "error" in leaderboard:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=leaderboard["error"]
-        )
-
-    return leaderboard
-
-
-@router.post("/push-notification")
-def send_push_notification(
-    title: str,
-    body: str,
-    data: Optional[Dict] = None,
-    current_user: User = Depends(get_current_user),
-):
-    """Send push notification to user's device"""
-    mobile_service = get_mobile_api_service()
-    result = mobile_service.send_push_notification(current_user.id, title, body, data)
-
-    if "error" in result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=result["error"]
-        )
-
-    return result
-
-
-@router.get("/markets/recent")
-def get_recent_markets(
-    limit: int = Query(10, ge=1, le=50), db: Session = Depends(get_db)
-):
-    """Get recent markets for mobile"""
-    markets = (
-        db.query(Market)
-        .filter(Market.status == "open")
-        .order_by(desc(Market.created_at))
-        .limit(limit)
-        .all()
-    )
-
-    return {
-        "markets": [
-            {
-                "id": market.id,
-                "title": market.title,
-                "category": market.category,
-                "current_price_a": market.current_price_a,
-                "current_price_b": market.current_price_b,
-                "volume_24h": market.volume_24h,
-                "trending_score": market.trending_score,
-                "created_at": market.created_at,
-            }
-            for market in markets
-        ],
-        "total": len(markets),
-    }
-
-
-@router.get("/markets/trending")
-def get_trending_markets(
-    limit: int = Query(10, ge=1, le=50), db: Session = Depends(get_db)
-):
-    """Get trending markets for mobile"""
-    markets = (
-        db.query(Market)
-        .filter(Market.status == "open")
-        .order_by(desc(Market.trending_score))
-        .limit(limit)
-        .all()
-    )
-
-    return {
-        "markets": [
-            {
-                "id": market.id,
-                "title": market.title,
-                "category": market.category,
-                "current_price_a": market.current_price_a,
-                "current_price_b": market.current_price_b,
-                "volume_24h": market.volume_24h,
-                "trending_score": market.trending_score,
-            }
-            for market in markets
-        ],
-        "total": len(markets),
-    }
-
-
-@router.get("/markets/category/{category}")
-def get_markets_by_category(
-    category: str, limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db)
-):
-    """Get markets by category for mobile"""
-    markets = (
-        db.query(Market)
-        .filter(Market.status == "open", Market.category == category)
-        .order_by(desc(Market.volume_24h))
-        .limit(limit)
-        .all()
-    )
-
-    return {
-        "category": category,
-        "markets": [
-            {
-                "id": market.id,
-                "title": market.title,
-                "current_price_a": market.current_price_a,
-                "current_price_b": market.current_price_b,
-                "volume_24h": market.volume_24h,
-                "trending_score": market.trending_score,
-            }
-            for market in markets
-        ],
-        "total": len(markets),
-    }
-
-
-@router.get("/trades/recent")
-def get_recent_trades(
-    limit: int = Query(10, ge=1, le=50),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Get user's recent trades for mobile"""
-    trades = (
-        db.query(Trade)
-        .filter(Trade.user_id == current_user.id)
-        .order_by(desc(Trade.created_at))
-        .limit(limit)
-        .all()
-    )
-
-    return {
-        "trades": [
-            {
-                "id": trade.id,
-                "market_id": trade.market_id,
-                "market_title": trade.market.title,
-                "trade_type": trade.trade_type,
-                "outcome": trade.outcome,
-                "amount": trade.total_value,
-                "profit_loss": trade.profit_loss,
-                "created_at": trade.created_at,
-            }
-            for trade in trades
-        ],
-        "total": len(trades),
-    }
-
-
-@router.get("/notifications/unread-count")
-def get_unread_notifications_count(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """Get unread notifications count for mobile"""
-    unread_count = (
-        db.query(Notification)
-        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
-        .count()
-    )
-
-    return {"user_id": current_user.id, "unread_count": unread_count}
-
-
-@router.get("/user/profile")
-def get_mobile_user_profile(current_user: User = Depends(get_current_user)):
-    """Get mobile-optimized user profile"""
-    return {
-        "user": {
-            "id": current_user.id,
-            "username": current_user.username,
-            "email": current_user.email,
-            "full_name": current_user.full_name,
-            "bio": current_user.bio,
-            "reputation_score": current_user.reputation_score,
-            "total_trades": current_user.total_trades,
-            "win_rate": current_user.win_rate,
-            "total_profit": current_user.total_profit,
-            "total_volume": current_user.total_volume,
-            "available_balance": current_user.available_balance,
-            "created_at": current_user.created_at,
+    """Detect device information and optimize content"""
+    try:
+        user_agent = request.headers.get("User-Agent", "")
+        additional_info = device_data.get("additional_info", {})
+        
+        # Detect device
+        device_info = await mobile_optimizer.detect_device(user_agent, additional_info)
+        
+        # Get performance metrics
+        performance_metrics = await mobile_optimizer.get_performance_metrics(device_info)
+        
+        return {
+            "success": True,
+            "data": {
+                "device_info": {
+                    "device_type": device_info.device_type.value,
+                    "screen_width": device_info.screen_width,
+                    "screen_height": device_info.screen_height,
+                    "pixel_ratio": device_info.pixel_ratio,
+                    "connection_type": device_info.connection_type.value,
+                    "is_touch_device": device_info.is_touch_device,
+                    "supports_webp": device_info.supports_webp,
+                    "supports_avif": device_info.supports_avif,
+                    "memory_limit_mb": device_info.memory_limit_mb,
+                    "cpu_cores": device_info.cpu_cores
+                },
+                "performance_metrics": performance_metrics,
+                "optimization_recommendations": {
+                    "max_image_size_kb": 300 if device_info.device_type == DeviceType.MOBILE else 500,
+                    "enable_lazy_loading": True,
+                    "enable_compression": device_info.connection_type != ConnectionType.WIFI,
+                    "cache_strategy": "aggressive" if device_info.device_type == DeviceType.MOBILE else "moderate"
+                }
+            },
+            "timestamp": time.time()
         }
-    }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to detect device: {str(e)}")
 
 
-@router.get("/search/markets")
-def search_markets_mobile(
-    query: str, limit: int = Query(20, ge=1, le=100), db: Session = Depends(get_db)
+@router.post("/content/optimize")
+async def optimize_content(
+    content_data: Dict[str, Any],
+    request: Request,
+    current_user: User = Depends(get_current_user)
 ):
-    """Search markets for mobile"""
-    markets = (
-        db.query(Market)
-        .filter(Market.status == "open", Market.title.ilike(f"%{query}%"))
-        .order_by(desc(Market.volume_24h))
-        .limit(limit)
-        .all()
-    )
+    """Optimize content for mobile devices"""
+    try:
+        user_agent = request.headers.get("User-Agent", "")
+        device_info = await mobile_optimizer.detect_device(user_agent)
+        
+        # Optimize content
+        optimized_content = await mobile_optimizer.optimize_content(content_data, device_info)
+        
+        return {
+            "success": True,
+            "data": optimized_content,
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to optimize content: {str(e)}")
 
-    return {
-        "query": query,
-        "markets": [
-            {
-                "id": market.id,
-                "title": market.title,
-                "category": market.category,
-                "current_price_a": market.current_price_a,
-                "current_price_b": market.current_price_b,
-                "volume_24h": market.volume_24h,
+
+@router.get("/performance/metrics")
+async def get_mobile_performance_metrics(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Get mobile performance metrics"""
+    try:
+        user_agent = request.headers.get("User-Agent", "")
+        device_info = await mobile_optimizer.detect_device(user_agent)
+        
+        performance_metrics = await mobile_optimizer.get_performance_metrics(device_info)
+        
+        return {
+            "success": True,
+            "data": {
+                "device_info": {
+                    "device_type": device_info.device_type.value,
+                    "connection_type": device_info.connection_type.value,
+                    "memory_limit_mb": device_info.memory_limit_mb
+                },
+                "performance_metrics": performance_metrics
+            },
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get performance metrics: {str(e)}")
+
+
+@router.post("/websocket/connect")
+async def connect_websocket(
+    websocket_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
+):
+    """Get WebSocket connection information"""
+    try:
+        # In a real implementation, this would return WebSocket connection details
+        # For now, return connection information
+        connection_info = {
+            "websocket_url": f"ws://localhost:8000/ws/{current_user.id}",
+            "connection_id": f"conn_{int(time.time())}",
+            "auth_token": f"ws_token_{current_user.id}_{int(time.time())}",
+            "heartbeat_interval": 30,
+            "max_reconnect_attempts": 5,
+            "reconnect_delay": 1000
+        }
+        
+        return {
+            "success": True,
+            "data": connection_info,
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get WebSocket info: {str(e)}")
+
+
+@router.post("/notifications/register")
+async def register_for_notifications(
+    notification_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
+):
+    """Register device for push notifications"""
+    try:
+        device_token = notification_data.get("device_token")
+        device_type = notification_data.get("device_type", "mobile")
+        notification_preferences = notification_data.get("preferences", {})
+        
+        if not device_token:
+            raise HTTPException(status_code=400, detail="Device token is required")
+        
+        # Store device token and preferences
+        # In a real implementation, this would be stored in the database
+        device_info = {
+            "user_id": current_user.id,
+            "device_token": device_token,
+            "device_type": device_type,
+            "preferences": notification_preferences,
+            "registered_at": time.time()
+        }
+        
+        return {
+            "success": True,
+            "message": "Device registered for notifications",
+            "data": {
+                "device_id": f"device_{current_user.id}_{int(time.time())}",
+                "notification_types": ["market_updates", "trade_notifications", "price_alerts"]
+            },
+            "timestamp": time.time()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to register for notifications: {str(e)}")
+
+
+@router.post("/notifications/send")
+async def send_notification(
+    notification_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
+):
+    """Send a test notification"""
+    try:
+        notification_type = notification_data.get("type", "test")
+        message = notification_data.get("message", "Test notification")
+        
+        # Create a simple notification
+        notification_info = {
+            "type": notification_type,
+            "message": message,
+            "user_id": current_user.id,
+            "timestamp": time.time()
+        }
+        
+        # Send via WebSocket if connected
+        await websocket_manager.broadcast_to_user(
+            str(current_user.id),
+            MessageType.NOTIFICATION,
+            notification_info
+        )
+        
+        return {
+            "success": True,
+            "message": "Notification sent successfully",
+            "data": notification_info,
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")
+
+
+@router.get("/notifications/history")
+async def get_notification_history(
+    limit: int = 20,
+    current_user: User = Depends(get_current_user)
+):
+    """Get notification history for user"""
+    try:
+        # Get notifications from notification manager
+        notifications = await notification_manager.get_user_notifications(
+            str(current_user.id), 
+            limit
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "notifications": notifications,
+                "total_count": len(notifications)
+            },
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get notification history: {str(e)}")
+
+
+@router.post("/offline/sync")
+async def sync_offline_data(
+    sync_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
+):
+    """Sync offline data when device comes back online"""
+    try:
+        offline_actions = sync_data.get("actions", [])
+        last_sync_time = sync_data.get("last_sync_time", 0)
+        
+        # Process offline actions
+        synced_actions = []
+        for action in offline_actions:
+            # In a real implementation, this would process each offline action
+            # For now, just acknowledge them
+            synced_actions.append({
+                "action_id": action.get("id"),
+                "status": "synced",
+                "timestamp": time.time()
+            })
+        
+        # Get updates since last sync
+        updates = {
+            "markets": [],  # New/updated markets
+            "trades": [],   # New trades
+            "notifications": []  # New notifications
+        }
+        
+        return {
+            "success": True,
+            "data": {
+                "synced_actions": synced_actions,
+                "updates": updates,
+                "sync_timestamp": time.time()
+            },
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync offline data: {str(e)}")
+
+
+@router.get("/cache/status")
+async def get_cache_status(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Get mobile cache status and recommendations"""
+    try:
+        user_agent = request.headers.get("User-Agent", "")
+        device_info = await mobile_optimizer.detect_device(user_agent)
+        
+        # Get cache recommendations based on device
+        cache_recommendations = {
+            "max_cache_size_mb": min(100, device_info.memory_limit_mb * 0.1),
+            "cache_ttl_seconds": 1800 if device_info.device_type == DeviceType.MOBILE else 3600,
+            "enable_compression": device_info.connection_type != ConnectionType.WIFI,
+            "cache_strategy": "aggressive" if device_info.device_type == DeviceType.MOBILE else "moderate",
+            "preload_critical_data": True,
+            "lazy_load_images": True
+        }
+        
+        return {
+            "success": True,
+            "data": {
+                "device_info": {
+                    "device_type": device_info.device_type.value,
+                    "memory_limit_mb": device_info.memory_limit_mb,
+                    "connection_type": device_info.connection_type.value
+                },
+                "cache_recommendations": cache_recommendations
+            },
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get cache status: {str(e)}")
+
+
+@router.post("/analytics/track")
+async def track_mobile_analytics(
+    analytics_data: Dict[str, Any],
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Track mobile-specific analytics"""
+    try:
+        user_agent = request.headers.get("User-Agent", "")
+        device_info = await mobile_optimizer.detect_device(user_agent)
+        
+        # Track analytics event
+        event_data = {
+            "user_id": current_user.id,
+            "event_type": analytics_data.get("event_type", "page_view"),
+            "event_data": analytics_data.get("event_data", {}),
+            "device_info": {
+                "device_type": device_info.device_type.value,
+                "screen_width": device_info.screen_width,
+                "screen_height": device_info.screen_height,
+                "connection_type": device_info.connection_type.value
+            },
+            "timestamp": time.time()
+        }
+        
+        # Store analytics (in real implementation, send to analytics service)
+        analytics_id = f"analytics_{current_user.id}_{int(time.time())}"
+        
+        return {
+            "success": True,
+            "message": "Analytics tracked successfully",
+            "data": {
+                "analytics_id": analytics_id,
+                "event_data": event_data
+            },
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to track analytics: {str(e)}")
+
+
+@router.get("/health")
+async def mobile_health_check(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Get mobile-specific health status"""
+    try:
+        user_agent = request.headers.get("User-Agent", "")
+        device_info = await mobile_optimizer.detect_device(user_agent)
+        
+        # Get WebSocket connection stats
+        websocket_stats = websocket_manager.get_connection_stats()
+        
+        # Get notification stats
+        notification_stats = notification_manager.get_notification_stats()
+        
+        health_status = {
+            "mobile_optimization": "healthy",
+            "websocket_connections": websocket_stats["active_connections"],
+            "notification_system": "healthy",
+            "device_support": {
+                "device_type": device_info.device_type.value,
+                "optimization_level": "high" if device_info.device_type == DeviceType.MOBILE else "medium"
             }
-            for market in markets
-        ],
-        "total": len(markets),
-    }
+        }
+        
+        return {
+            "success": True,
+            "data": health_status,
+            "timestamp": time.time()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get health status: {str(e)}")

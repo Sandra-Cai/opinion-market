@@ -46,6 +46,8 @@ from app.api.v1.endpoints import (
     data_pipeline,
     mobile,
     websocket,
+    monitoring,
+    search,
 )
 
 api_router = APIRouter()
@@ -157,6 +159,12 @@ api_router.include_router(
 )
 api_router.include_router(
     websocket.router, prefix="/websocket", tags=["websocket"]
+)
+api_router.include_router(
+    monitoring.router, prefix="/monitoring", tags=["monitoring"]
+)
+api_router.include_router(
+    search.router, prefix="/search", tags=["search"]
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]

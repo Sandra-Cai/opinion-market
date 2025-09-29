@@ -34,6 +34,7 @@ from app.api.enhanced_docs import create_enhanced_openapi_schema
 # Import new performance monitoring systems
 from app.core.performance_monitor import performance_monitor
 from app.core.enhanced_cache import enhanced_cache
+from app.core.advanced_performance_optimizer import advanced_performance_optimizer
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -129,6 +130,11 @@ async def lifespan(app: FastAPI):
         
         await enhanced_cache.start_cleanup()
         print("✅ Enhanced cache system initialized")
+        
+        # Initialize advanced performance optimizer
+        await advanced_performance_optimizer.start_monitoring()
+        await advanced_performance_optimizer.start_optimization()
+        print("✅ Advanced performance optimizer initialized")
 
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
@@ -150,6 +156,10 @@ async def lifespan(app: FastAPI):
     # Stop new performance monitoring systems
     await performance_monitor.stop_monitoring()
     await enhanced_cache.stop_cleanup()
+    
+    # Stop advanced performance optimizer
+    await advanced_performance_optimizer.stop_monitoring()
+    await advanced_performance_optimizer.stop_optimization()
     
     print("✅ Enhanced systems stopped")
 

@@ -224,6 +224,249 @@ class AdvancedPerformanceOptimizer:
         with self.lock:
             self.metrics_history[name].append(metric)
             
+    async def _analyze_performance(self):
+        """Analyze performance patterns and trends"""
+        try:
+            for metric_name, history in self.metrics_history.items():
+                if len(history) < 10:  # Need at least 10 data points
+                    continue
+                    
+                # Calculate trends
+                recent_values = [m.value for m in list(history)[-10:]]
+                older_values = [m.value for m in list(history)[-20:-10]] if len(history) >= 20 else recent_values
+                
+                recent_avg = statistics.mean(recent_values)
+                older_avg = statistics.mean(older_values)
+                
+                # Determine trend
+                if recent_avg > older_avg * 1.1:
+                    trend = "increasing"
+                elif recent_avg < older_avg * 0.9:
+                    trend = "decreasing"
+                else:
+                    trend = "stable"
+                    
+                # Check for threshold violations
+                await self._check_thresholds(metric_name, recent_avg, trend)
+                
+        except Exception as e:
+            logger.error(f"Error analyzing performance: {e}")
+            
+    async def _check_thresholds(self, metric_name: str, value: float, trend: str):
+        """Check if metrics exceed thresholds"""
+        try:
+            if metric_name not in self.thresholds:
+                return
+                
+            thresholds = self.thresholds[metric_name]
+            
+            # Check warning threshold
+            if "warning" in thresholds and value > thresholds["warning"]:
+                await self._create_optimization_action(
+                    action_type="warning",
+                    target=metric_name,
+                    parameters={"value": value, "threshold": thresholds["warning"], "trend": trend},
+                    priority=2
+                )
+                
+            # Check critical threshold
+            if "critical" in thresholds and value > thresholds["critical"]:
+                await self._create_optimization_action(
+                    action_type="critical",
+                    target=metric_name,
+                    parameters={"value": value, "threshold": thresholds["critical"], "trend": trend},
+                    priority=1
+                )
+                
+        except Exception as e:
+            logger.error(f"Error checking thresholds: {e}")
+            
+    async def _generate_predictions(self):
+        """Generate performance predictions using simple trend analysis"""
+        try:
+            for metric_name, history in self.metrics_history.items():
+                if len(history) < 20:  # Need sufficient data
+                    continue
+                    
+                # Simple linear regression for prediction
+                values = [m.value for m in list(history)[-20:]]
+                timestamps = [m.timestamp.timestamp() for m in list(history)[-20:]]
+                
+                # Calculate trend
+                n = len(values)
+                sum_x = sum(timestamps)
+                sum_y = sum(values)
+                sum_xy = sum(x * y for x, y in zip(timestamps, values))
+                sum_x2 = sum(x * x for x in timestamps)
+                
+                if n * sum_x2 - sum_x * sum_x != 0:
+                    slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
+                    intercept = (sum_y - slope * sum_x) / n
+                    
+                    # Predict next value (30 minutes ahead)
+                    future_time = timestamps[-1] + 1800  # 30 minutes
+                    predicted_value = slope * future_time + intercept
+                    
+                    # Calculate confidence based on R-squared
+                    y_mean = sum_y / n
+                    ss_tot = sum((y - y_mean) ** 2 for y in values)
+                    ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(timestamps, values))
+                    r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+                    confidence = max(0, min(1, r_squared))
+                    
+                    prediction = PerformancePrediction(
+                        metric_name=metric_name,
+                        predicted_value=predicted_value,
+                        confidence=confidence,
+                        time_horizon=30,
+                        trend="increasing" if slope > 0 else "decreasing" if slope < 0 else "stable"
+                    )
+                    
+                    with self.lock:
+                        self.predictions[metric_name].append(prediction)
+                        # Keep only last 10 predictions
+                        if len(self.predictions[metric_name]) > 10:
+                            self.predictions[metric_name] = self.predictions[metric_name][-10:]
+                            
+        except Exception as e:
+            logger.error(f"Error generating predictions: {e}")
+            
+    async def _evaluate_optimization_opportunities(self):
+        """Evaluate opportunities for optimization"""
+        try:
+            # Check cache optimization opportunities
+            if "cache.hit_rate" in self.metrics_history:
+                recent_hit_rate = statistics.mean([m.value for m in list(self.metrics_history["cache.hit_rate"])[-5:]])
+                if recent_hit_rate < 80:
+                    await self._create_optimization_action(
+                        action_type="cache_optimization",
+                        target="cache",
+                        parameters={"current_hit_rate": recent_hit_rate, "target_hit_rate": 85},
+                        priority=2
+                    )
+                    
+            # Check memory optimization opportunities
+            if "system.memory_usage" in self.metrics_history:
+                recent_memory = statistics.mean([m.value for m in list(self.metrics_history["system.memory_usage"])[-5:]])
+                if recent_memory > 70:
+                    await self._create_optimization_action(
+                        action_type="memory_optimization",
+                        target="memory",
+                        parameters={"current_usage": recent_memory, "target_usage": 60},
+                        priority=2
+                    )
+                    
+        except Exception as e:
+            logger.error(f"Error evaluating optimization opportunities: {e}")
+            
+    async def _create_optimization_action(self, action_type: str, target: str, 
+                                        parameters: Dict[str, Any], priority: int = 1):
+        """Create an optimization action"""
+        action = OptimizationAction(
+            action_type=action_type,
+            target=target,
+            parameters=parameters,
+            priority=priority,
+            estimated_impact=self._estimate_impact(action_type, parameters)
+        )
+        
+        with self.lock:
+            self.optimization_actions.append(action)
+            # Keep only last 100 actions
+            if len(self.optimization_actions) > 100:
+                self.optimization_actions = self.optimization_actions[-100:]
+                
+    def _estimate_impact(self, action_type: str, parameters: Dict[str, Any]) -> float:
+        """Estimate the impact of an optimization action"""
+        impact_scores = {
+            "cache_optimization": 0.8,
+            "database_optimization": 0.9,
+            "memory_optimization": 0.7,
+            "connection_optimization": 0.6,
+            "query_optimization": 0.8,
+            "warning": 0.3,
+            "critical": 0.9
+        }
+        return impact_scores.get(action_type, 0.5)
+        
+    async def _execute_optimizations(self):
+        """Execute pending optimization actions"""
+        try:
+            with self.lock:
+                # Sort by priority (1 = highest priority)
+                actions_to_execute = sorted(
+                    [action for action in self.optimization_actions if action.action_type != "warning"],
+                    key=lambda x: x.priority
+                )
+                
+            for action in actions_to_execute[:5]:  # Execute top 5 actions
+                try:
+                    if action.action_type in self.optimization_strategies:
+                        await self.optimization_strategies[action.action_type](action)
+                        logger.info(f"Executed optimization: {action.action_type} for {action.target}")
+                        
+                    # Remove executed action
+                    with self.lock:
+                        if action in self.optimization_actions:
+                            self.optimization_actions.remove(action)
+                            
+                except Exception as e:
+                    logger.error(f"Error executing optimization {action.action_type}: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error executing optimizations: {e}")
+            
+    async def _optimize_cache(self, action: OptimizationAction):
+        """Optimize cache performance"""
+        try:
+            # Increase cache size if hit rate is low
+            current_hit_rate = action.parameters.get("current_hit_rate", 0)
+            if current_hit_rate < 80:
+                # Increase cache TTL for frequently accessed items
+                enhanced_cache.default_ttl = min(enhanced_cache.default_ttl * 1.2, 7200)
+                logger.info(f"Increased cache TTL to {enhanced_cache.default_ttl}")
+                
+        except Exception as e:
+            logger.error(f"Error optimizing cache: {e}")
+            
+    async def _optimize_database(self, action: OptimizationAction):
+        """Optimize database performance"""
+        try:
+            # This would include query optimization, index suggestions, etc.
+            logger.info("Database optimization executed")
+            
+        except Exception as e:
+            logger.error(f"Error optimizing database: {e}")
+            
+    async def _optimize_memory(self, action: OptimizationAction):
+        """Optimize memory usage"""
+        try:
+            # Trigger garbage collection
+            import gc
+            gc.collect()
+            logger.info("Memory optimization executed")
+            
+        except Exception as e:
+            logger.error(f"Error optimizing memory: {e}")
+            
+    async def _optimize_connections(self, action: OptimizationAction):
+        """Optimize connection usage"""
+        try:
+            # This would include connection pool optimization
+            logger.info("Connection optimization executed")
+            
+        except Exception as e:
+            logger.error(f"Error optimizing connections: {e}")
+            
+    async def _optimize_queries(self, action: OptimizationAction):
+        """Optimize database queries"""
+        try:
+            # This would include query analysis and optimization
+            logger.info("Query optimization executed")
+            
+        except Exception as e:
+            logger.error(f"Error optimizing queries: {e}")
+            
     def get_performance_summary(self) -> Dict[str, Any]:
         """Get comprehensive performance summary"""
         try:

@@ -48,6 +48,7 @@ from app.api.v1.endpoints import (
     websocket,
     monitoring,
     search,
+    advanced_performance,
 )
 
 api_router = APIRouter()
@@ -168,4 +169,7 @@ api_router.include_router(
 )
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]
+)
+api_router.include_router(
+    advanced_performance.router, prefix="/advanced-performance", tags=["advanced-performance"]
 )

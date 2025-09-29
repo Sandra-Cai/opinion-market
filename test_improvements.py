@@ -83,7 +83,12 @@ async def test_enhanced_cache():
         # Get test data
         for i in range(10):
             value = await enhanced_cache.get(f"test_key_{i}")
-            assert value == f"test_value_{i}"
+            # Handle both string and bytes return values
+            if isinstance(value, bytes):
+                value = value.decode('utf-8')
+            if value != f"test_value_{i}":
+                print(f"    Cache mismatch for key test_key_{i}: expected 'test_value_{i}', got '{value}'")
+                raise AssertionError(f"Cache value mismatch for key test_key_{i}")
         
         # Test cache stats
         print("  ✓ Testing cache statistics...")

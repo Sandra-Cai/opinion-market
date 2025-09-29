@@ -49,6 +49,7 @@ from app.api.v1.endpoints import (
     monitoring,
     search,
     advanced_performance,
+    enhanced_api_docs,
 )
 
 api_router = APIRouter()
@@ -172,4 +173,7 @@ api_router.include_router(
 )
 api_router.include_router(
     advanced_performance.router, prefix="/advanced-performance", tags=["advanced-performance"]
+)
+api_router.include_router(
+    enhanced_api_docs.router, prefix="/docs", tags=["enhanced-documentation"]
 )

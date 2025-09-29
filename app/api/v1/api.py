@@ -50,6 +50,9 @@ from app.api.v1.endpoints import (
     search,
     advanced_performance,
     enhanced_api_docs,
+    advanced_dashboard,
+    advanced_analytics_api,
+    auto_scaling_api,
 )
 
 api_router = APIRouter()
@@ -176,4 +179,13 @@ api_router.include_router(
 )
 api_router.include_router(
     enhanced_api_docs.router, prefix="/docs", tags=["enhanced-documentation"]
+)
+api_router.include_router(
+    advanced_dashboard.router, prefix="/advanced-dashboard", tags=["advanced-dashboard"]
+)
+api_router.include_router(
+    advanced_analytics_api.router, prefix="/advanced-analytics", tags=["advanced-analytics"]
+)
+api_router.include_router(
+    auto_scaling_api.router, prefix="/auto-scaling", tags=["auto-scaling"]
 )

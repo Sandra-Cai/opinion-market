@@ -306,7 +306,7 @@ class EnhancedCache:
             return 1024  # Default size estimate
     
     @cache_operation_retry(max_retries=2)
-    def _compress_value(self, value: Any) -> Tuple[bytes, float]:
+    async def _compress_value(self, value: Any) -> Tuple[bytes, float]:
         """Compress cache value and return compressed data with ratio"""
         try:
             # Serialize the value
@@ -347,7 +347,7 @@ class EnhancedCache:
                 raise CacheSerializationError(f"Fallback serialization failed: {fallback_e}") from fallback_e
     
     @cache_operation_retry(max_retries=2)
-    def _decompress_value(self, compressed_data: bytes, compression_ratio: float) -> Any:
+    async def _decompress_value(self, compressed_data: bytes, compression_ratio: float) -> Any:
         """Decompress cache value"""
         try:
             if compression_ratio >= 1.0:
@@ -485,7 +485,7 @@ class EnhancedCache:
             
             # Compress the value with error handling
             try:
-                compressed_data, compression_ratio = self._compress_value(value)
+                compressed_data, compression_ratio = await self._compress_value(value)
             except (CacheCompressionError, CacheSerializationError) as e:
                 logger.error(f"Failed to compress value for key {key}: {e}")
                 return False

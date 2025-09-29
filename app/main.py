@@ -37,6 +37,8 @@ from app.core.enhanced_cache import enhanced_cache
 from app.core.advanced_performance_optimizer import advanced_performance_optimizer
 from app.services.advanced_analytics_engine import advanced_analytics_engine
 from app.services.auto_scaling_manager import auto_scaling_manager
+from app.core.performance_optimizer_v2 import performance_optimizer_v2
+from app.core.intelligent_alerting import intelligent_alerting_system
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -145,6 +147,14 @@ async def lifespan(app: FastAPI):
         # Initialize auto-scaling manager
         await auto_scaling_manager.start_scaling()
         print("✅ Auto-scaling manager initialized")
+        
+        # Initialize performance optimizer V2
+        await performance_optimizer_v2.start_optimization()
+        print("✅ Performance Optimizer V2 initialized")
+        
+        # Initialize intelligent alerting system
+        await intelligent_alerting_system.start_alerting()
+        print("✅ Intelligent alerting system initialized")
 
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
@@ -176,6 +186,12 @@ async def lifespan(app: FastAPI):
     
     # Stop auto-scaling manager
     await auto_scaling_manager.stop_scaling()
+    
+    # Stop performance optimizer V2
+    await performance_optimizer_v2.stop_optimization()
+    
+    # Stop intelligent alerting system
+    await intelligent_alerting_system.stop_alerting()
     
     print("✅ Enhanced systems stopped")
 

@@ -437,7 +437,7 @@ class EnhancedCache:
                     # Decompress if needed
                     if entry.compression_ratio < 1.0:
                         try:
-                            value = self._decompress_value(entry.value, entry.compression_ratio)
+                            value = await self._decompress_value(entry.value, entry.compression_ratio)
                         except (CacheCompressionError, CacheSerializationError) as e:
                             # Decompression failed, remove corrupted entry
                             logger.error(f"Failed to decompress cache entry {key}: {e}")
@@ -823,7 +823,7 @@ class EnhancedCache:
                     try:
                         # Try to decompress/deserialize the entry
                         if entry.compression_ratio < 1.0:
-                            self._decompress_value(entry.value, entry.compression_ratio)
+                            await self._decompress_value(entry.value, entry.compression_ratio)
                         else:
                             pickle.loads(entry.value)
                     except (CacheCompressionError, CacheSerializationError, Exception) as e:

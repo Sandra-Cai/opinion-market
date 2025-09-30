@@ -54,6 +54,7 @@ from app.api.v1.endpoints import (
     advanced_analytics_api,
     auto_scaling_api,
     intelligent_alerting_api,
+    advanced_security_api,
 )
 
 api_router = APIRouter()
@@ -192,4 +193,7 @@ api_router.include_router(
 )
 api_router.include_router(
     intelligent_alerting_api.router, prefix="/intelligent-alerting", tags=["intelligent-alerting"]
+)
+api_router.include_router(
+    advanced_security_api.router, prefix="/advanced-security", tags=["advanced-security"]
 )

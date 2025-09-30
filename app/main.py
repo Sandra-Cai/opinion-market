@@ -159,6 +159,18 @@ async def lifespan(app: FastAPI):
         await intelligent_alerting_system.start_alerting()
         print("✅ Intelligent alerting system initialized")
 
+        # Initialize advanced security V2
+        await advanced_security_v2.start_security_monitoring()
+        print("✅ Advanced Security V2 initialized")
+
+        # Initialize business intelligence engine
+        await business_intelligence_engine.start_bi_engine()
+        print("✅ Business Intelligence Engine initialized")
+
+        # Initialize mobile optimization engine
+        await mobile_optimization_engine.start_mobile_optimization()
+        print("✅ Mobile Optimization Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -193,8 +205,17 @@ async def lifespan(app: FastAPI):
     # Stop performance optimizer V2
     await performance_optimizer_v2.stop_optimization()
     
-    # Stop intelligent alerting system
-    await intelligent_alerting_system.stop_alerting()
+        # Stop intelligent alerting system
+        await intelligent_alerting_system.stop_alerting()
+
+        # Stop advanced security V2
+        await advanced_security_v2.stop_security_monitoring()
+
+        # Stop business intelligence engine
+        await business_intelligence_engine.stop_bi_engine()
+
+        # Stop mobile optimization engine
+        await mobile_optimization_engine.stop_mobile_optimization()
     
     print("✅ Enhanced systems stopped")
 

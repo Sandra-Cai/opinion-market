@@ -110,15 +110,6 @@ async def test_auto_scaling():
     """Test Auto-Scaling Manager"""
     print("\n🔍 Testing Auto-Scaling Manager...")
     try:
-        # Mock missing dependencies
-        import types
-        service_discovery = types.ModuleType('service_discovery')
-        service_registry = types.ModuleType('service_registry')
-        service_registry.ServiceRegistry = type('ServiceRegistry', (), {})
-        service_discovery.service_registry = service_registry
-        sys.modules['app.services.service_discovery'] = service_discovery
-        sys.modules['app.services.service_registry'] = service_registry
-        
         from app.services.auto_scaling_manager import auto_scaling_manager
         
         # Test basic functionality
@@ -133,7 +124,8 @@ async def test_auto_scaling():
             scale_up_threshold=80.0,
             scale_down_threshold=30.0,
             min_instances=1,
-            max_instances=10
+            max_instances=10,
+            cooldown_period=300
         )
         auto_scaling_manager.add_scaling_policy(test_policy)
         print("✅ Test scaling policy added")

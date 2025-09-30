@@ -39,6 +39,9 @@ from app.services.advanced_analytics_engine import advanced_analytics_engine
 from app.services.auto_scaling_manager import auto_scaling_manager
 from app.core.performance_optimizer_v2 import performance_optimizer_v2
 from app.core.intelligent_alerting import intelligent_alerting_system
+from app.core.advanced_security_v2 import advanced_security_v2
+from app.services.business_intelligence_engine import business_intelligence_engine
+from app.services.mobile_optimization_engine import mobile_optimization_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):

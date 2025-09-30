@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Comprehensive Test Runner
-Runs all test suites with detailed reporting and coverage analysis
+Runs all tests including unit, integration, performance, and advanced feature tests
 """
 
 import os
@@ -9,373 +9,400 @@ import sys
 import subprocess
 import time
 import json
-from datetime import datetime
+import argparse
 from pathlib import Path
-from typing import Dict, List, Any
+from datetime import datetime
+from typing import Dict, List, Any, Optional
 
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
-class TestRunner:
+class ComprehensiveTestRunner:
     """Comprehensive test runner with detailed reporting"""
     
-    def __init__(self):
-        self.project_root = Path(__file__).parent.parent
+    def __init__(self, verbose: bool = False, parallel: bool = False):
+        self.project_root = project_root
+        self.verbose = verbose
+        self.parallel = parallel
         self.test_results = {}
         self.start_time = None
         self.end_time = None
         
-    def run_all_tests(self) -> Dict[str, Any]:
-        """Run all test suites and generate comprehensive report"""
-        print("🚀 Starting Comprehensive Test Suite")
+    def run_all_tests(self, test_types: List[str] = None) -> Dict[str, Any]:
+        """Run all tests or specified test types"""
+        if test_types is None:
+            test_types = ["unit", "integration", "performance", "advanced", "load"]
+            
+        print("🧪 Starting Comprehensive Test Suite")
         print("=" * 60)
         
         self.start_time = time.time()
         
-        # Change to project directory
-        os.chdir(self.project_root)
-        
-        # Run different test categories
-        test_suites = [
-            ("Unit Tests", self.run_unit_tests),
-            ("Integration Tests", self.run_integration_tests),
-            ("API Tests", self.run_api_tests),
-            ("Performance Tests", self.run_performance_tests),
-            ("Security Tests", self.run_security_tests),
-            ("Coverage Analysis", self.run_coverage_analysis),
-        ]
-        
-        for suite_name, test_func in test_suites:
-            print(f"\n📋 Running {suite_name}...")
-            print("-" * 40)
-            
-            try:
-                result = test_func()
-                self.test_results[suite_name] = result
-                self.print_suite_result(suite_name, result)
-            except Exception as e:
-                error_result = {
-                    "status": "error",
-                    "error": str(e),
-                    "duration": 0
-                }
-                self.test_results[suite_name] = error_result
-                print(f"❌ {suite_name} failed: {e}")
-        
-        self.end_time = time.time()
-        
-        # Generate comprehensive report
-        self.generate_comprehensive_report()
-        
-        return self.test_results
-    
-    def run_unit_tests(self) -> Dict[str, Any]:
-        """Run unit tests"""
-        start_time = time.time()
-        
-        cmd = [
-            "python", "-m", "pytest", 
-            "tests/unit/",
-            "-v",
-            "--tb=short",
-            "--disable-warnings",
-            "-m", "unit"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        duration = time.time() - start_time
-        
-        return {
-            "status": "passed" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "duration": duration
-        }
-    
-    def run_integration_tests(self) -> Dict[str, Any]:
-        """Run integration tests"""
-        start_time = time.time()
-        
-        cmd = [
-            "python", "-m", "pytest",
-            "tests/integration/",
-            "-v",
-            "--tb=short",
-            "--disable-warnings",
-            "-m", "integration"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        duration = time.time() - start_time
-        
-        return {
-            "status": "passed" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "duration": duration
-        }
-    
-    def run_api_tests(self) -> Dict[str, Any]:
-        """Run API tests"""
-        start_time = time.time()
-        
-        cmd = [
-            "python", "-m", "pytest",
-            "tests/api/",
-            "tests/test_api_integration.py",
-            "tests/test_comprehensive_api.py",
-            "-v",
-            "--tb=short",
-            "--disable-warnings",
-            "-m", "api"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        duration = time.time() - start_time
-        
-        return {
-            "status": "passed" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "duration": duration
-        }
-    
-    def run_performance_tests(self) -> Dict[str, Any]:
-        """Run performance tests"""
-        start_time = time.time()
-        
-        cmd = [
-            "python", "-m", "pytest",
-            "tests/test_performance_monitor.py",
-            "tests/performance/",
-            "-v",
-            "--tb=short",
-            "--disable-warnings",
-            "-m", "not slow"  # Skip slow tests by default
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        duration = time.time() - start_time
-        
-        return {
-            "status": "passed" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "duration": duration
-        }
-    
-    def run_security_tests(self) -> Dict[str, Any]:
-        """Run security tests"""
-        start_time = time.time()
-        
-        cmd = [
-            "python", "-m", "pytest",
-            "tests/test_security_audit.py",
-            "-v",
-            "--tb=short",
-            "--disable-warnings"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        duration = time.time() - start_time
-        
-        return {
-            "status": "passed" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "duration": duration
-        }
-    
-    def run_coverage_analysis(self) -> Dict[str, Any]:
-        """Run coverage analysis"""
-        start_time = time.time()
-        
-        cmd = [
-            "python", "-m", "pytest",
-            "tests/",
-            "--cov=app",
-            "--cov-report=term-missing",
-            "--cov-report=html:htmlcov",
-            "--cov-report=xml:coverage.xml",
-            "--cov-report=json:coverage.json",
-            "--disable-warnings"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        duration = time.time() - start_time
-        
-        # Parse coverage data
-        coverage_data = {}
-        try:
-            if os.path.exists("coverage.json"):
-                with open("coverage.json", "r") as f:
-                    coverage_data = json.load(f)
-        except Exception as e:
-            coverage_data = {"error": str(e)}
-        
-        return {
-            "status": "completed",
-            "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "duration": duration,
-            "coverage_data": coverage_data
-        }
-    
-    def print_suite_result(self, suite_name: str, result: Dict[str, Any]):
-        """Print test suite result"""
-        status_icon = "✅" if result["status"] in ["passed", "completed"] else "❌"
-        duration = result.get("duration", 0)
-        
-        print(f"{status_icon} {suite_name}: {result['status']} ({duration:.2f}s)")
-        
-        if result["status"] == "failed" and result.get("stderr"):
-            print(f"   Error: {result['stderr'][:200]}...")
-    
-    def generate_comprehensive_report(self):
-        """Generate comprehensive test report"""
-        total_duration = self.end_time - self.start_time
-        
-        # Calculate summary statistics
-        total_suites = len(self.test_results)
-        passed_suites = sum(1 for result in self.test_results.values() 
-                           if result["status"] in ["passed", "completed"])
-        failed_suites = total_suites - passed_suites
-        
-        # Print summary
-        print("\n" + "=" * 60)
-        print("📊 COMPREHENSIVE TEST REPORT")
-        print("=" * 60)
-        print(f"Total Test Suites: {total_suites}")
-        print(f"Passed: {passed_suites} ✅")
-        print(f"Failed: {failed_suites} ❌")
-        print(f"Total Duration: {total_duration:.2f} seconds")
-        print(f"Success Rate: {(passed_suites/total_suites)*100:.1f}%")
-        
-        # Print detailed results
-        print("\n📋 DETAILED RESULTS:")
-        print("-" * 40)
-        
-        for suite_name, result in self.test_results.items():
-            status_icon = "✅" if result["status"] in ["passed", "completed"] else "❌"
-            duration = result.get("duration", 0)
-            print(f"{status_icon} {suite_name:<20} {result['status']:<10} {duration:>6.2f}s")
-        
-        # Coverage summary
-        if "Coverage Analysis" in self.test_results:
-            coverage_result = self.test_results["Coverage Analysis"]
-            if "coverage_data" in coverage_result and "totals" in coverage_result["coverage_data"]:
-                totals = coverage_result["coverage_data"]["totals"]
-                coverage_percent = totals.get("percent_covered", 0)
-                print(f"\n📈 CODE COVERAGE: {coverage_percent:.1f}%")
-        
-        # Save report to file
-        self.save_report_to_file()
-        
-        # Print recommendations
-        self.print_recommendations()
-    
-    def save_report_to_file(self):
-        """Save test report to file"""
-        report_data = {
-            "timestamp": datetime.now().isoformat(),
-            "total_duration": self.end_time - self.start_time,
-            "test_results": self.test_results,
-            "summary": {
-                "total_suites": len(self.test_results),
-                "passed_suites": sum(1 for result in self.test_results.values() 
-                                    if result["status"] in ["passed", "completed"]),
-                "failed_suites": sum(1 for result in self.test_results.values() 
-                                    if result["status"] == "failed")
+        # Define test configurations
+        test_configs = {
+            "unit": {
+                "pattern": "tests/test_*.py",
+                "description": "Unit Tests",
+                "timeout": 300
+            },
+            "integration": {
+                "pattern": "tests/integration/test_*.py",
+                "description": "Integration Tests",
+                "timeout": 600
+            },
+            "performance": {
+                "pattern": "tests/performance/test_*.py",
+                "description": "Performance Tests",
+                "timeout": 900
+            },
+            "advanced": {
+                "pattern": "tests/test_advanced_*.py",
+                "description": "Advanced Feature Tests",
+                "timeout": 600
+            },
+            "load": {
+                "pattern": "tests/load_test.py",
+                "description": "Load Tests",
+                "timeout": 1800
             }
         }
         
-        report_file = "test_report.json"
-        with open(report_file, "w") as f:
-            json.dump(report_data, f, indent=2, default=str)
-        
-        print(f"\n💾 Detailed report saved to: {report_file}")
-    
-    def print_recommendations(self):
-        """Print recommendations based on test results"""
-        print("\n💡 RECOMMENDATIONS:")
-        print("-" * 40)
-        
-        failed_suites = [name for name, result in self.test_results.items() 
-                        if result["status"] == "failed"]
-        
-        if failed_suites:
-            print("🔧 Failed Test Suites:")
-            for suite in failed_suites:
-                print(f"   - {suite}: Review and fix failing tests")
-        
-        # Coverage recommendations
-        if "Coverage Analysis" in self.test_results:
-            coverage_result = self.test_results["Coverage Analysis"]
-            if "coverage_data" in coverage_result and "totals" in coverage_result["coverage_data"]:
-                totals = coverage_result["coverage_data"]["totals"]
-                coverage_percent = totals.get("percent_covered", 0)
+        # Run each test type
+        for test_type in test_types:
+            if test_type in test_configs:
+                print(f"\n📊 Running {test_configs[test_type]['description']}...")
+                result = self.run_test_type(test_type, test_configs[test_type])
+                self.test_results[test_type] = result
+            else:
+                print(f"⚠️  Unknown test type: {test_type}")
                 
-                if coverage_percent < 80:
-                    print(f"📈 Low Coverage ({coverage_percent:.1f}%): Add more tests to improve coverage")
-                elif coverage_percent < 90:
-                    print(f"📈 Good Coverage ({coverage_percent:.1f}%): Consider adding tests for edge cases")
-                else:
-                    print(f"📈 Excellent Coverage ({coverage_percent:.1f}%)")
+        self.end_time = time.time()
+        
+        # Generate comprehensive report
+        report = self.generate_test_report()
+        
+        # Save report
+        self.save_test_report(report)
+        
+        return report
+    
+    def run_test_type(self, test_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Run a specific test type"""
+        try:
+            # Find test files
+            test_files = list(self.project_root.glob(config["pattern"]))
+            
+            if not test_files:
+                return {
+                    "status": "skipped",
+                    "reason": f"No test files found matching pattern: {config['pattern']}",
+                    "tests_run": 0,
+                    "tests_passed": 0,
+                    "tests_failed": 0,
+                    "duration": 0
+                }
+            
+            # Run pytest with detailed output
+            cmd = [
+                sys.executable, "-m", "pytest",
+                *[str(f) for f in test_files],
+                "-v",
+                "--tb=short",
+                "--durations=10",
+                "--json-report",
+                "--json-report-file=/tmp/pytest_report.json",
+                f"--timeout={config['timeout']}"
+            ]
+            
+            if self.verbose:
+                cmd.append("-s")
+                
+            if self.parallel and test_type != "load":
+                cmd.extend(["-n", "auto"])
+            
+            start_time = time.time()
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
+            duration = time.time() - start_time
+            
+            # Parse pytest JSON report if available
+            pytest_report = {}
+            if os.path.exists("/tmp/pytest_report.json"):
+                try:
+                    with open("/tmp/pytest_report.json", "r") as f:
+                        pytest_report = json.load(f)
+                except:
+                    pass
+            
+            return {
+                "status": "completed",
+                "tests_run": pytest_report.get("summary", {}).get("total", 0),
+                "tests_passed": pytest_report.get("summary", {}).get("passed", 0),
+                "tests_failed": pytest_report.get("summary", {}).get("failed", 0),
+                "tests_skipped": pytest_report.get("summary", {}).get("skipped", 0),
+                "duration": duration,
+                "return_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "pytest_report": pytest_report
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "tests_run": 0,
+                "tests_passed": 0,
+                "tests_failed": 0,
+                "duration": 0
+            }
+    
+    def run_advanced_feature_tests(self) -> Dict[str, Any]:
+        """Run advanced feature tests using the dedicated script"""
+        try:
+            cmd = [sys.executable, str(self.project_root / "scripts" / "run_advanced_tests.py")]
+            
+            start_time = time.time()
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
+            duration = time.time() - start_time
+            
+            return {
+                "status": "completed",
+                "duration": duration,
+                "return_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "duration": 0
+            }
+    
+    def run_load_tests(self) -> Dict[str, Any]:
+        """Run load tests using Locust"""
+        try:
+            # Check if Locust is available
+            try:
+                import locust
+            except ImportError:
+                return {
+                    "status": "skipped",
+                    "reason": "Locust not installed. Install with: pip install locust",
+                    "duration": 0
+                }
+            
+            # Start the application in background
+            app_process = subprocess.Popen([
+                sys.executable, "-m", "uvicorn", "app.main:app", 
+                "--host", "0.0.0.0", "--port", "8000"
+            ], cwd=self.project_root)
+            
+            # Wait for app to start
+            time.sleep(30)
+            
+            # Run load tests
+            cmd = [
+                "locust",
+                "-f", "tests/load_test.py",
+                "--host=http://localhost:8000",
+                "--users=50",
+                "--spawn-rate=5",
+                "--run-time=2m",
+                "--headless",
+                "--html=load_test_report.html"
+            ]
+            
+            start_time = time.time()
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.project_root)
+            duration = time.time() - start_time
+            
+            # Stop the application
+            app_process.terminate()
+            app_process.wait()
+            
+            return {
+                "status": "completed",
+                "duration": duration,
+                "return_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "duration": 0
+            }
+    
+    def generate_test_report(self) -> Dict[str, Any]:
+        """Generate comprehensive test report"""
+        total_tests = sum(r.get("tests_run", 0) for r in self.test_results.values())
+        total_passed = sum(r.get("tests_passed", 0) for r in self.test_results.values())
+        total_failed = sum(r.get("tests_failed", 0) for r in self.test_results.values())
+        total_skipped = sum(r.get("tests_skipped", 0) for r in self.test_results.values())
+        total_duration = self.end_time - self.start_time if self.end_time and self.start_time else 0
+        
+        # Calculate success rate
+        success_rate = (total_passed / total_tests * 100) if total_tests > 0 else 0
+        
+        # Determine overall status
+        if total_failed == 0:
+            overall_status = "PASSED" if total_passed > 0 else "NO_TESTS"
+        else:
+            overall_status = "FAILED"
+        
+        report = {
+            "timestamp": datetime.now().isoformat(),
+            "overall_status": overall_status,
+            "summary": {
+                "total_tests": total_tests,
+                "tests_passed": total_passed,
+                "tests_failed": total_failed,
+                "tests_skipped": total_skipped,
+                "success_rate": round(success_rate, 2),
+                "total_duration": round(total_duration, 2)
+            },
+            "test_types": self.test_results,
+            "recommendations": self.generate_recommendations(),
+            "environment": {
+                "python_version": sys.version,
+                "platform": sys.platform,
+                "project_root": str(self.project_root)
+            }
+        }
+        
+        return report
+    
+    def generate_recommendations(self) -> List[str]:
+        """Generate recommendations based on test results"""
+        recommendations = []
+        
+        total_failed = sum(r.get("tests_failed", 0) for r in self.test_results.values())
+        total_tests = sum(r.get("tests_run", 0) for r in self.test_results.values())
+        
+        if total_failed > 0:
+            recommendations.append("🔧 Fix failing tests to improve code quality")
+            recommendations.append("📝 Review test failures and update test cases as needed")
+        
+        if total_tests == 0:
+            recommendations.append("⚠️ No tests were executed - check test file paths")
+        
+        # Check for specific test types with issues
+        for test_type, result in self.test_results.items():
+            if result.get("status") == "error":
+                recommendations.append(f"🚨 Fix {test_type} test execution errors")
+            elif result.get("tests_failed", 0) > 0:
+                recommendations.append(f"🔍 Review {test_type} test failures")
         
         # Performance recommendations
-        if "Performance Tests" in self.test_results:
-            perf_result = self.test_results["Performance Tests"]
-            if perf_result["status"] == "failed":
-                print("⚡ Performance Tests Failed: Review performance bottlenecks")
+        if "performance" in self.test_results:
+            perf_result = self.test_results["performance"]
+            if perf_result.get("tests_failed", 0) > 0:
+                recommendations.append("⚡ Review performance test failures and optimize bottlenecks")
         
-        # Security recommendations
-        if "Security Tests" in self.test_results:
-            security_result = self.test_results["Security Tests"]
-            if security_result["status"] == "failed":
-                print("🔒 Security Tests Failed: Review security vulnerabilities")
+        # Advanced features recommendations
+        if "advanced" in self.test_results:
+            adv_result = self.test_results["advanced"]
+            if adv_result.get("tests_failed", 0) > 0:
+                recommendations.append("🚀 Review advanced feature test failures")
         
-        print("\n🎯 Next Steps:")
-        print("   1. Fix any failing tests")
-        print("   2. Review code coverage and add missing tests")
-        print("   3. Run security audit if needed")
-        print("   4. Consider performance optimizations")
+        if not recommendations:
+            recommendations.append("✅ All tests are passing - great job!")
+            recommendations.append("🚀 Consider adding more edge case tests")
+            recommendations.append("📊 Add performance benchmarks for critical paths")
+            recommendations.append("🔒 Add security tests for authentication and authorization")
+        
+        return recommendations
+    
+    def save_test_report(self, report: Dict[str, Any]):
+        """Save test report to file"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = self.project_root / f"test_report_comprehensive_{timestamp}.json"
+        
+        try:
+            with open(report_file, "w") as f:
+                json.dump(report, f, indent=2)
+            print(f"\n📄 Test report saved to: {report_file}")
+        except Exception as e:
+            print(f"❌ Failed to save test report: {e}")
+    
+    def print_summary(self, report: Dict[str, Any]):
+        """Print test summary to console"""
+        print("\n" + "=" * 60)
+        print("🧪 COMPREHENSIVE TEST SUMMARY")
+        print("=" * 60)
+        
+        summary = report["summary"]
+        print(f"Overall Status: {report['overall_status']}")
+        print(f"Total Tests: {summary['total_tests']}")
+        print(f"Passed: {summary['tests_passed']} ✅")
+        print(f"Failed: {summary['tests_failed']} ❌")
+        print(f"Skipped: {summary['tests_skipped']} ⏭️")
+        print(f"Success Rate: {summary['success_rate']}%")
+        print(f"Total Duration: {summary['total_duration']}s")
+        
+        print("\n📋 Test Type Breakdown:")
+        for test_type, result in report["test_types"].items():
+            status_icon = "✅" if result.get("tests_failed", 0) == 0 else "❌"
+            tests_run = result.get("tests_run", 0)
+            tests_passed = result.get("tests_passed", 0)
+            duration = result.get("duration", 0)
+            print(f"  {status_icon} {test_type}: {tests_passed}/{tests_run} passed ({duration:.1f}s)")
+        
+        print("\n💡 Recommendations:")
+        for rec in report["recommendations"]:
+            print(f"  {rec}")
+        
+        print("=" * 60)
 
 
 def main():
-    """Main function"""
-    if len(sys.argv) > 1 and sys.argv[1] == "--help":
-        print("Comprehensive Test Runner")
-        print("Usage: python run_comprehensive_tests.py [options]")
-        print("\nOptions:")
-        print("  --help     Show this help message")
-        print("  --quick    Run only essential tests")
-        print("  --full     Run all tests including slow ones")
-        return
+    """Main entry point"""
+    parser = argparse.ArgumentParser(description="Comprehensive Test Runner")
+    parser.add_argument("--test-types", nargs="+", 
+                       choices=["unit", "integration", "performance", "advanced", "load"],
+                       help="Specific test types to run")
+    parser.add_argument("--verbose", "-v", action="store_true", 
+                       help="Verbose output")
+    parser.add_argument("--parallel", "-p", action="store_true", 
+                       help="Run tests in parallel")
+    parser.add_argument("--quick", action="store_true", 
+                       help="Run only unit and integration tests")
     
-    runner = TestRunner()
+    args = parser.parse_args()
+    
+    # Determine test types to run
+    if args.quick:
+        test_types = ["unit", "integration"]
+    elif args.test_types:
+        test_types = args.test_types
+    else:
+        test_types = None  # Run all tests
+    
+    runner = ComprehensiveTestRunner(verbose=args.verbose, parallel=args.parallel)
     
     try:
-        results = runner.run_all_tests()
+        # Run tests
+        report = runner.run_all_tests(test_types)
+        
+        # Print summary
+        runner.print_summary(report)
         
         # Exit with appropriate code
-        failed_suites = sum(1 for result in results.values() if result["status"] == "failed")
-        sys.exit(failed_suites)
-        
+        if report["overall_status"] == "PASSED":
+            sys.exit(0)
+        else:
+            sys.exit(1)
+            
     except KeyboardInterrupt:
-        print("\n\n⚠️  Test run interrupted by user")
-        sys.exit(1)
+        print("\n⏹️ Test execution interrupted by user")
+        sys.exit(130)
     except Exception as e:
-        print(f"\n\n❌ Test runner failed: {e}")
+        print(f"\n❌ Test execution failed: {e}")
         sys.exit(1)
 
 

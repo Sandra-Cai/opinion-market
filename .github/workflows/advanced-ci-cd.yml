@@ -1,612 +1,425 @@
-name: 🚀 Advanced CI/CD Pipeline
+name: Advanced CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, staging ]
-  pull_request:
     branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
   schedule:
-    - cron: '0 2 * * *'  # Daily at 2 AM UTC
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-        - staging
-        - production
-      force_deploy:
-        description: 'Force deployment even if tests fail'
-        required: false
-        default: false
-        type: boolean
+    - cron: '0 2 * * *'  # Daily at 2 AM
 
 env:
-  PYTHON_VERSION: '3.12'
+  PYTHON_VERSION: '3.11'
   NODE_VERSION: '18'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Pre-flight validation
-  preflight:
-    name: 🔍 Pre-flight Validation
+  # Job 1: Code Quality and Security
+  code-quality:
+    name: Code Quality & Security
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      should_deploy: ${{ steps.decision.outputs.should_deploy }}
-      environment: ${{ steps.decision.outputs.environment }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Validate YAML syntax
-        run: |
-          find . -name "*.yml" -o -name "*.yaml" | xargs -I {} python -c "import yaml; yaml.safe_load(open('{}'))"
-          echo "✅ All YAML files are valid"
-
-      - name: Check critical files
-        run: |
-          test -f requirements.txt && echo "✅ requirements.txt exists"
-          test -f app/main_simple.py && echo "✅ main_simple.py exists"
-          test -f Dockerfile && echo "✅ Dockerfile exists"
-          test -d .github/workflows && echo "✅ GitHub Actions workflows exist"
-
-      - name: Determine deployment strategy
-        id: decision
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-            echo "environment=production" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-            echo "environment=staging" >> $GITHUB_OUTPUT
-          else
-            echo "should_deploy=false" >> $GITHUB_OUTPUT
-            echo "environment=development" >> $GITHUB_OUTPUT
-          fi
-
-  # Environment setup with matrix strategy
-  setup:
-    name: 🛠️ Environment Setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.12']
-        include:
-          - python-version: '3.11'
-            cache-key: 'py311'
-          - python-version: '3.12'
-            cache-key: 'py312'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.cache-key }}-${{ hashFiles('**/requirements.txt') }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-optimized.txt
-          echo "✅ Dependencies installed for Python ${{ matrix.python-version }}"
-
-      - name: Verify installation
-        run: |
-          python -c "import fastapi, sqlalchemy, redis; print('✅ Core dependencies verified')"
-
-  # Comprehensive testing suite
-  test-suite:
-    name: 🧪 Comprehensive Test Suite
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [preflight, setup]
-    strategy:
-      matrix:
-        test-group: [unit, integration, api, performance]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+        
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
+          
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-optimized.txt
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          
+      - name: Run linting
+        run: |
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          
+      - name: Run type checking
+        run: |
+          mypy app/ --ignore-missing-imports
+          
+      - name: Security scan
+        run: |
+          bandit -r app/ -f json -o security-report.json
+          
+      - name: Upload security report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-report
+          path: security-report.json
 
+  # Job 2: Unit and Integration Tests
+  test-suite:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: code-quality
+    strategy:
+      matrix:
+        test-type: [unit, integration, performance]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          
+      - name: Install Node dependencies
+        run: |
+          npm install
+          
+      - name: Set up test database
+        run: |
+          python -c "
+          import sqlite3
+          conn = sqlite3.connect('test_opinion_market.db')
+          conn.close()
+          "
+          
       - name: Run unit tests
-        if: matrix.test-group == 'unit'
+        if: matrix.test-type == 'unit'
         run: |
-          python -m pytest tests/unit/ -v --tb=short --junitxml=test-results-unit.xml
-          echo "✅ Unit tests completed"
-
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --junitxml=unit-test-results.xml
+          
       - name: Run integration tests
-        if: matrix.test-group == 'integration'
+        if: matrix.test-type == 'integration'
         run: |
-          python -m pytest tests/integration/ -v --tb=short --junitxml=test-results-integration.xml
-          echo "✅ Integration tests completed"
-
-      - name: Run API tests
-        if: matrix.test-group == 'api'
-        run: |
-          python -m pytest tests/test_simple_app.py -v --tb=short --junitxml=test-results-api.xml
-          echo "✅ API tests completed"
-
+          pytest tests/integration/ -v --junitxml=integration-test-results.xml
+          
       - name: Run performance tests
-        if: matrix.test-group == 'performance'
+        if: matrix.test-type == 'performance'
         run: |
-          python -m pytest tests/performance/ -v --tb=short --junitxml=test-results-performance.xml
-          echo "✅ Performance tests completed"
-
+          pytest tests/performance/ -v --junitxml=performance-test-results.xml
+          
+      - name: Run advanced feature tests
+        run: |
+          python scripts/run_advanced_tests.py
+          
       - name: Upload test results
         uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: test-results-${{ matrix.test-group }}
-          path: test-results-*.xml
+          name: test-results-${{ matrix.test-type }}
+          path: |
+            *-test-results.xml
+            coverage.xml
+            htmlcov/
+            
+      - name: Upload coverage to Codecov
+        if: matrix.test-type == 'unit'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
 
-  # Advanced code quality analysis
-  code-quality:
-    name: 📝 Advanced Code Quality
+  # Job 3: Advanced Feature Tests
+  advanced-features:
+    name: Advanced Features Testing
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [preflight]
+    needs: test-suite
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+        
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install code quality tools
+          
+      - name: Install dependencies
         run: |
-          pip install black flake8 isort mypy bandit safety
-
-      - name: Check code formatting
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          
+      - name: Test Advanced Analytics Engine
         run: |
-          black --check app/ tests/ --diff
-          echo "✅ Code formatting is correct"
-
-      - name: Run comprehensive linting
+          pytest tests/test_advanced_analytics.py -v --junitxml=analytics-test-results.xml
+          
+      - name: Test Auto-Scaling Manager
         run: |
-          flake8 app/ tests/ --statistics --output-file=flake8-report.txt
-          echo "✅ Linting completed"
-
-      - name: Check import sorting
+          pytest tests/test_auto_scaling.py -v --junitxml=scaling-test-results.xml
+          
+      - name: Test Advanced Dashboard
         run: |
-          isort --check-only app/ tests/ --diff
-          echo "✅ Import sorting is correct"
-
-      - name: Type checking
+          pytest tests/test_advanced_dashboard.py -v --junitxml=dashboard-test-results.xml
+          
+      - name: Test Performance Optimizer V2
         run: |
-          mypy app/ --ignore-missing-imports --output-file=mypy-report.txt
-          echo "✅ Type checking completed"
-
-      - name: Upload quality reports
+          python -c "
+          import asyncio
+          from app.core.performance_optimizer_v2 import performance_optimizer_v2
+          
+          async def test_optimizer():
+              await performance_optimizer_v2.start_optimization()
+              await asyncio.sleep(2)
+              summary = performance_optimizer_v2.get_performance_summary()
+              print(f'Performance Score: {summary.get(\"performance_score\", 0)}')
+              await performance_optimizer_v2.stop_optimization()
+              
+          asyncio.run(test_optimizer())
+          "
+          
+      - name: Test Intelligent Alerting System
+        run: |
+          python -c "
+          import asyncio
+          from app.core.intelligent_alerting import intelligent_alerting_system
+          
+          async def test_alerting():
+              await intelligent_alerting_system.start_alerting()
+              await asyncio.sleep(2)
+              summary = intelligent_alerting_system.get_alerting_summary()
+              print(f'Alerting Active: {summary.get(\"alerting_active\", False)}')
+              await intelligent_alerting_system.stop_alerting()
+              
+          asyncio.run(test_alerting())
+          "
+          
+      - name: Upload advanced test results
         uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: code-quality-reports
+          name: advanced-test-results
           path: |
-            flake8-report.txt
-            mypy-report.txt
+            *-test-results.xml
 
-  # Enhanced security scanning
-  security:
-    name: 🔒 Enhanced Security Scanning
+  # Job 4: Load Testing
+  load-testing:
+    name: Load Testing
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [preflight]
+    needs: test-suite
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+        
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install security tools
+          
+      - name: Install dependencies
         run: |
-          pip install bandit safety
-          # Install Trivy for container scanning
-          sudo apt-get update
-          sudo apt-get install wget apt-transport-https gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install trivy
-
-      - name: Run security scan
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install locust
+          
+      - name: Start application
         run: |
-          bandit -r app/ -f json -o bandit-report.json
-          safety check --json --output safety-report.json
-          echo "✅ Security scan completed"
-
-      - name: Upload security reports
+          python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 30
+          
+      - name: Run load tests
+        run: |
+          locust -f tests/load_test.py --host=http://localhost:8000 --users=100 --spawn-rate=10 --run-time=5m --headless --html=load-test-report.html
+          
+      - name: Upload load test results
         uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: security-reports
-          path: |
-            bandit-report.json
-            safety-report.json
+          name: load-test-results
+          path: load-test-report.html
 
-  # Multi-stage Docker build with optimization
-  docker-build:
-    name: 🐳 Multi-stage Docker Build
+  # Job 5: Build and Push Docker Images
+  build-and-push:
+    name: Build & Push Docker Images
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [test-suite, code-quality]
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
+    needs: [test-suite, advanced-features]
+    if: github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+        
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
+        
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ secrets.DOCKER_USERNAME }}/opinion-market
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-
+            
       - name: Build and push Docker image
-        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.simple
-          platforms: linux/amd64,linux/arm64
+          file: ./Dockerfile.production
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Scan container image
+  # Job 6: Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to staging
         run: |
-          trivy image --format json --output trivy-report.json ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          echo "✅ Container security scan completed"
+          echo "Deploying to staging environment..."
+          # Add your staging deployment commands here
+          # Example: kubectl apply -f deployment/staging/
+          
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests on staging..."
+          # Add smoke test commands here
+          
+      - name: Notify deployment
+        run: |
+          echo "Staging deployment completed successfully!"
 
-      - name: Upload container scan report
+  # Job 7: Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push, load-testing]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment..."
+          # Add your production deployment commands here
+          # Example: kubectl apply -f deployment/production/
+          
+      - name: Run health checks
+        run: |
+          echo "Running health checks..."
+          # Add health check commands here
+          
+      - name: Notify deployment
+        run: |
+          echo "Production deployment completed successfully!"
+
+  # Job 8: Performance Monitoring
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Run performance benchmarks
+        run: |
+          python scripts/benchmark_performance.py
+          
+      - name: Generate performance report
+        run: |
+          python scripts/generate_performance_report.py
+          
+      - name: Upload performance report
         uses: actions/upload-artifact@v3
-        if: always()
         with:
-          name: container-security-report
-          path: trivy-report.json
+          name: performance-report
+          path: performance-report.json
 
-  # Advanced integration testing
-  integration:
-    name: 🔗 Advanced Integration Testing
+  # Job 9: Security Scanning
+  security-scanning:
+    name: Security Scanning
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    needs: [test-suite, docker-build]
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
+    needs: build-and-push
+    if: github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements-optimized.txt
-
-      - name: Run comprehensive integration tests
-        run: |
-          python -m pytest tests/test_robust.py -v --tb=short
-          echo "✅ Integration tests passed"
-
-      - name: Test Docker container
-        run: |
-          docker run --rm -d -p 8000:8000 --name test-container ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          sleep 10
-          curl -f http://localhost:8000/health || echo "Health check failed"
-          docker stop test-container
-          echo "✅ Docker container test passed"
-
-  # Performance and load testing
-  performance:
-    name: ⚡ Performance & Load Testing
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [test-suite]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/opinion-market:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          sarif_file: 'trivy-results.sarif'
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements-optimized.txt
-          pip install locust
-
-      - name: Test import performance
-        run: |
-          time python -c "from app.main_simple import app; print('Import completed')"
-          echo "✅ Import performance test passed"
-
-      - name: Test API response time
-        run: |
-          python -c "
-          import time
-          from app.main_simple import app
-          from fastapi.testclient import TestClient
-          client = TestClient(app)
-          start = time.time()
-          response = client.get('/')
-          end = time.time()
-          print(f'Response time: {end - start:.3f}s')
-          assert end - start < 1.0, 'Response too slow'
-          print('✅ API response time test passed')
-          "
-
-      - name: Run load tests
-        run: |
-          locust --headless -u 10 -r 2 -t 30s --host http://localhost:8000 -f tests/performance/locustfile.py || echo "Load test completed"
-          echo "✅ Load testing completed"
-
-  # Automated deployment with rollback capability
-  deploy:
-    name: 🚀 Automated Deployment
+  # Job 10: Notification
+  notify:
+    name: Notify Results
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [integration, security, performance, docker-build]
-    if: needs.preflight.outputs.should_deploy == 'true'
-    environment: ${{ needs.preflight.outputs.environment }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to ${{ needs.preflight.outputs.environment }}
-        run: |
-          echo "🚀 Deploying to ${{ needs.preflight.outputs.environment }}..."
-          
-          # Create deployment script
-          cat > deploy.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          
-          ENVIRONMENT=$1
-          IMAGE_TAG=$2
-          
-          echo "Deploying to $ENVIRONMENT with image tag $IMAGE_TAG"
-          
-          # Add your deployment logic here
-          # Example for Kubernetes:
-          # kubectl set image deployment/opinion-market app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
-          # kubectl rollout status deployment/opinion-market
-          
-          # Example for Docker Compose:
-          # docker-compose -f docker-compose.$ENVIRONMENT.yml up -d
-          
-          echo "✅ Deployment to $ENVIRONMENT completed"
-          EOF
-          
-          chmod +x deploy.sh
-          ./deploy.sh ${{ needs.preflight.outputs.environment }} ${{ github.sha }}
-
-      - name: Health check after deployment
-        run: |
-          echo "🏥 Running post-deployment health check..."
-          sleep 30
-          # Add your health check logic here
-          # curl -f https://your-app-url/health
-          echo "✅ Post-deployment health check passed"
-
-      - name: Rollback on failure
-        if: failure()
-        run: |
-          echo "🔄 Rolling back deployment..."
-          # Add your rollback logic here
-          # kubectl rollout undo deployment/opinion-market
-          echo "✅ Rollback completed"
-
-  # Comprehensive monitoring and alerting
-  monitoring:
-    name: 📊 Monitoring & Alerting
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [deploy]
-    if: always() && needs.deploy.result == 'success'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up monitoring
-        run: |
-          echo "📊 Setting up monitoring and alerting..."
-          
-          # Create monitoring configuration
-          cat > monitoring-config.yaml << 'EOF'
-          monitoring:
-            metrics:
-              - name: "response_time"
-                threshold: 1.0
-                unit: "seconds"
-              - name: "error_rate"
-                threshold: 0.05
-                unit: "percentage"
-              - name: "cpu_usage"
-                threshold: 80
-                unit: "percentage"
-              - name: "memory_usage"
-                threshold: 85
-                unit: "percentage"
-            
-            alerts:
-              - name: "high_response_time"
-                condition: "response_time > 1.0"
-                severity: "warning"
-              - name: "high_error_rate"
-                condition: "error_rate > 0.05"
-                severity: "critical"
-              - name: "resource_exhaustion"
-                condition: "cpu_usage > 80 OR memory_usage > 85"
-                severity: "warning"
-          EOF
-          
-          echo "✅ Monitoring configuration created"
-
-      - name: Send deployment notification
-        run: |
-          echo "📧 Sending deployment notification..."
-          # Add your notification logic here (Slack, email, etc.)
-          echo "✅ Deployment notification sent"
-
-  # Pipeline summary and reporting
-  summary:
-    name: 📋 Pipeline Summary
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [preflight, setup, test-suite, code-quality, security, docker-build, integration, performance, deploy, monitoring]
+    needs: [test-suite, advanced-features, build-and-push]
     if: always()
     steps:
-      - name: Generate pipeline report
+      - name: Notify success
+        if: ${{ needs.test-suite.result == 'success' && needs.advanced-features.result == 'success' }}
         run: |
-          echo "📊 Generating comprehensive pipeline report..."
+          echo "✅ All tests passed! Pipeline successful."
           
-          cat > pipeline-report.md << 'EOF'
-          # 🚀 CI/CD Pipeline Report
+      - name: Notify failure
+        if: ${{ needs.test-suite.result == 'failure' || needs.advanced-features.result == 'failure' }}
+        run: |
+          echo "❌ Tests failed! Please check the logs."
           
-          **Pipeline ID:** ${{ github.run_id }}
-          **Trigger:** ${{ github.event_name }}
-          **Branch:** ${{ github.ref_name }}
-          **Commit:** ${{ github.sha }}
-          **Timestamp:** $(date)
-          
-          ## 📋 Test Results
-          - **Pre-flight:** ${{ needs.preflight.result }}
-          - **Setup:** ${{ needs.setup.result }}
-          - **Test Suite:** ${{ needs.test-suite.result }}
-          - **Code Quality:** ${{ needs.code-quality.result }}
-          - **Security:** ${{ needs.security.result }}
-          - **Docker Build:** ${{ needs.docker-build.result }}
-          - **Integration:** ${{ needs.integration.result }}
-          - **Performance:** ${{ needs.performance.result }}
-          - **Deployment:** ${{ needs.deploy.result }}
-          - **Monitoring:** ${{ needs.monitoring.result }}
-          
-          ## 🎯 Summary
-          EOF
-          
-          # Calculate success rate
-          total_jobs=10
-          successful_jobs=0
-          
-          for job in preflight setup test-suite code-quality security docker-build integration performance deploy monitoring; do
-            if [[ "${{ needs.$job.result }}" == "success" ]]; then
-              successful_jobs=$((successful_jobs + 1))
-            fi
-          done
-          
-          success_rate=$((successful_jobs * 100 / total_jobs))
-          
-          echo "**Success Rate:** $success_rate%" >> pipeline-report.md
-          
-          if [[ $success_rate -ge 90 ]]; then
-            echo "**Status:** ✅ EXCELLENT" >> pipeline-report.md
-          elif [[ $success_rate -ge 80 ]]; then
-            echo "**Status:** ✅ GOOD" >> pipeline-report.md
-          elif [[ $success_rate -ge 70 ]]; then
-            echo "**Status:** ⚠️ ACCEPTABLE" >> pipeline-report.md
-          else
-            echo "**Status:** ❌ NEEDS ATTENTION" >> pipeline-report.md
-          fi
-          
-          echo "✅ Pipeline report generated"
-
-      - name: Upload pipeline report
-        uses: actions/upload-artifact@v3
+      - name: Send Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
         with:
-          name: pipeline-report
-          path: pipeline-report.md
-
-      - name: Pipeline summary
-        run: |
-          echo "🎉 Advanced CI/CD Pipeline Summary:"
-          echo "✅ Pre-flight validation: ${{ needs.preflight.result }}"
-          echo "✅ Environment setup: ${{ needs.setup.result }}"
-          echo "✅ Test suite: ${{ needs.test-suite.result }}"
-          echo "✅ Code quality: ${{ needs.code-quality.result }}"
-          echo "✅ Security scanning: ${{ needs.security.result }}"
-          echo "✅ Docker build: ${{ needs.docker-build.result }}"
-          echo "✅ Integration testing: ${{ needs.integration.result }}"
-          echo "✅ Performance testing: ${{ needs.performance.result }}"
-          echo "✅ Deployment: ${{ needs.deploy.result }}"
-          echo "✅ Monitoring: ${{ needs.monitoring.result }}"
-          
-          if [[ "${{ needs.deploy.result }}" == "success" ]]; then
-            echo "🎉 Pipeline completed successfully! Application deployed and monitored."
-          else
-            echo "⚠️ Pipeline completed with some issues, but system is resilient."
-          fi
+          status: ${{ job.status }}
+          channel: '#ci-cd'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

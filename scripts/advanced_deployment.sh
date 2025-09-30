@@ -1,18 +1,19 @@
 #!/bin/bash
 
-# Advanced Deployment Automation Script
-# Comprehensive deployment with rollback, health checks, and monitoring
+# Advanced Deployment Script for Opinion Market Platform
+# This script handles comprehensive deployment with health checks, rollbacks, and monitoring
 
-set -e
+set -euo pipefail
 
 # Configuration
-APP_NAME="opinion-market-api"
-NAMESPACE="opinion-market"
-IMAGE_TAG="${1:-latest}"
-ENVIRONMENT="${2:-staging}"
-REPLICAS="${3:-3}"
-HEALTH_CHECK_TIMEOUT=300
-ROLLBACK_TIMEOUT=60
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+DEPLOYMENT_ENV="${1:-staging}"
+VERSION="${2:-latest}"
+NAMESPACE="opinion-market-${DEPLOYMENT_ENV}"
+REGISTRY="${DOCKER_REGISTRY:-docker.io}"
+IMAGE_NAME="${REGISTRY}/opinion-market"
+FULL_IMAGE="${IMAGE_NAME}:${VERSION}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -38,329 +39,351 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Pre-deployment checks
-pre_deployment_checks() {
-    log_info "Running pre-deployment checks..."
+# Error handling
+error_exit() {
+    log_error "$1"
+    exit 1
+}
+
+# Check prerequisites
+check_prerequisites() {
+    log_info "Checking prerequisites..."
     
-    # Check if kubectl is available
+    # Check if kubectl is installed
     if ! command -v kubectl &> /dev/null; then
-        log_error "kubectl is not installed or not in PATH"
-        exit 1
+        error_exit "kubectl is not installed or not in PATH"
     fi
     
-    # Check if Docker is available
+    # Check if docker is installed
     if ! command -v docker &> /dev/null; then
-        log_error "Docker is not installed or not in PATH"
-        exit 1
+        error_exit "docker is not installed or not in PATH"
     fi
     
-    # Check cluster connectivity
+    # Check if helm is installed
+    if ! command -v helm &> /dev/null; then
+        log_warning "helm is not installed, some features may not work"
+    fi
+    
+    # Check kubectl connection
     if ! kubectl cluster-info &> /dev/null; then
-        log_error "Cannot connect to Kubernetes cluster"
-        exit 1
+        error_exit "Cannot connect to Kubernetes cluster"
     fi
     
-    # Check if namespace exists
-    if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
-        log_warning "Namespace $NAMESPACE does not exist, creating..."
-        kubectl create namespace "$NAMESPACE"
-    fi
-    
-    log_success "Pre-deployment checks passed"
+    log_success "Prerequisites check passed"
 }
 
 # Build and push Docker image
 build_and_push_image() {
     log_info "Building and pushing Docker image..."
     
-    # Build image
-    docker build -t "$APP_NAME:$IMAGE_TAG" -f Dockerfile.robust .
+    cd "$PROJECT_ROOT"
     
-    # Tag for registry (assuming Docker Hub for this example)
-    docker tag "$APP_NAME:$IMAGE_TAG" "your-registry/$APP_NAME:$IMAGE_TAG"
+    # Build the image
+    log_info "Building Docker image: $FULL_IMAGE"
+    docker build -f Dockerfile.production -t "$FULL_IMAGE" . || error_exit "Docker build failed"
     
-    # Push image
-    docker push "your-registry/$APP_NAME:$IMAGE_TAG"
+    # Push the image
+    log_info "Pushing Docker image to registry..."
+    docker push "$FULL_IMAGE" || error_exit "Docker push failed"
     
-    log_success "Image built and pushed successfully"
+    log_success "Docker image built and pushed successfully"
 }
 
-# Deploy application
-deploy_application() {
-    log_info "Deploying application to $ENVIRONMENT environment..."
+# Deploy to Kubernetes
+deploy_to_kubernetes() {
+    log_info "Deploying to Kubernetes namespace: $NAMESPACE"
     
-    # Create deployment YAML
-    cat > deployment.yaml << EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: $APP_NAME
-  namespace: $NAMESPACE
-  labels:
-    app: $APP_NAME
-    environment: $ENVIRONMENT
-spec:
-  replicas: $REPLICAS
-  selector:
-    matchLabels:
-      app: $APP_NAME
-  template:
-    metadata:
-      labels:
-        app: $APP_NAME
-        environment: $ENVIRONMENT
-    spec:
-      containers:
-      - name: $APP_NAME
-        image: your-registry/$APP_NAME:$IMAGE_TAG
-        ports:
-        - containerPort: 8000
-        env:
-        - name: ENVIRONMENT
-          value: "$ENVIRONMENT"
-        - name: LOG_LEVEL
-          value: "INFO"
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: $APP_NAME-service
-  namespace: $NAMESPACE
-spec:
-  selector:
-    app: $APP_NAME
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8000
-  type: LoadBalancer
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: $APP_NAME-hpa
-  namespace: $NAMESPACE
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: $APP_NAME
-  minReplicas: $REPLICAS
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-EOF
+    # Create namespace if it doesn't exist
+    kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
     
-    # Apply deployment
-    kubectl apply -f deployment.yaml
+    # Apply Kubernetes manifests
+    log_info "Applying Kubernetes manifests..."
     
-    # Wait for deployment to be ready
+    # Update image in deployment manifests
+    sed "s|IMAGE_PLACEHOLDER|$FULL_IMAGE|g" deployment/kubernetes/deployment.yaml | \
+    kubectl apply -f - -n "$NAMESPACE"
+    
+    # Apply service
+    kubectl apply -f deployment/kubernetes/service.yaml -n "$NAMESPACE"
+    
+    # Apply ingress
+    kubectl apply -f deployment/kubernetes/ingress.yaml -n "$NAMESPACE"
+    
+    # Apply configmap
+    kubectl apply -f deployment/kubernetes/configmap.yaml -n "$NAMESPACE"
+    
+    # Apply secrets
+    if [ -f "deployment/kubernetes/secrets.yaml" ]; then
+        kubectl apply -f deployment/kubernetes/secrets.yaml -n "$NAMESPACE"
+    fi
+    
+    log_success "Kubernetes deployment completed"
+}
+
+# Wait for deployment to be ready
+wait_for_deployment() {
     log_info "Waiting for deployment to be ready..."
-    kubectl wait --for=condition=available --timeout=${HEALTH_CHECK_TIMEOUT}s deployment/$APP_NAME -n $NAMESPACE
     
-    log_success "Application deployed successfully"
+    # Wait for deployment to be available
+    kubectl wait --for=condition=available --timeout=300s deployment/opinion-market -n "$NAMESPACE" || \
+    error_exit "Deployment failed to become ready within 5 minutes"
+    
+    # Wait for pods to be running
+    kubectl wait --for=condition=ready --timeout=300s pod -l app=opinion-market -n "$NAMESPACE" || \
+    error_exit "Pods failed to become ready within 5 minutes"
+    
+    log_success "Deployment is ready"
 }
 
-# Health check
-health_check() {
+# Run health checks
+run_health_checks() {
     log_info "Running health checks..."
     
-    # Get service endpoint
-    SERVICE_IP=$(kubectl get service $APP_NAME-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    
-    if [ -z "$SERVICE_IP" ]; then
-        log_warning "LoadBalancer IP not available, using port-forward"
-        kubectl port-forward service/$APP_NAME-service 8000:80 -n $NAMESPACE &
-        PORT_FORWARD_PID=$!
-        sleep 5
-        SERVICE_IP="localhost"
+    # Get service URL
+    SERVICE_URL=$(kubectl get service opinion-market -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    if [ -z "$SERVICE_URL" ]; then
+        SERVICE_URL=$(kubectl get service opinion-market -n "$NAMESPACE" -o jsonpath='{.spec.clusterIP}')
     fi
     
-    # Health check endpoints
-    ENDPOINTS=("/health" "/ready" "/metrics")
-    
-    for endpoint in "${ENDPOINTS[@]}"; do
-        log_info "Checking endpoint: $endpoint"
-        
-        for i in {1..10}; do
-            if curl -f -s "http://$SERVICE_IP:8000$endpoint" > /dev/null; then
-                log_success "Endpoint $endpoint is healthy"
-                break
-            else
-                if [ $i -eq 10 ]; then
-                    log_error "Endpoint $endpoint failed health check"
-                    return 1
-                fi
-                log_warning "Endpoint $endpoint not ready, retrying in 10s... (attempt $i/10)"
-                sleep 10
-            fi
-        done
+    # Wait for service to be accessible
+    log_info "Waiting for service to be accessible..."
+    for i in {1..30}; do
+        if curl -f "http://$SERVICE_URL:8000/health" &> /dev/null; then
+            log_success "Service is accessible"
+            break
+        fi
+        if [ $i -eq 30 ]; then
+            error_exit "Service is not accessible after 5 minutes"
+        fi
+        sleep 10
     done
     
-    # Clean up port-forward if used
-    if [ ! -z "$PORT_FORWARD_PID" ]; then
-        kill $PORT_FORWARD_PID 2>/dev/null || true
-    fi
+    # Run comprehensive health checks
+    log_info "Running comprehensive health checks..."
     
-    log_success "All health checks passed"
+    # Basic health check
+    curl -f "http://$SERVICE_URL:8000/health" || error_exit "Basic health check failed"
+    
+    # Readiness check
+    curl -f "http://$SERVICE_URL:8000/ready" || error_exit "Readiness check failed"
+    
+    # API health check
+    curl -f "http://$SERVICE_URL:8000/api/v1/health" || error_exit "API health check failed"
+    
+    # Advanced features health checks
+    log_info "Checking advanced features..."
+    
+    # Analytics engine health
+    curl -f "http://$SERVICE_URL:8000/api/v1/advanced-analytics/health" || \
+    log_warning "Analytics engine health check failed"
+    
+    # Auto-scaling health
+    curl -f "http://$SERVICE_URL:8000/api/v1/auto-scaling/health" || \
+    log_warning "Auto-scaling health check failed"
+    
+    # Alerting system health
+    curl -f "http://$SERVICE_URL:8000/api/v1/intelligent-alerting/health" || \
+    log_warning "Alerting system health check failed"
+    
+    log_success "Health checks completed"
 }
 
-# Performance test
-performance_test() {
-    log_info "Running performance tests..."
+# Run smoke tests
+run_smoke_tests() {
+    log_info "Running smoke tests..."
     
-    # Install hey if not available
-    if ! command -v hey &> /dev/null; then
-        log_info "Installing hey for performance testing..."
-        go install github.com/rakyll/hey@latest
+    # Get service URL
+    SERVICE_URL=$(kubectl get service opinion-market -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    if [ -z "$SERVICE_URL" ]; then
+        SERVICE_URL=$(kubectl get service opinion-market -n "$NAMESPACE" -o jsonpath='{.spec.clusterIP}')
     fi
     
-    # Get service endpoint
-    SERVICE_IP=$(kubectl get service $APP_NAME-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    # Run smoke tests
+    cd "$PROJECT_ROOT"
+    python scripts/smoke_tests.py --base-url "http://$SERVICE_URL:8000" || \
+    error_exit "Smoke tests failed"
     
-    if [ -z "$SERVICE_IP" ]; then
-        kubectl port-forward service/$APP_NAME-service 8000:80 -n $NAMESPACE &
-        PORT_FORWARD_PID=$!
-        sleep 5
-        SERVICE_IP="localhost"
-    fi
-    
-    # Run performance test
-    hey -n 1000 -c 10 "http://$SERVICE_IP:8000/health" > performance_results.txt
-    
-    # Check performance results
-    if grep -q "200 responses" performance_results.txt; then
-        log_success "Performance test passed"
-    else
-        log_error "Performance test failed"
-        return 1
-    fi
-    
-    # Clean up
-    rm -f performance_results.txt
-    if [ ! -z "$PORT_FORWARD_PID" ]; then
-        kill $PORT_FORWARD_PID 2>/dev/null || true
-    fi
+    log_success "Smoke tests passed"
 }
 
-# Rollback function
-rollback_deployment() {
-    log_warning "Rolling back deployment..."
-    
-    # Get previous deployment
-    PREVIOUS_REVISION=$(kubectl rollout history deployment/$APP_NAME -n $NAMESPACE --no-headers | tail -2 | head -1 | awk '{print $1}')
-    
-    if [ -z "$PREVIOUS_REVISION" ]; then
-        log_error "No previous revision found for rollback"
-        return 1
-    fi
-    
-    # Rollback
-    kubectl rollout undo deployment/$APP_NAME -n $NAMESPACE --to-revision=$PREVIOUS_REVISION
-    
-    # Wait for rollback to complete
-    kubectl wait --for=condition=available --timeout=${ROLLBACK_TIMEOUT}s deployment/$APP_NAME -n $NAMESPACE
-    
-    log_success "Rollback completed"
-}
-
-# Monitoring setup
+# Setup monitoring
 setup_monitoring() {
     log_info "Setting up monitoring..."
     
-    # Create monitoring namespace if it doesn't exist
-    kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+    # Apply monitoring manifests
+    if [ -f "deployment/monitoring/prometheus.yaml" ]; then
+        kubectl apply -f deployment/monitoring/prometheus.yaml -n "$NAMESPACE"
+    fi
     
-    # Deploy Prometheus (simplified)
-    cat > prometheus-config.yaml << EOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-config
-  namespace: monitoring
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 15s
-    scrape_configs:
-    - job_name: 'opinion-market-api'
-      static_configs:
-      - targets: ['$APP_NAME-service.$NAMESPACE.svc.cluster.local:80']
-      metrics_path: '/metrics'
-      scrape_interval: 5s
-EOF
+    if [ -f "deployment/monitoring/grafana.yaml" ]; then
+        kubectl apply -f deployment/monitoring/grafana.yaml -n "$NAMESPACE"
+    fi
     
-    kubectl apply -f prometheus-config.yaml
+    # Apply service monitor
+    if [ -f "deployment/monitoring/servicemonitor.yaml" ]; then
+        kubectl apply -f deployment/monitoring/servicemonitor.yaml -n "$NAMESPACE"
+    fi
     
     log_success "Monitoring setup completed"
 }
 
-# Cleanup function
-cleanup() {
-    log_info "Cleaning up temporary files..."
-    rm -f deployment.yaml prometheus-config.yaml
+# Setup alerting
+setup_alerting() {
+    log_info "Setting up alerting..."
+    
+    # Apply alerting rules
+    if [ -f "deployment/monitoring/alertrules.yaml" ]; then
+        kubectl apply -f deployment/monitoring/alertrules.yaml -n "$NAMESPACE"
+    fi
+    
+    # Apply alertmanager config
+    if [ -f "deployment/monitoring/alertmanager.yaml" ]; then
+        kubectl apply -f deployment/monitoring/alertmanager.yaml -n "$NAMESPACE"
+    fi
+    
+    log_success "Alerting setup completed"
+}
+
+# Backup current deployment
+backup_deployment() {
+    log_info "Creating backup of current deployment..."
+    
+    BACKUP_DIR="$PROJECT_ROOT/backups/$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$BACKUP_DIR"
+    
+    # Backup current deployment
+    kubectl get deployment opinion-market -n "$NAMESPACE" -o yaml > "$BACKUP_DIR/deployment.yaml"
+    kubectl get service opinion-market -n "$NAMESPACE" -o yaml > "$BACKUP_DIR/service.yaml"
+    kubectl get configmap opinion-market-config -n "$NAMESPACE" -o yaml > "$BACKUP_DIR/configmap.yaml" 2>/dev/null || true
+    
+    log_success "Backup created at: $BACKUP_DIR"
+    echo "$BACKUP_DIR" > "$PROJECT_ROOT/.last_backup"
+}
+
+# Rollback deployment
+rollback_deployment() {
+    log_info "Rolling back deployment..."
+    
+    if [ ! -f "$PROJECT_ROOT/.last_backup" ]; then
+        error_exit "No backup found for rollback"
+    fi
+    
+    BACKUP_DIR=$(cat "$PROJECT_ROOT/.last_backup")
+    
+    if [ ! -d "$BACKUP_DIR" ]; then
+        error_exit "Backup directory not found: $BACKUP_DIR"
+    fi
+    
+    # Restore deployment
+    kubectl apply -f "$BACKUP_DIR/deployment.yaml" -n "$NAMESPACE"
+    kubectl apply -f "$BACKUP_DIR/service.yaml" -n "$NAMESPACE"
+    kubectl apply -f "$BACKUP_DIR/configmap.yaml" -n "$NAMESPACE" 2>/dev/null || true
+    
+    # Wait for rollback to complete
+    kubectl rollout status deployment/opinion-market -n "$NAMESPACE" --timeout=300s
+    
+    log_success "Rollback completed"
+}
+
+# Cleanup old deployments
+cleanup_old_deployments() {
+    log_info "Cleaning up old deployments..."
+    
+    # Keep only last 5 deployments
+    kubectl get replicasets -n "$NAMESPACE" -l app=opinion-market --sort-by=.metadata.creationTimestamp | \
+    tail -n +6 | awk '{print $1}' | xargs -r kubectl delete replicaset -n "$NAMESPACE"
+    
+    log_success "Cleanup completed"
+}
+
+# Send notifications
+send_notifications() {
+    local status="$1"
+    local message="$2"
+    
+    log_info "Sending notifications..."
+    
+    # Send Slack notification
+    if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
+        curl -X POST -H 'Content-type: application/json' \
+        --data "{\"text\":\"Deployment $status: $message\"}" \
+        "$SLACK_WEBHOOK_URL"
+    fi
+    
+    # Send email notification
+    if [ -n "${EMAIL_RECIPIENTS:-}" ]; then
+        echo "Deployment $status: $message" | mail -s "Opinion Market Deployment $status" "$EMAIL_RECIPIENTS"
+    fi
+    
+    log_success "Notifications sent"
 }
 
 # Main deployment function
 main() {
-    log_info "Starting advanced deployment for $APP_NAME"
-    log_info "Environment: $ENVIRONMENT"
-    log_info "Image tag: $IMAGE_TAG"
-    log_info "Replicas: $REPLICAS"
+    log_info "Starting deployment to $DEPLOYMENT_ENV environment with version $VERSION"
     
-    # Set up error handling
-    trap cleanup EXIT
-    trap 'log_error "Deployment failed, initiating rollback..."; rollback_deployment; exit 1' ERR
+    # Check prerequisites
+    check_prerequisites
     
-    # Execute deployment steps
-    pre_deployment_checks
+    # Create backup
+    backup_deployment
+    
+    # Build and push image
     build_and_push_image
-    deploy_application
-    health_check
-    performance_test
+    
+    # Deploy to Kubernetes
+    deploy_to_kubernetes
+    
+    # Wait for deployment
+    wait_for_deployment
+    
+    # Run health checks
+    run_health_checks
+    
+    # Run smoke tests
+    run_smoke_tests
+    
+    # Setup monitoring
     setup_monitoring
     
-    log_success "Deployment completed successfully!"
-    log_info "Application is available at: http://$(kubectl get service $APP_NAME-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+    # Setup alerting
+    setup_alerting
     
-    # Show deployment status
-    kubectl get pods -n $NAMESPACE -l app=$APP_NAME
-    kubectl get services -n $NAMESPACE
+    # Cleanup old deployments
+    cleanup_old_deployments
+    
+    # Send success notification
+    send_notifications "SUCCESS" "Deployment to $DEPLOYMENT_ENV completed successfully"
+    
+    log_success "Deployment completed successfully!"
+    
+    # Display deployment information
+    log_info "Deployment Information:"
+    echo "  Environment: $DEPLOYMENT_ENV"
+    echo "  Version: $VERSION"
+    echo "  Namespace: $NAMESPACE"
+    echo "  Image: $FULL_IMAGE"
+    
+    # Get service information
+    SERVICE_URL=$(kubectl get service opinion-market -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    if [ -n "$SERVICE_URL" ]; then
+        echo "  Service URL: http://$SERVICE_URL:8000"
+    fi
 }
 
-# Run main function
-main "$@"
+# Handle script arguments
+case "${1:-}" in
+    "rollback")
+        rollback_deployment
+        send_notifications "ROLLBACK" "Deployment rolled back successfully"
+        ;;
+    "health-check")
+        run_health_checks
+        ;;
+    "smoke-test")
+        run_smoke_tests
+        ;;
+    *)
+        main
+        ;;
+esac

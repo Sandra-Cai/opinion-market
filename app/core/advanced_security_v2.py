@@ -688,7 +688,7 @@ class AdvancedSecurityV2:
         else:
             logger.warning(f"Security policy not found: {policy_id}")
             
-    def unblock_ip(self, ip_address: str):
+    async def unblock_ip(self, ip_address: str):
         """Unblock an IP address"""
         try:
             self.blocked_ips.discard(ip_address)

@@ -14,6 +14,7 @@ import json
 import hashlib
 import gzip
 import base64
+from enum import Enum
 
 from app.core.enhanced_cache import enhanced_cache
 

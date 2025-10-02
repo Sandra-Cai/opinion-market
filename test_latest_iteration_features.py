@@ -277,7 +277,7 @@ async def test_integration_workflow():
     try:
         from app.services.blockchain_integration_engine import blockchain_integration_engine
         from app.services.advanced_ml_engine import advanced_ml_engine
-        from app.services.distributed_caching_engine import distributed_caching_engine
+        from app.services.distributed_caching_engine import distributed_caching_engine, ContentType
         
         # Test 1: Start all systems
         await blockchain_integration_engine.start_blockchain_engine()
@@ -355,7 +355,7 @@ async def test_performance_benchmarks():
     try:
         from app.services.blockchain_integration_engine import blockchain_integration_engine
         from app.services.advanced_ml_engine import advanced_ml_engine
-        from app.services.distributed_caching_engine import distributed_caching_engine
+        from app.services.distributed_caching_engine import distributed_caching_engine, ContentType
         
         # Test blockchain transaction performance
         start_time = time.time()

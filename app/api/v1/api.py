@@ -55,6 +55,7 @@ from app.api.v1.endpoints import (
     auto_scaling_api,
     intelligent_alerting_api,
     advanced_security_api,
+    admin_dashboard_api,
 )
 
 api_router = APIRouter()
@@ -196,4 +197,7 @@ api_router.include_router(
 )
 api_router.include_router(
     advanced_security_api.router, prefix="/advanced-security", tags=["advanced-security"]
+)
+api_router.include_router(
+    admin_dashboard_api.router, prefix="/admin-dashboard", tags=["admin-dashboard"]
 )

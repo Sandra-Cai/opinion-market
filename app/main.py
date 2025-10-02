@@ -174,6 +174,18 @@ async def lifespan(app: FastAPI):
         await mobile_optimization_engine.start_mobile_optimization()
         print("✅ Mobile Optimization Engine initialized")
 
+        # Initialize blockchain integration engine
+        await blockchain_integration_engine.start_blockchain_engine()
+        print("✅ Blockchain Integration Engine initialized")
+
+        # Initialize advanced ML engine
+        await advanced_ml_engine.start_ml_engine()
+        print("✅ Advanced ML Engine initialized")
+
+        # Initialize distributed caching engine
+        await distributed_caching_engine.start_caching_engine()
+        print("✅ Distributed Caching Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -219,6 +231,15 @@ async def lifespan(app: FastAPI):
 
         # Stop mobile optimization engine
         await mobile_optimization_engine.stop_mobile_optimization()
+
+        # Stop blockchain integration engine
+        await blockchain_integration_engine.stop_blockchain_engine()
+
+        # Stop advanced ML engine
+        await advanced_ml_engine.stop_ml_engine()
+
+        # Stop distributed caching engine
+        await distributed_caching_engine.stop_caching_engine()
     
     print("✅ Enhanced systems stopped")
 

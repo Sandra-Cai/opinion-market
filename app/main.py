@@ -42,6 +42,9 @@ from app.core.intelligent_alerting import intelligent_alerting_system
 from app.core.advanced_security_v2 import advanced_security_v2
 from app.services.business_intelligence_engine import business_intelligence_engine
 from app.services.mobile_optimization_engine import mobile_optimization_engine
+from app.services.blockchain_integration_engine import blockchain_integration_engine
+from app.services.advanced_ml_engine import advanced_ml_engine
+from app.services.distributed_caching_engine import distributed_caching_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):

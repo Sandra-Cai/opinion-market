@@ -56,6 +56,9 @@ from app.api.v1.endpoints import (
     intelligent_alerting_api,
     advanced_security_api,
     admin_dashboard_api,
+    advanced_monitoring_api,
+    data_governance_api,
+    microservices_api,
 )
 
 api_router = APIRouter()
@@ -200,4 +203,13 @@ api_router.include_router(
 )
 api_router.include_router(
     admin_dashboard_api.router, prefix="/admin-dashboard", tags=["admin-dashboard"]
+)
+api_router.include_router(
+    advanced_monitoring_api.router, prefix="/monitoring", tags=["monitoring"]
+)
+api_router.include_router(
+    data_governance_api.router, prefix="/governance", tags=["governance"]
+)
+api_router.include_router(
+    microservices_api.router, prefix="/microservices", tags=["microservices"]
 )

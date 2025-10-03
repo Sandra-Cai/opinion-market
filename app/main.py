@@ -45,6 +45,9 @@ from app.services.mobile_optimization_engine import mobile_optimization_engine
 from app.services.blockchain_integration_engine import blockchain_integration_engine
 from app.services.advanced_ml_engine import advanced_ml_engine
 from app.services.distributed_caching_engine import distributed_caching_engine
+from app.services.advanced_monitoring_engine import advanced_monitoring_engine
+from app.services.data_governance_engine import data_governance_engine
+from app.services.microservices_engine import microservices_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -186,6 +189,18 @@ async def lifespan(app: FastAPI):
         await distributed_caching_engine.start_caching_engine()
         print("✅ Distributed Caching Engine initialized")
 
+        # Initialize advanced monitoring engine
+        await advanced_monitoring_engine.start_monitoring_engine()
+        print("✅ Advanced Monitoring Engine initialized")
+
+        # Initialize data governance engine
+        await data_governance_engine.start_governance_engine()
+        print("✅ Data Governance Engine initialized")
+
+        # Initialize microservices engine
+        await microservices_engine.start_microservices_engine()
+        print("✅ Microservices Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -240,6 +255,15 @@ async def lifespan(app: FastAPI):
 
         # Stop distributed caching engine
         await distributed_caching_engine.stop_caching_engine()
+
+        # Stop advanced monitoring engine
+        await advanced_monitoring_engine.stop_monitoring_engine()
+
+        # Stop data governance engine
+        await data_governance_engine.stop_governance_engine()
+
+        # Stop microservices engine
+        await microservices_engine.stop_microservices_engine()
     
     print("✅ Enhanced systems stopped")
 

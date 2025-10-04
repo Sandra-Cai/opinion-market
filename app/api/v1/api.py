@@ -59,6 +59,10 @@ from app.api.v1.endpoints import (
     advanced_monitoring_api,
     data_governance_api,
     microservices_api,
+    chaos_engineering_api,
+    mlops_pipeline_api,
+    advanced_api_gateway_api,
+    event_sourcing_api,
 )
 
 api_router = APIRouter()
@@ -212,4 +216,16 @@ api_router.include_router(
 )
 api_router.include_router(
     microservices_api.router, prefix="/microservices", tags=["microservices"]
+)
+api_router.include_router(
+    chaos_engineering_api.router, prefix="/chaos-engineering", tags=["chaos-engineering"]
+)
+api_router.include_router(
+    mlops_pipeline_api.router, prefix="/mlops", tags=["mlops"]
+)
+api_router.include_router(
+    advanced_api_gateway_api.router, prefix="/api-gateway", tags=["api-gateway"]
+)
+api_router.include_router(
+    event_sourcing_api.router, prefix="/event-sourcing", tags=["event-sourcing"]
 )

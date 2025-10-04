@@ -18,6 +18,7 @@ import threading
 import subprocess
 import signal
 import os
+import secrets
 
 from app.core.enhanced_cache import enhanced_cache
 
@@ -53,6 +54,7 @@ class FailureMode(Enum):
     UNGRACEFUL = "ungraceful"
     PARTIAL = "partial"
     COMPLETE = "complete"
+    CASCADING = "cascading"
 
 
 @dataclass

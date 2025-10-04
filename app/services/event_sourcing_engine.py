@@ -15,6 +15,7 @@ from enum import Enum
 import uuid
 import hashlib
 import pickle
+import secrets
 
 from app.core.enhanced_cache import enhanced_cache
 

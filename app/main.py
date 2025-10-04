@@ -48,6 +48,10 @@ from app.services.distributed_caching_engine import distributed_caching_engine
 from app.services.advanced_monitoring_engine import advanced_monitoring_engine
 from app.services.data_governance_engine import data_governance_engine
 from app.services.microservices_engine import microservices_engine
+from app.services.chaos_engineering_engine import chaos_engineering_engine
+from app.services.mlops_pipeline_engine import mlops_pipeline_engine
+from app.services.advanced_api_gateway import advanced_api_gateway
+from app.services.event_sourcing_engine import event_sourcing_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -201,6 +205,22 @@ async def lifespan(app: FastAPI):
         await microservices_engine.start_microservices_engine()
         print("✅ Microservices Engine initialized")
 
+        # Initialize chaos engineering engine
+        await chaos_engineering_engine.start_chaos_engine()
+        print("✅ Chaos Engineering Engine initialized")
+
+        # Initialize MLOps pipeline engine
+        await mlops_pipeline_engine.start_mlops_engine()
+        print("✅ MLOps Pipeline Engine initialized")
+
+        # Initialize advanced API gateway
+        await advanced_api_gateway.start_gateway()
+        print("✅ Advanced API Gateway initialized")
+
+        # Initialize event sourcing engine
+        await event_sourcing_engine.start_event_sourcing_engine()
+        print("✅ Event Sourcing Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -264,6 +284,18 @@ async def lifespan(app: FastAPI):
 
         # Stop microservices engine
         await microservices_engine.stop_microservices_engine()
+
+        # Stop chaos engineering engine
+        await chaos_engineering_engine.stop_chaos_engine()
+
+        # Stop MLOps pipeline engine
+        await mlops_pipeline_engine.stop_mlops_engine()
+
+        # Stop advanced API gateway
+        await advanced_api_gateway.stop_gateway()
+
+        # Stop event sourcing engine
+        await event_sourcing_engine.stop_event_sourcing_engine()
     
     print("✅ Enhanced systems stopped")
 

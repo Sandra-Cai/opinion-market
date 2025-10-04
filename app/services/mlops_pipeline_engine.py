@@ -16,6 +16,7 @@ import pickle
 import base64
 import hashlib
 import uuid
+import secrets
 
 from app.core.enhanced_cache import enhanced_cache
 

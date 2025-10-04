@@ -55,6 +55,10 @@ from app.services.event_sourcing_engine import event_sourcing_engine
 from app.services.advanced_caching_engine import advanced_caching_engine
 from app.services.ai_insights_engine import ai_insights_engine
 from app.services.real_time_analytics_engine import real_time_analytics_engine
+from app.services.edge_computing_engine import edge_computing_engine
+from app.services.quantum_security_engine import quantum_security_engine
+from app.services.metaverse_web3_engine import metaverse_web3_engine
+from app.services.autonomous_systems_engine import autonomous_systems_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -232,9 +236,25 @@ async def lifespan(app: FastAPI):
         await ai_insights_engine.start_ai_insights_engine()
         print("✅ AI Insights Engine initialized")
 
-        # Initialize real-time analytics engine
-        await real_time_analytics_engine.start_analytics_engine()
-        print("✅ Real-time Analytics Engine initialized")
+    # Initialize real-time analytics engine
+    await real_time_analytics_engine.start_analytics_engine()
+    print("✅ Real-time Analytics Engine initialized")
+
+    # Initialize edge computing engine
+    await edge_computing_engine.start_edge_computing_engine()
+    print("✅ Edge Computing Engine initialized")
+
+    # Initialize quantum security engine
+    await quantum_security_engine.start_quantum_security_engine()
+    print("✅ Quantum Security Engine initialized")
+
+    # Initialize metaverse Web3 engine
+    await metaverse_web3_engine.start_metaverse_web3_engine()
+    print("✅ Metaverse Web3 Engine initialized")
+
+    # Initialize autonomous systems engine
+    await autonomous_systems_engine.start_autonomous_systems_engine()
+    print("✅ Autonomous Systems Engine initialized")
 
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
@@ -318,8 +338,20 @@ async def lifespan(app: FastAPI):
         # Stop AI insights engine
         await ai_insights_engine.stop_ai_insights_engine()
 
-        # Stop real-time analytics engine
-        await real_time_analytics_engine.stop_analytics_engine()
+    # Stop real-time analytics engine
+    await real_time_analytics_engine.stop_analytics_engine()
+
+    # Stop edge computing engine
+    await edge_computing_engine.stop_edge_computing_engine()
+
+    # Stop quantum security engine
+    await quantum_security_engine.stop_quantum_security_engine()
+
+    # Stop metaverse Web3 engine
+    await metaverse_web3_engine.stop_metaverse_web3_engine()
+
+    # Stop autonomous systems engine
+    await autonomous_systems_engine.stop_autonomous_systems_engine()
     
     print("✅ Enhanced systems stopped")
 

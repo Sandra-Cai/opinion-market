@@ -66,6 +66,10 @@ from app.api.v1.endpoints import (
     advanced_caching_api,
     ai_insights_api,
     real_time_analytics_api,
+    edge_computing_api,
+    quantum_security_api,
+    metaverse_web3_api,
+    autonomous_systems_api,
 )
 
 api_router = APIRouter()
@@ -240,4 +244,16 @@ api_router.include_router(
 )
 api_router.include_router(
     real_time_analytics_api.router, prefix="/real-time-analytics", tags=["real-time-analytics"]
+)
+api_router.include_router(
+    edge_computing_api.router, prefix="/edge-computing", tags=["edge-computing"]
+)
+api_router.include_router(
+    quantum_security_api.router, prefix="/quantum-security", tags=["quantum-security"]
+)
+api_router.include_router(
+    metaverse_web3_api.router, prefix="/metaverse-web3", tags=["metaverse-web3"]
+)
+api_router.include_router(
+    autonomous_systems_api.router, prefix="/autonomous-systems", tags=["autonomous-systems"]
 )

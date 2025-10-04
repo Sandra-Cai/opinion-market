@@ -63,6 +63,9 @@ from app.api.v1.endpoints import (
     mlops_pipeline_api,
     advanced_api_gateway_api,
     event_sourcing_api,
+    advanced_caching_api,
+    ai_insights_api,
+    real_time_analytics_api,
 )
 
 api_router = APIRouter()
@@ -228,4 +231,13 @@ api_router.include_router(
 )
 api_router.include_router(
     event_sourcing_api.router, prefix="/event-sourcing", tags=["event-sourcing"]
+)
+api_router.include_router(
+    advanced_caching_api.router, prefix="/advanced-caching", tags=["advanced-caching"]
+)
+api_router.include_router(
+    ai_insights_api.router, prefix="/ai-insights", tags=["ai-insights"]
+)
+api_router.include_router(
+    real_time_analytics_api.router, prefix="/real-time-analytics", tags=["real-time-analytics"]
 )

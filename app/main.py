@@ -52,6 +52,9 @@ from app.services.chaos_engineering_engine import chaos_engineering_engine
 from app.services.mlops_pipeline_engine import mlops_pipeline_engine
 from app.services.advanced_api_gateway import advanced_api_gateway
 from app.services.event_sourcing_engine import event_sourcing_engine
+from app.services.advanced_caching_engine import advanced_caching_engine
+from app.services.ai_insights_engine import ai_insights_engine
+from app.services.real_time_analytics_engine import real_time_analytics_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -221,6 +224,18 @@ async def lifespan(app: FastAPI):
         await event_sourcing_engine.start_event_sourcing_engine()
         print("✅ Event Sourcing Engine initialized")
 
+        # Initialize advanced caching engine
+        await advanced_caching_engine.start_caching_engine()
+        print("✅ Advanced Caching Engine initialized")
+
+        # Initialize AI insights engine
+        await ai_insights_engine.start_ai_insights_engine()
+        print("✅ AI Insights Engine initialized")
+
+        # Initialize real-time analytics engine
+        await real_time_analytics_engine.start_analytics_engine()
+        print("✅ Real-time Analytics Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -296,6 +311,15 @@ async def lifespan(app: FastAPI):
 
         # Stop event sourcing engine
         await event_sourcing_engine.stop_event_sourcing_engine()
+
+        # Stop advanced caching engine
+        await advanced_caching_engine.stop_caching_engine()
+
+        # Stop AI insights engine
+        await ai_insights_engine.stop_ai_insights_engine()
+
+        # Stop real-time analytics engine
+        await real_time_analytics_engine.stop_analytics_engine()
     
     print("✅ Enhanced systems stopped")
 

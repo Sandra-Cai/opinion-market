@@ -63,6 +63,9 @@ from app.services.advanced_ai_orchestration_engine import advanced_ai_orchestrat
 from app.services.intelligent_decision_engine import intelligent_decision_engine
 from app.services.advanced_pattern_recognition_engine import advanced_pattern_recognition_engine
 from app.services.ai_powered_risk_assessment_engine import ai_powered_risk_assessment_engine
+from app.services.advanced_trading_engine import advanced_trading_engine
+from app.services.portfolio_optimization_engine import portfolio_optimization_engine
+from app.services.market_sentiment_engine import market_sentiment_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -276,6 +279,18 @@ async def lifespan(app: FastAPI):
     await ai_powered_risk_assessment_engine.start_ai_powered_risk_assessment_engine()
     print("✅ AI-Powered Risk Assessment Engine initialized")
 
+    # Initialize advanced trading engine
+    await advanced_trading_engine.start_trading_engine()
+    print("✅ Advanced Trading Engine initialized")
+
+    # Initialize portfolio optimization engine
+    await portfolio_optimization_engine.start_portfolio_optimization_engine()
+    print("✅ Portfolio Optimization Engine initialized")
+
+    # Initialize market sentiment engine
+    await market_sentiment_engine.start_market_sentiment_engine()
+    print("✅ Market Sentiment Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -384,6 +399,15 @@ async def lifespan(app: FastAPI):
 
     # Stop AI-powered risk assessment engine
     await ai_powered_risk_assessment_engine.stop_ai_powered_risk_assessment_engine()
+
+    # Stop advanced trading engine
+    await advanced_trading_engine.stop_trading_engine()
+
+    # Stop portfolio optimization engine
+    await portfolio_optimization_engine.stop_portfolio_optimization_engine()
+
+    # Stop market sentiment engine
+    await market_sentiment_engine.stop_market_sentiment_engine()
     
     print("✅ Enhanced systems stopped")
 

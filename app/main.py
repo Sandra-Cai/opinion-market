@@ -277,6 +277,10 @@ async def lifespan(app: FastAPI):
     await ai_powered_risk_assessment_engine.start_ai_powered_risk_assessment_engine()
     print("✅ AI-Powered Risk Assessment Engine initialized")
 
+    # Initialize DeFi engine
+    await defi_engine.start_defi_engine()
+    print("✅ Advanced DeFi Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -385,6 +389,9 @@ async def lifespan(app: FastAPI):
 
     # Stop AI-powered risk assessment engine
     await ai_powered_risk_assessment_engine.stop_ai_powered_risk_assessment_engine()
+
+    # Stop DeFi engine
+    await defi_engine.stop_defi_engine()
     
     print("✅ Enhanced systems stopped")
 

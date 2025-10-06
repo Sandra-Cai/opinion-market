@@ -660,7 +660,8 @@ class IoTAnalyticsEngine:
 
     async def get_predictive_models(self, device_id: Optional[str] = None,
                                   sensor_type: Optional[str] = None,
-                                  active_only: bool = False) -> List[Dict[str, Any]]:
+                                  active_only: bool = False,
+                                  limit: int = 100) -> List[Dict[str, Any]]:
         """Get predictive models"""
         try:
             models = list(self.predictive_models.values())
@@ -676,6 +677,9 @@ class IoTAnalyticsEngine:
             # Filter by active status
             if active_only:
                 models = [m for m in models if m.is_active]
+            
+            # Limit results
+            models = models[:limit]
             
             return [
                 {

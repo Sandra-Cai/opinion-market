@@ -66,6 +66,9 @@ from app.services.ai_powered_risk_assessment_engine import ai_powered_risk_asses
 from app.services.advanced_trading_engine import advanced_trading_engine
 from app.services.portfolio_optimization_engine import portfolio_optimization_engine
 from app.services.market_sentiment_engine import market_sentiment_engine
+from app.services.advanced_predictive_analytics_engine import advanced_predictive_analytics_engine
+from app.services.time_series_forecasting_engine import time_series_forecasting_engine
+from app.services.anomaly_detection_engine import anomaly_detection_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -291,6 +294,18 @@ async def lifespan(app: FastAPI):
     await market_sentiment_engine.start_market_sentiment_engine()
     print("✅ Market Sentiment Engine initialized")
 
+    # Initialize advanced predictive analytics engine
+    await advanced_predictive_analytics_engine.start_predictive_analytics_engine()
+    print("✅ Advanced Predictive Analytics Engine initialized")
+
+    # Initialize time series forecasting engine
+    await time_series_forecasting_engine.start_time_series_forecasting_engine()
+    print("✅ Time Series Forecasting Engine initialized")
+
+    # Initialize anomaly detection engine
+    await anomaly_detection_engine.start_anomaly_detection_engine()
+    print("✅ Anomaly Detection Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -408,6 +423,15 @@ async def lifespan(app: FastAPI):
 
     # Stop market sentiment engine
     await market_sentiment_engine.stop_market_sentiment_engine()
+
+    # Stop advanced predictive analytics engine
+    await advanced_predictive_analytics_engine.stop_predictive_analytics_engine()
+
+    # Stop time series forecasting engine
+    await time_series_forecasting_engine.stop_time_series_forecasting_engine()
+
+    # Stop anomaly detection engine
+    await anomaly_detection_engine.stop_anomaly_detection_engine()
     
     print("✅ Enhanced systems stopped")
 

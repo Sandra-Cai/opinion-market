@@ -77,6 +77,9 @@ from app.api.v1.endpoints import (
     advanced_trading_api,
     portfolio_optimization_api,
     market_sentiment_api,
+    advanced_predictive_analytics_api,
+    time_series_forecasting_api,
+    anomaly_detection_api,
 )
 
 api_router = APIRouter()
@@ -284,4 +287,13 @@ api_router.include_router(
 )
 api_router.include_router(
     market_sentiment_api.router, prefix="/market-sentiment", tags=["market-sentiment"]
+)
+api_router.include_router(
+    advanced_predictive_analytics_api.router, prefix="/predictive-analytics", tags=["predictive-analytics"]
+)
+api_router.include_router(
+    time_series_forecasting_api.router, prefix="/time-series-forecasting", tags=["time-series-forecasting"]
+)
+api_router.include_router(
+    anomaly_detection_api.router, prefix="/anomaly-detection", tags=["anomaly-detection"]
 )

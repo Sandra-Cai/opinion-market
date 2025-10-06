@@ -17,6 +17,7 @@ import uuid
 import numpy as np
 import pandas as pd
 from scipy import stats
+from collections import defaultdict
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.preprocessing import StandardScaler

@@ -59,6 +59,10 @@ from app.services.edge_computing_engine import edge_computing_engine
 from app.services.quantum_security_engine import quantum_security_engine
 from app.services.metaverse_web3_engine import metaverse_web3_engine
 from app.services.autonomous_systems_engine import autonomous_systems_engine
+from app.services.advanced_ai_orchestration_engine import advanced_ai_orchestration_engine
+from app.services.intelligent_decision_engine import intelligent_decision_engine
+from app.services.advanced_pattern_recognition_engine import advanced_pattern_recognition_engine
+from app.services.ai_powered_risk_assessment_engine import ai_powered_risk_assessment_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -256,6 +260,22 @@ async def lifespan(app: FastAPI):
     await autonomous_systems_engine.start_autonomous_systems_engine()
     print("✅ Autonomous Systems Engine initialized")
 
+    # Initialize advanced AI orchestration engine
+    await advanced_ai_orchestration_engine.start_ai_orchestration_engine()
+    print("✅ Advanced AI Orchestration Engine initialized")
+
+    # Initialize intelligent decision engine
+    await intelligent_decision_engine.start_intelligent_decision_engine()
+    print("✅ Intelligent Decision Engine initialized")
+
+    # Initialize advanced pattern recognition engine
+    await advanced_pattern_recognition_engine.start_advanced_pattern_recognition_engine()
+    print("✅ Advanced Pattern Recognition Engine initialized")
+
+    # Initialize AI-powered risk assessment engine
+    await ai_powered_risk_assessment_engine.start_ai_powered_risk_assessment_engine()
+    print("✅ AI-Powered Risk Assessment Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -352,6 +372,18 @@ async def lifespan(app: FastAPI):
 
     # Stop autonomous systems engine
     await autonomous_systems_engine.stop_autonomous_systems_engine()
+
+    # Stop advanced AI orchestration engine
+    await advanced_ai_orchestration_engine.stop_ai_orchestration_engine()
+
+    # Stop intelligent decision engine
+    await intelligent_decision_engine.stop_intelligent_decision_engine()
+
+    # Stop advanced pattern recognition engine
+    await advanced_pattern_recognition_engine.stop_advanced_pattern_recognition_engine()
+
+    # Stop AI-powered risk assessment engine
+    await ai_powered_risk_assessment_engine.stop_ai_powered_risk_assessment_engine()
     
     print("✅ Enhanced systems stopped")
 

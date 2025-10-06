@@ -70,6 +70,10 @@ from app.api.v1.endpoints import (
     quantum_security_api,
     metaverse_web3_api,
     autonomous_systems_api,
+    advanced_ai_orchestration_api,
+    intelligent_decision_api,
+    advanced_pattern_recognition_api,
+    ai_powered_risk_assessment_api,
 )
 
 api_router = APIRouter()
@@ -256,4 +260,16 @@ api_router.include_router(
 )
 api_router.include_router(
     autonomous_systems_api.router, prefix="/autonomous-systems", tags=["autonomous-systems"]
+)
+api_router.include_router(
+    advanced_ai_orchestration_api.router, prefix="/ai-orchestration", tags=["ai-orchestration"]
+)
+api_router.include_router(
+    intelligent_decision_api.router, prefix="/intelligent-decision", tags=["intelligent-decision"]
+)
+api_router.include_router(
+    advanced_pattern_recognition_api.router, prefix="/pattern-recognition", tags=["pattern-recognition"]
+)
+api_router.include_router(
+    ai_powered_risk_assessment_api.router, prefix="/risk-assessment", tags=["risk-assessment"]
 )

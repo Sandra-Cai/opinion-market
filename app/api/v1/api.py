@@ -75,6 +75,8 @@ from app.api.v1.endpoints import (
     advanced_pattern_recognition_api,
     ai_powered_risk_assessment_api,
     advanced_trading_api,
+    portfolio_optimization_api,
+    market_sentiment_api,
 )
 
 api_router = APIRouter()
@@ -276,4 +278,10 @@ api_router.include_router(
 )
 api_router.include_router(
     advanced_trading_api.router, prefix="/advanced-trading", tags=["advanced-trading"]
+)
+api_router.include_router(
+    portfolio_optimization_api.router, prefix="/portfolio-optimization", tags=["portfolio-optimization"]
+)
+api_router.include_router(
+    market_sentiment_api.router, prefix="/market-sentiment", tags=["market-sentiment"]
 )

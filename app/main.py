@@ -75,6 +75,8 @@ from app.services.smart_contract_engine import smart_contract_engine
 from app.services.iot_data_processing_engine import iot_data_processing_engine
 from app.services.iot_device_management_engine import iot_device_management_engine
 from app.services.iot_analytics_engine import iot_analytics_engine
+from app.services.ar_vr_experience_engine import ar_vr_experience_engine
+from app.services.immersive_content_engine import immersive_content_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -336,6 +338,14 @@ async def lifespan(app: FastAPI):
     await iot_analytics_engine.start_analytics_engine()
     print("✅ IoT Analytics Engine initialized")
 
+    # Initialize AR/VR experience engine
+    await ar_vr_experience_engine.start_ar_vr_engine()
+    print("✅ AR/VR Experience Engine initialized")
+
+    # Initialize immersive content engine
+    await immersive_content_engine.start_content_engine()
+    print("✅ Immersive Content Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -480,6 +490,12 @@ async def lifespan(app: FastAPI):
 
     # Stop IoT analytics engine
     await iot_analytics_engine.stop_analytics_engine()
+
+    # Stop AR/VR experience engine
+    await ar_vr_experience_engine.stop_ar_vr_engine()
+
+    # Stop immersive content engine
+    await immersive_content_engine.stop_content_engine()
     
     print("✅ Enhanced systems stopped")
 

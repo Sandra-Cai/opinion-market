@@ -86,6 +86,8 @@ from app.api.v1.endpoints import (
     iot_data_processing_api,
     iot_device_management_api,
     iot_analytics_api,
+    ar_vr_experience_api,
+    immersive_content_api,
 )
 
 api_router = APIRouter()
@@ -320,4 +322,10 @@ api_router.include_router(
 )
 api_router.include_router(
     iot_analytics_api.router, prefix="/iot-analytics", tags=["iot-analytics"]
+)
+api_router.include_router(
+    ar_vr_experience_api.router, prefix="/ar-vr", tags=["ar-vr"]
+)
+api_router.include_router(
+    immersive_content_api.router, prefix="/immersive-content", tags=["immersive-content"]
 )

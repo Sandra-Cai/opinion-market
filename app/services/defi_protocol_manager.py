@@ -20,8 +20,8 @@ warnings.filterwarnings('ignore')
 
 logger = logging.getLogger(__name__)
 
-class DeFiStrategy(Enum):
-    """DeFi strategies"""
+class DeFiStrategyType(Enum):
+    """DeFi strategy types"""
     YIELD_FARMING = "yield_farming"
     LIQUIDITY_PROVISION = "liquidity_provision"
     ARBITRAGE = "arbitrage"
@@ -50,7 +50,7 @@ class DeFiStrategy:
     """DeFi strategy configuration"""
     strategy_id: str
     name: str
-    strategy_type: DeFiStrategy
+    strategy_type: DeFiStrategyType
     protocol: str
     blockchain: str
     risk_level: RiskLevel
@@ -92,7 +92,7 @@ class YieldOpportunity:
     opportunity_id: str
     protocol: str
     blockchain: str
-    strategy_type: DeFiStrategy
+    strategy_type: DeFiStrategyType
     token_pair: str
     apy: Decimal
     tvl: Decimal  # Total Value Locked
@@ -263,7 +263,7 @@ class DeFiProtocolManager:
             default_strategies = [
                 {
                     "name": "Conservative Yield Farming",
-                    "strategy_type": DeFiStrategy.YIELD_FARMING,
+                    "strategy_type": DeFiStrategyType.YIELD_FARMING,
                     "protocol": "aave",
                     "blockchain": "ethereum",
                     "risk_level": RiskLevel.LOW,
@@ -273,7 +273,7 @@ class DeFiProtocolManager:
                 },
                 {
                     "name": "Aggressive Liquidity Provision",
-                    "strategy_type": DeFiStrategy.LIQUIDITY_PROVISION,
+                    "strategy_type": DeFiStrategyType.LIQUIDITY_PROVISION,
                     "protocol": "uniswap",
                     "blockchain": "ethereum",
                     "risk_level": RiskLevel.HIGH,
@@ -283,7 +283,7 @@ class DeFiProtocolManager:
                 },
                 {
                     "name": "Cross-Chain Arbitrage",
-                    "strategy_type": DeFiStrategy.ARBITRAGE,
+                    "strategy_type": DeFiStrategyType.ARBITRAGE,
                     "protocol": "uniswap",
                     "blockchain": "ethereum",
                     "risk_level": RiskLevel.MEDIUM,
@@ -293,7 +293,7 @@ class DeFiProtocolManager:
                 },
                 {
                     "name": "Yearn Vault Strategy",
-                    "strategy_type": DeFiStrategy.YIELD_FARMING,
+                    "strategy_type": DeFiStrategyType.YIELD_FARMING,
                     "protocol": "yearn",
                     "blockchain": "ethereum",
                     "risk_level": RiskLevel.MEDIUM,
@@ -361,7 +361,7 @@ class DeFiProtocolManager:
             # Generate mock yield opportunities
             protocols = ["uniswap", "aave", "compound", "yearn", "curve", "balancer"]
             blockchains = ["ethereum", "polygon", "avalanche", "arbitrum"]
-            strategy_types = list(DeFiStrategy)
+            strategy_types = list(DeFiStrategyType)
             
             for i in range(50):  # Generate 50 mock opportunities
                 opportunity = YieldOpportunity(
@@ -469,15 +469,15 @@ class DeFiProtocolManager:
         """Execute a specific strategy"""
         try:
             # Simulate strategy execution based on type
-            if strategy.strategy_type == DeFiStrategy.YIELD_FARMING:
+            if strategy.strategy_type == DeFiStrategyType.YIELD_FARMING:
                 await self._execute_yield_farming(strategy)
-            elif strategy.strategy_type == DeFiStrategy.LIQUIDITY_PROVISION:
+            elif strategy.strategy_type == DeFiStrategyType.LIQUIDITY_PROVISION:
                 await self._execute_liquidity_provision(strategy)
-            elif strategy.strategy_type == DeFiStrategy.ARBITRAGE:
+            elif strategy.strategy_type == DeFiStrategyType.ARBITRAGE:
                 await self._execute_arbitrage(strategy)
-            elif strategy.strategy_type == DeFiStrategy.LENDING:
+            elif strategy.strategy_type == DeFiStrategyType.LENDING:
                 await self._execute_lending(strategy)
-            elif strategy.strategy_type == DeFiStrategy.BORROWING:
+            elif strategy.strategy_type == DeFiStrategyType.BORROWING:
                 await self._execute_borrowing(strategy)
             
         except Exception as e:
@@ -539,7 +539,7 @@ class DeFiProtocolManager:
                     opportunity_id=f"opportunity_{secrets.token_hex(8)}",
                     protocol=secrets.choice(["uniswap", "aave", "compound", "yearn"]),
                     blockchain=secrets.choice(["ethereum", "polygon", "avalanche"]),
-                    strategy_type=secrets.choice(list(DeFiStrategy)),
+                    strategy_type=secrets.choice(list(DeFiStrategyType)),
                     token_pair=f"{secrets.choice(['ETH', 'USDC', 'USDT'])}/{secrets.choice(['ETH', 'USDC', 'USDT'])}",
                     apy=Decimal(str(secrets.randbelow(30) + 10)) / 100,  # 10-40% APY
                     tvl=Decimal(str(secrets.randbelow(5000000) + 50000)),  # $50k-5M TVL
@@ -828,7 +828,7 @@ class DeFiProtocolManager:
             logger.error(f"Error getting manager metrics: {e}")
             return {}
 
-    async def add_strategy(self, name: str, strategy_type: DeFiStrategy, protocol: str,
+    async def add_strategy(self, name: str, strategy_type: DeFiStrategyType, protocol: str,
                           blockchain: str, risk_level: RiskLevel, expected_apy: Decimal,
                           min_investment: Decimal, max_investment: Decimal) -> str:
         """Add a new strategy"""

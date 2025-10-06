@@ -69,6 +69,9 @@ from app.services.market_sentiment_engine import market_sentiment_engine
 from app.services.advanced_predictive_analytics_engine import advanced_predictive_analytics_engine
 from app.services.time_series_forecasting_engine import time_series_forecasting_engine
 from app.services.anomaly_detection_engine import anomaly_detection_engine
+from app.services.advanced_blockchain_engine import advanced_blockchain_engine
+from app.services.defi_protocol_manager import defi_protocol_manager
+from app.services.smart_contract_engine import smart_contract_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -306,6 +309,18 @@ async def lifespan(app: FastAPI):
     await anomaly_detection_engine.start_anomaly_detection_engine()
     print("✅ Anomaly Detection Engine initialized")
 
+    # Initialize advanced blockchain engine
+    await advanced_blockchain_engine.start_blockchain_engine()
+    print("✅ Advanced Blockchain Engine initialized")
+
+    # Initialize DeFi protocol manager
+    await defi_protocol_manager.start_defi_manager()
+    print("✅ DeFi Protocol Manager initialized")
+
+    # Initialize smart contract engine
+    await smart_contract_engine.start_smart_contract_engine()
+    print("✅ Smart Contract Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -432,6 +447,15 @@ async def lifespan(app: FastAPI):
 
     # Stop anomaly detection engine
     await anomaly_detection_engine.stop_anomaly_detection_engine()
+
+    # Stop advanced blockchain engine
+    await advanced_blockchain_engine.stop_blockchain_engine()
+
+    # Stop DeFi protocol manager
+    await defi_protocol_manager.stop_defi_manager()
+
+    # Stop smart contract engine
+    await smart_contract_engine.stop_smart_contract_engine()
     
     print("✅ Enhanced systems stopped")
 

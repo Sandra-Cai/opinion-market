@@ -80,6 +80,9 @@ from app.api.v1.endpoints import (
     advanced_predictive_analytics_api,
     time_series_forecasting_api,
     anomaly_detection_api,
+    advanced_blockchain_api,
+    defi_protocol_api,
+    smart_contract_api,
 )
 
 api_router = APIRouter()
@@ -296,4 +299,13 @@ api_router.include_router(
 )
 api_router.include_router(
     anomaly_detection_api.router, prefix="/anomaly-detection", tags=["anomaly-detection"]
+)
+api_router.include_router(
+    advanced_blockchain_api.router, prefix="/blockchain", tags=["blockchain"]
+)
+api_router.include_router(
+    defi_protocol_api.router, prefix="/defi", tags=["defi"]
+)
+api_router.include_router(
+    smart_contract_api.router, prefix="/smart-contracts", tags=["smart-contracts"]
 )

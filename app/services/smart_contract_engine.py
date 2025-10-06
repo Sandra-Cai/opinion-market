@@ -307,7 +307,8 @@ class SmartContractEngine:
                     constructor_params=self._get_constructor_params(template_data["contract_type"]),
                     functions=self._get_contract_functions(template_data["contract_type"]),
                     events=self._get_contract_events(template_data["contract_type"]),
-                    gas_estimate=template_data["gas_estimate"]
+                    gas_estimate=template_data["gas_estimate"],
+                    created_at=datetime.now()
                 )
                 
                 self.templates[template.template_id] = template

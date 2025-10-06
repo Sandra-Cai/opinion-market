@@ -74,7 +74,6 @@ from app.api.v1.endpoints import (
     intelligent_decision_api,
     advanced_pattern_recognition_api,
     ai_powered_risk_assessment_api,
-    defi_api,
 )
 
 api_router = APIRouter()
@@ -273,7 +272,4 @@ api_router.include_router(
 )
 api_router.include_router(
     ai_powered_risk_assessment_api.router, prefix="/risk-assessment", tags=["risk-assessment"]
-)
-api_router.include_router(
-    defi_api.router, prefix="/defi", tags=["defi"]
 )

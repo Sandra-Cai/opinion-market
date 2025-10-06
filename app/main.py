@@ -63,7 +63,6 @@ from app.services.advanced_ai_orchestration_engine import advanced_ai_orchestrat
 from app.services.intelligent_decision_engine import intelligent_decision_engine
 from app.services.advanced_pattern_recognition_engine import advanced_pattern_recognition_engine
 from app.services.ai_powered_risk_assessment_engine import ai_powered_risk_assessment_engine
-from app.services.defi_engine import defi_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -277,10 +276,6 @@ async def lifespan(app: FastAPI):
     await ai_powered_risk_assessment_engine.start_ai_powered_risk_assessment_engine()
     print("✅ AI-Powered Risk Assessment Engine initialized")
 
-    # Initialize DeFi engine
-    await defi_engine.start_defi_engine()
-    print("✅ Advanced DeFi Engine initialized")
-
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -389,9 +384,6 @@ async def lifespan(app: FastAPI):
 
     # Stop AI-powered risk assessment engine
     await ai_powered_risk_assessment_engine.stop_ai_powered_risk_assessment_engine()
-
-    # Stop DeFi engine
-    await defi_engine.stop_defi_engine()
     
     print("✅ Enhanced systems stopped")
 

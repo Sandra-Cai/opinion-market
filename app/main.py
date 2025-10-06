@@ -63,6 +63,7 @@ from app.services.advanced_ai_orchestration_engine import advanced_ai_orchestrat
 from app.services.intelligent_decision_engine import intelligent_decision_engine
 from app.services.advanced_pattern_recognition_engine import advanced_pattern_recognition_engine
 from app.services.ai_powered_risk_assessment_engine import ai_powered_risk_assessment_engine
+from app.services.defi_engine import defi_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):

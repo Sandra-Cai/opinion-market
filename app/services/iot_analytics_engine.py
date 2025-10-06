@@ -9,6 +9,7 @@ import time
 import json
 import hashlib
 import secrets
+import random
 from typing import Dict, List, Any, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -41,6 +42,7 @@ class InsightType(Enum):
     PREDICTION = "prediction"
     OPTIMIZATION = "optimization"
     ALERT = "alert"
+    STREAMING = "streaming"
 
 class AlertSeverity(Enum):
     """Alert severity levels"""
@@ -244,7 +246,7 @@ class IoTAnalyticsEngine:
                     device_id=f"device_{secrets.token_hex(8)}",
                     sensor_type=secrets.choice(["temperature", "humidity", "pressure", "motion", "sound"]),
                     algorithm=secrets.choice(algorithms),
-                    accuracy=secrets.uniform(0.7, 0.95),
+                    accuracy=random.uniform(0.7, 0.95),
                     training_data_size=secrets.randbelow(10000) + 1000,
                     last_trained=datetime.now() - timedelta(days=secrets.randbelow(30))
                 )
@@ -269,11 +271,11 @@ class IoTAnalyticsEngine:
                     sensor_type=secrets.choice(["temperature", "humidity", "pressure", "motion", "sound"]),
                     pattern_type=secrets.choice(pattern_types),
                     frequency=secrets.randbelow(100) + 1,
-                    duration=secrets.uniform(1, 24),  # hours
-                    confidence=secrets.uniform(0.6, 0.95),
+                    duration=random.uniform(1, 24),  # hours
+                    confidence=random.uniform(0.6, 0.95),
                     first_detected=datetime.now() - timedelta(days=secrets.randbelow(30)),
                     last_detected=datetime.now() - timedelta(hours=secrets.randbelow(24)),
-                    pattern_data=[secrets.uniform(0, 100) for _ in range(100)]
+                    pattern_data=[random.uniform(0, 100) for _ in range(100)]
                 )
                 
                 self.data_patterns.append(pattern)
@@ -365,12 +367,12 @@ class IoTAnalyticsEngine:
                     insight_type=secrets.choice(list(InsightType)),
                     title=f"Real-time {secrets.choice(['anomaly', 'trend', 'pattern'])} detected",
                     description=f"Real-time analysis detected {secrets.choice(['unusual', 'normal', 'expected'])} behavior",
-                    confidence=secrets.uniform(0.7, 0.95),
+                    confidence=random.uniform(0.7, 0.95),
                     severity=secrets.choice(list(AlertSeverity)),
                     timestamp=datetime.now(),
-                    data_points=[secrets.uniform(0, 100) for _ in range(10)],
+                    data_points=[random.uniform(0, 100) for _ in range(10)],
                     trend=secrets.choice(["increasing", "decreasing", "stable", "volatile"]),
-                    anomaly_score=secrets.uniform(0, 1) if secrets.choice([True, False]) else None
+                    anomaly_score=random.uniform(0, 1) if secrets.choice([True, False]) else None
                 )
                 
                 self.data_insights.append(insight)
@@ -413,7 +415,7 @@ class IoTAnalyticsEngine:
                 "anomalies_detected": secrets.randbelow(50) + 5,
                 "patterns_found": secrets.randbelow(20) + 2,
                 "trends_identified": secrets.randbelow(10) + 1,
-                "processing_time": secrets.uniform(10, 60)
+                "processing_time": random.uniform(10, 60)
             }
             
             # Keep only last 1000 jobs
@@ -442,10 +444,10 @@ class IoTAnalyticsEngine:
                     insight_type=InsightType.STREAMING,
                     title=f"Streaming {secrets.choice(['anomaly', 'trend', 'pattern'])} detected",
                     description=f"Streaming analysis detected {secrets.choice(['unusual', 'normal', 'expected'])} behavior",
-                    confidence=secrets.uniform(0.8, 0.98),
+                    confidence=random.uniform(0.8, 0.98),
                     severity=secrets.choice(list(AlertSeverity)),
                     timestamp=datetime.now(),
-                    data_points=[secrets.uniform(0, 100) for _ in range(5)],
+                    data_points=[random.uniform(0, 100) for _ in range(5)],
                     trend=secrets.choice(["increasing", "decreasing", "stable", "volatile"])
                 )
                 
@@ -469,7 +471,7 @@ class IoTAnalyticsEngine:
                 
                 # Update model
                 model.last_trained = datetime.now()
-                model.accuracy = min(0.99, model.accuracy + secrets.uniform(0, 0.05))
+                model.accuracy = min(0.99, model.accuracy + random.uniform(0, 0.05))
                 model.training_data_size += secrets.randbelow(1000) + 100
                 
                 logger.info(f"Retrained model: {model.model_id}")

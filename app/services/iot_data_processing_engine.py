@@ -9,6 +9,7 @@ import time
 import json
 import hashlib
 import secrets
+import random
 from typing import Dict, List, Any, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -279,13 +280,13 @@ class IoTDataProcessingEngine:
                     name=f"IoT Device {i+1}",
                     device_type=secrets.choice(device_types),
                     location=secrets.choice(locations),
-                    latitude=secrets.uniform(-90, 90),
-                    longitude=secrets.uniform(-180, 180),
-                    altitude=secrets.uniform(0, 1000),
+                    latitude=random.uniform(-90, 90),
+                    longitude=random.uniform(-180, 180),
+                    altitude=random.uniform(0, 1000),
                     sensors=[secrets.choice(sensor_types).value for _ in range(secrets.randbelow(5) + 1)],
                     firmware_version=f"{secrets.randbelow(3) + 1}.{secrets.randbelow(10)}.{secrets.randbelow(10)}",
-                    battery_level=secrets.uniform(0, 100),
-                    signal_strength=secrets.uniform(-100, -30),
+                    battery_level=random.uniform(0, 100),
+                    signal_strength=random.uniform(-100, -30),
                     last_seen=datetime.now() - timedelta(minutes=secrets.randbelow(60)),
                     is_online=secrets.choice([True, False])
                 )
@@ -345,23 +346,23 @@ class IoTDataProcessingEngine:
                 # Temperature with daily cycle
                 hour = datetime.now().hour
                 base_temp = 20 + 10 * np.sin(2 * np.pi * hour / 24)
-                return base_temp + secrets.uniform(-5, 5)
+                return base_temp + random.uniform(-5, 5)
             
             elif sensor_type == SensorType.HUMIDITY:
                 # Humidity with some variation
-                return secrets.uniform(30, 80)
+                return random.uniform(30, 80)
             
             elif sensor_type == SensorType.PRESSURE:
                 # Atmospheric pressure
-                return secrets.uniform(980, 1020)
+                return random.uniform(980, 1020)
             
             elif sensor_type == SensorType.LIGHT:
                 # Light with day/night cycle
                 hour = datetime.now().hour
                 if 6 <= hour <= 18:
-                    return secrets.uniform(100, 1000)
+                    return random.uniform(100, 1000)
                 else:
-                    return secrets.uniform(0, 10)
+                    return random.uniform(0, 10)
             
             elif sensor_type == SensorType.MOTION:
                 # Motion detection
@@ -369,16 +370,16 @@ class IoTDataProcessingEngine:
             
             elif sensor_type == SensorType.SOUND:
                 # Sound level
-                return secrets.uniform(30, 80)
+                return random.uniform(30, 80)
             
             elif sensor_type == SensorType.AIR_QUALITY:
                 # Air quality index
-                return secrets.uniform(0, 150)
+                return random.uniform(0, 150)
             
             else:
                 # Default random value within range
                 if isinstance(range_config, tuple):
-                    return secrets.uniform(range_config[0], range_config[1])
+                    return random.uniform(range_config[0], range_config[1])
                 else:
                     return 0.0
             
@@ -661,11 +662,11 @@ class IoTDataProcessingEngine:
                 
                 # Update battery level (simulate battery drain)
                 if device.battery_level is not None:
-                    device.battery_level = max(0, device.battery_level - secrets.uniform(0, 0.1))
+                    device.battery_level = max(0, device.battery_level - random.uniform(0, 0.1))
                 
                 # Update signal strength (simulate signal variation)
                 if device.signal_strength is not None:
-                    device.signal_strength += secrets.uniform(-5, 5)
+                    device.signal_strength += random.uniform(-5, 5)
                     device.signal_strength = max(-100, min(-30, device.signal_strength))
             
             online_count = len([d for d in self.devices.values() if d.is_online])
@@ -703,7 +704,8 @@ class IoTDataProcessingEngine:
     # Public API methods
     async def get_devices(self, device_type: Optional[str] = None,
                          location: Optional[str] = None,
-                         online_only: bool = False) -> List[Dict[str, Any]]:
+                         online_only: bool = False,
+                         limit: int = 100) -> List[Dict[str, Any]]:
         """Get IoT devices"""
         try:
             devices = list(self.devices.values())
@@ -719,6 +721,9 @@ class IoTDataProcessingEngine:
             # Filter by online status
             if online_only:
                 devices = [d for d in devices if d.is_online]
+            
+            # Limit results
+            devices = devices[:limit]
             
             return [
                 {

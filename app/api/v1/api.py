@@ -83,6 +83,9 @@ from app.api.v1.endpoints import (
     advanced_blockchain_api,
     defi_protocol_api,
     smart_contract_api,
+    iot_data_processing_api,
+    iot_device_management_api,
+    iot_analytics_api,
 )
 
 api_router = APIRouter()
@@ -308,4 +311,13 @@ api_router.include_router(
 )
 api_router.include_router(
     smart_contract_api.router, prefix="/smart-contracts", tags=["smart-contracts"]
+)
+api_router.include_router(
+    iot_data_processing_api.router, prefix="/iot-data", tags=["iot-data"]
+)
+api_router.include_router(
+    iot_device_management_api.router, prefix="/iot-devices", tags=["iot-devices"]
+)
+api_router.include_router(
+    iot_analytics_api.router, prefix="/iot-analytics", tags=["iot-analytics"]
 )

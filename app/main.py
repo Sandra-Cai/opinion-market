@@ -72,6 +72,9 @@ from app.services.anomaly_detection_engine import anomaly_detection_engine
 from app.services.advanced_blockchain_engine import advanced_blockchain_engine
 from app.services.defi_protocol_manager import defi_protocol_manager
 from app.services.smart_contract_engine import smart_contract_engine
+from app.services.iot_data_processing_engine import iot_data_processing_engine
+from app.services.iot_device_management_engine import iot_device_management_engine
+from app.services.iot_analytics_engine import iot_analytics_engine
 
 # Create database tables (only if using SQLite for development)
 if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
@@ -321,6 +324,18 @@ async def lifespan(app: FastAPI):
     await smart_contract_engine.start_smart_contract_engine()
     print("✅ Smart Contract Engine initialized")
 
+    # Initialize IoT data processing engine
+    await iot_data_processing_engine.start_iot_processing_engine()
+    print("✅ IoT Data Processing Engine initialized")
+
+    # Initialize IoT device management engine
+    await iot_device_management_engine.start_device_management_engine()
+    print("✅ IoT Device Management Engine initialized")
+
+    # Initialize IoT analytics engine
+    await iot_analytics_engine.start_analytics_engine()
+    print("✅ IoT Analytics Engine initialized")
+
         # Start price feed service in background
         price_feed_task = asyncio.create_task(price_feed_manager.start_price_feed())
 
@@ -456,6 +471,15 @@ async def lifespan(app: FastAPI):
 
     # Stop smart contract engine
     await smart_contract_engine.stop_smart_contract_engine()
+
+    # Stop IoT data processing engine
+    await iot_data_processing_engine.stop_iot_processing_engine()
+
+    # Stop IoT device management engine
+    await iot_device_management_engine.stop_device_management_engine()
+
+    # Stop IoT analytics engine
+    await iot_analytics_engine.stop_analytics_engine()
     
     print("✅ Enhanced systems stopped")
 

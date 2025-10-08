@@ -56,12 +56,27 @@ class Trade(Base):
     additional_data = Column(JSON, default=dict)  # Additional trade metadata
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    executed_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    executed_at = Column(DateTime, default=func.now(), nullable=False)
 
     # Relationships
     market = relationship("Market", back_populates="trades")
     user = relationship("User", back_populates="trades")
+
+    # Table constraints and indexes
+    __table_args__ = (
+        CheckConstraint('amount > 0', name='check_positive_amount'),
+        CheckConstraint('price_per_share >= 0 AND price_per_share <= 1', name='check_price_range'),
+        CheckConstraint('total_value > 0', name='check_positive_total_value'),
+        CheckConstraint('fee_amount >= 0', name='check_non_negative_fee'),
+        CheckConstraint('price_impact >= 0', name='check_non_negative_price_impact'),
+        Index('idx_trade_user', 'user_id'),
+        Index('idx_trade_market', 'market_id'),
+        Index('idx_trade_created_at', 'created_at'),
+        Index('idx_trade_status', 'status'),
+        Index('idx_trade_type', 'trade_type'),
+        Index('idx_trade_outcome', 'outcome'),
+    )
 
     @property
     def is_buy(self) -> bool:

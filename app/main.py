@@ -211,9 +211,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Set enhanced OpenAPI schema
-app.openapi = lambda: create_enhanced_openapi_schema(app)
-
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -226,16 +223,29 @@ app.add_middleware(
 # Security
 security = HTTPBearer()
 
-# Include API routes
-app.include_router(api_router, prefix="/api/v1")
+# Include API routes if available
+if api_router:
+    app.include_router(api_router, prefix="/api/v1")
+else:
+    # Create basic router if main router is not available
+    from fastapi import APIRouter
+    basic_router = APIRouter()
+    
+    @basic_router.get("/")
+    async def api_root():
+        return {"message": "Opinion Market API", "version": "2.0.0"}
+    
+    app.include_router(basic_router, prefix="/api/v1")
 
 
 @app.get("/")
 async def root():
+    """Root endpoint with system status"""
     return {
         "message": "Welcome to Opinion Market API",
         "version": "2.0.0",
         "description": "A comprehensive prediction market platform with advanced features",
+        "status": "operational",
         "docs": "/docs",
         "redoc": "/redoc",
         "openapi": "/openapi.json",
@@ -249,6 +259,14 @@ async def root():
             "Enterprise Security",
             "Performance Optimization",
         ],
+        "services": {
+            "ml_service": ml_service is not None,
+            "analytics_service": analytics_service is not None,
+            "market_service": market_service is not None,
+            "real_time_engine": real_time_engine is not None,
+            "alerting_system": alerting_system is not None,
+            "price_feed": price_feed_manager is not None,
+        }
     }
 
 

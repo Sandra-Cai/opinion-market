@@ -9,10 +9,14 @@ from sqlalchemy import (
     Enum,
     JSON,
     ForeignKey,
+    Index,
+    CheckConstraint,
 )
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy.sql import func
+from datetime import datetime, timedelta
 import enum
+from typing import Optional, Dict, Any, List
 from app.core.database import Base
 
 
@@ -115,6 +119,26 @@ class Market(Base):
     trades = relationship("Trade", back_populates="market")
     votes = relationship("Vote", back_populates="market")
     disputes = relationship("MarketDispute", back_populates="market")
+
+    # Table constraints and indexes
+    __table_args__ = (
+        CheckConstraint('current_price_a >= 0 AND current_price_a <= 1', name='check_price_a_range'),
+        CheckConstraint('current_price_b >= 0 AND current_price_b <= 1', name='check_price_b_range'),
+        CheckConstraint('total_liquidity > 0', name='check_positive_liquidity'),
+        CheckConstraint('liquidity_pool_a >= 0', name='check_positive_pool_a'),
+        CheckConstraint('liquidity_pool_b >= 0', name='check_positive_pool_b'),
+        CheckConstraint('fee_rate >= 0 AND fee_rate <= 0.1', name='check_fee_rate_range'),
+        CheckConstraint('min_trade_amount > 0', name='check_positive_min_trade'),
+        CheckConstraint('max_trade_amount > min_trade_amount', name='check_max_greater_than_min'),
+        Index('idx_market_status', 'status'),
+        Index('idx_market_category', 'category'),
+        Index('idx_market_creator', 'creator_id'),
+        Index('idx_market_created_at', 'created_at'),
+        Index('idx_market_closes_at', 'closes_at'),
+        Index('idx_market_quality_score', 'market_quality_score'),
+        Index('idx_market_trending_score', 'trending_score'),
+        Index('idx_market_volume_total', 'volume_total'),
+    )
 
     @property
     def is_active(self) -> bool:

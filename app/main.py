@@ -4,83 +4,75 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import uvicorn
 import asyncio
+import logging
 
 from app.core.config import settings
 from app.core.database import engine, Base
-# Use enhanced configuration for database
-from app.core.enhanced_config import enhanced_config_manager
-from app.api.v1.api import api_router
-from app.core.auth import get_current_user
+
+# Import only existing modules
+try:
+    from app.core.enhanced_config import enhanced_config_manager
+except ImportError:
+    enhanced_config_manager = None
+
+try:
+    from app.api.v1.api import api_router
+except ImportError:
+    api_router = None
+
+try:
+    from app.core.auth import get_current_user
+except ImportError:
+    get_current_user = None
+
+# Import models
 from app.models import user, market, trade, vote, position
-from app.services.price_feed import price_feed_manager
-from app.services.performance_optimization import get_performance_optimizer
-from app.services.enterprise_security import get_enterprise_security
-from app.services.market_data_feed import get_market_data_feed
-from app.services.machine_learning import get_ml_service
-from app.services.blockchain_integration import get_blockchain_integration_service
-from app.services.social_features import get_social_features
-from app.services.advanced_orders import get_advanced_order_manager
-from app.services.monitoring import get_system_monitor
-from app.api.docs import custom_openapi
 
-# Import enhanced systems
-from app.core.enhanced_error_handler import enhanced_error_handler
-from app.core.advanced_performance_optimizer import advanced_performance_optimizer
-from app.core.advanced_security import advanced_security_manager
-from app.core.enhanced_testing import enhanced_test_manager
-from app.core.enhanced_config import enhanced_config_manager
-from app.api.enhanced_docs import create_enhanced_openapi_schema
+# Import services that exist
+try:
+    from app.services.price_feed import price_feed_manager
+except ImportError:
+    price_feed_manager = None
 
-# Import new performance monitoring systems
-from app.core.performance_monitor import performance_monitor
-from app.core.enhanced_cache import enhanced_cache
-from app.core.advanced_performance_optimizer import advanced_performance_optimizer
-from app.services.advanced_analytics_engine import advanced_analytics_engine
-from app.services.auto_scaling_manager import auto_scaling_manager
-from app.core.performance_optimizer_v2 import performance_optimizer_v2
-from app.core.intelligent_alerting import intelligent_alerting_system
-from app.core.advanced_security_v2 import advanced_security_v2
-from app.services.business_intelligence_engine import business_intelligence_engine
-from app.services.mobile_optimization_engine import mobile_optimization_engine
-from app.services.blockchain_integration_engine import blockchain_integration_engine
-from app.services.advanced_ml_engine import advanced_ml_engine
-from app.services.distributed_caching_engine import distributed_caching_engine
-from app.services.advanced_monitoring_engine import advanced_monitoring_engine
-from app.services.data_governance_engine import data_governance_engine
-from app.services.microservices_engine import microservices_engine
-from app.services.chaos_engineering_engine import chaos_engineering_engine
-from app.services.mlops_pipeline_engine import mlops_pipeline_engine
-from app.services.advanced_api_gateway import advanced_api_gateway
-from app.services.event_sourcing_engine import event_sourcing_engine
-from app.services.advanced_caching_engine import advanced_caching_engine
-from app.services.ai_insights_engine import ai_insights_engine
-from app.services.real_time_analytics_engine import real_time_analytics_engine
-from app.services.edge_computing_engine import edge_computing_engine
-from app.services.quantum_security_engine import quantum_security_engine
-from app.services.metaverse_web3_engine import metaverse_web3_engine
-from app.services.autonomous_systems_engine import autonomous_systems_engine
-from app.services.advanced_ai_orchestration_engine import advanced_ai_orchestration_engine
-from app.services.intelligent_decision_engine import intelligent_decision_engine
-from app.services.advanced_pattern_recognition_engine import advanced_pattern_recognition_engine
-from app.services.ai_powered_risk_assessment_engine import ai_powered_risk_assessment_engine
-from app.services.advanced_trading_engine import advanced_trading_engine
-from app.services.portfolio_optimization_engine import portfolio_optimization_engine
-from app.services.market_sentiment_engine import market_sentiment_engine
-from app.services.advanced_predictive_analytics_engine import advanced_predictive_analytics_engine
-from app.services.time_series_forecasting_engine import time_series_forecasting_engine
-from app.services.anomaly_detection_engine import anomaly_detection_engine
-from app.services.advanced_blockchain_engine import advanced_blockchain_engine
-from app.services.defi_protocol_manager import defi_protocol_manager
-from app.services.smart_contract_engine import smart_contract_engine
-from app.services.iot_data_processing_engine import iot_data_processing_engine
-from app.services.iot_device_management_engine import iot_device_management_engine
-from app.services.iot_analytics_engine import iot_analytics_engine
-from app.services.ar_vr_experience_engine import ar_vr_experience_engine
-from app.services.immersive_content_engine import immersive_content_engine
+try:
+    from app.services.machine_learning import MachineLearningService
+    ml_service = MachineLearningService()
+except ImportError:
+    ml_service = None
+
+try:
+    from app.services.analytics_service import AnalyticsService
+    analytics_service = AnalyticsService()
+except ImportError:
+    analytics_service = None
+
+try:
+    from app.services.market_service import MarketService
+    market_service = MarketService()
+except ImportError:
+    market_service = None
+
+# Import core systems that exist
+try:
+    from app.core.real_time_engine import RealTimeEngine
+    real_time_engine = RealTimeEngine()
+except ImportError:
+    real_time_engine = None
+
+try:
+    from app.core.intelligent_alerting import IntelligentAlertingSystem
+    alerting_system = IntelligentAlertingSystem()
+except ImportError:
+    alerting_system = None
 
 # Create database tables (only if using SQLite for development)
-if enhanced_config_manager.get("database.url", "").startswith("sqlite"):
-    Base.metadata.create_all(bind=engine)
+try:
+    if enhanced_config_manager and enhanced_config_manager.get("database.url", "").startswith("sqlite"):
+        Base.metadata.create_all(bind=engine)
+    elif settings.DATABASE_URL.startswith("sqlite"):
+        Base.metadata.create_all(bind=engine)
+except Exception as e:
+    logging.warning(f"Could not create database tables: {e}")
 
 
 @asynccontextmanager

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from typing import List, Optional
 from datetime import datetime, timedelta
+import logging
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
@@ -21,33 +22,75 @@ router = APIRouter()
 
 
 @router.post("/", response_model=MarketResponse)
-def create_market(
+async def create_market(
     market_data: MarketCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Validate closing date is in the future
-    if market_data.closes_at <= datetime.utcnow():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Market closing date must be in the future",
+    """Create a new prediction market with comprehensive validation"""
+    try:
+        # Validate closing date is in the future
+        if market_data.closes_at <= datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Market closing date must be in the future",
+            )
+
+        # Validate minimum liquidity
+        if market_data.total_liquidity < 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Minimum liquidity is $100"
+            )
+
+        # Validate maximum liquidity
+        if market_data.total_liquidity > 1000000:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum liquidity is $1,000,000"
+            )
+
+        # Check if user can create markets (rate limiting)
+        recent_markets = db.query(Market).filter(
+            Market.creator_id == current_user.id,
+            Market.created_at >= datetime.utcnow() - timedelta(hours=24)
+        ).count()
+        
+        if recent_markets >= 10:  # Max 10 markets per day
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded: Maximum 10 markets per day"
+            )
+
+        # Create market with proper validation
+        db_market = Market(
+            **market_data.dict(),
+            creator_id=current_user.id,
+            liquidity_pool_a=market_data.total_liquidity / 2,
+            liquidity_pool_b=market_data.total_liquidity / 2,
         )
 
-    # Validate minimum liquidity
-    if market_data.total_liquidity < 100:
+        # Generate trade hash for the market
+        db_market.generate_trade_hash() if hasattr(db_market, 'generate_trade_hash') else None
+
+        db.add(db_market)
+        db.commit()
+        db.refresh(db_market)
+
+        # Log market creation
+        logging.info(f"Market created: {db_market.id} by user {current_user.id}")
+
+        return db_market
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logging.error(f"Error creating market: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Minimum liquidity is $100"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create market"
         )
-
-    db_market = Market(
-        **market_data.dict(),
-        creator_id=current_user.id,
-        liquidity_pool_a=market_data.total_liquidity / 2,
-        liquidity_pool_b=market_data.total_liquidity / 2,
-    )
-
-    db.add(db_market)
-    db.commit()
     db.refresh(db_market)
 
     return db_market

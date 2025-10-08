@@ -113,3 +113,95 @@ class Trade(Base):
         if market_liquidity == 0:
             return 0.0
         return (self.total_value / market_liquidity) * 100
+
+    def generate_trade_hash(self) -> str:
+        """Generate unique trade hash"""
+        if not self.trade_hash:
+            data = f"{self.user_id}_{self.market_id}_{self.amount}_{self.price_per_share}_{self.created_at}_{secrets.token_hex(8)}"
+            self.trade_hash = hashlib.sha256(data.encode()).hexdigest()
+        return self.trade_hash
+
+    def get_trade_summary(self) -> Dict[str, Any]:
+        """Get comprehensive trade summary"""
+        return {
+            "id": self.id,
+            "trade_hash": self.trade_hash,
+            "user_id": self.user_id,
+            "market_id": self.market_id,
+            "trade_type": self.trade_type.value,
+            "outcome": self.outcome.value,
+            "amount": self.amount,
+            "price_per_share": self.price_per_share,
+            "total_value": self.total_value,
+            "fee_amount": self.fee_amount,
+            "net_value": self.net_value,
+            "price_impact": self.price_impact,
+            "slippage": self.slippage,
+            "status": self.status.value,
+            "created_at": self.created_at.isoformat(),
+            "executed_at": self.executed_at.isoformat(),
+            "profit_loss": self.profit_loss,
+            "gas_fee": self.gas_fee,
+        }
+
+    def is_executed(self) -> bool:
+        """Check if trade is executed"""
+        return self.status == TradeStatus.EXECUTED
+
+    def is_pending(self) -> bool:
+        """Check if trade is pending"""
+        return self.status == TradeStatus.PENDING
+
+    def is_cancelled(self) -> bool:
+        """Check if trade is cancelled"""
+        return self.status == TradeStatus.CANCELLED
+
+    def is_failed(self) -> bool:
+        """Check if trade failed"""
+        return self.status == TradeStatus.FAILED
+
+    def calculate_total_cost(self) -> float:
+        """Calculate total cost including fees and gas"""
+        return self.net_value + self.gas_fee
+
+    def get_execution_time(self) -> Optional[float]:
+        """Get trade execution time in seconds"""
+        if self.executed_at and self.created_at:
+            return (self.executed_at - self.created_at).total_seconds()
+        return None
+
+    def update_status(self, new_status: TradeStatus):
+        """Update trade status with timestamp"""
+        self.status = new_status
+        if new_status == TradeStatus.EXECUTED:
+            self.executed_at = datetime.utcnow()
+
+    def validate_trade_data(self) -> Dict[str, Any]:
+        """Validate trade data integrity"""
+        validation_result = {
+            "valid": True,
+            "errors": [],
+            "warnings": []
+        }
+
+        # Check amount
+        if self.amount <= 0:
+            validation_result["valid"] = False
+            validation_result["errors"].append("Trade amount must be positive")
+
+        # Check price
+        if self.price_per_share < 0 or self.price_per_share > 1:
+            validation_result["valid"] = False
+            validation_result["errors"].append("Price per share must be between 0 and 1")
+
+        # Check total value consistency
+        expected_total = self.amount * self.price_per_share
+        if abs(self.total_value - expected_total) > 0.01:  # Allow small floating point differences
+            validation_result["warnings"].append("Total value doesn't match amount * price_per_share")
+
+        # Check fee
+        if self.fee_amount < 0:
+            validation_result["valid"] = False
+            validation_result["errors"].append("Fee amount cannot be negative")
+
+        return validation_result

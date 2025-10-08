@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 import asyncio
 import logging
+from datetime import datetime
 
 from app.core.config import settings
 from app.core.database import engine, Base
@@ -272,20 +273,49 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "opinion-market-api"}
+    """Comprehensive health check endpoint"""
+    health_status = {
+        "status": "healthy",
+        "service": "opinion-market-api",
+        "version": "2.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "services": {}
+    }
+    
+    # Check service health
+    if ml_service:
+        health_status["services"]["ml_service"] = "healthy"
+    if analytics_service:
+        health_status["services"]["analytics_service"] = "healthy"
+    if market_service:
+        health_status["services"]["market_service"] = "healthy"
+    if real_time_engine:
+        health_status["services"]["real_time_engine"] = "healthy"
+    if alerting_system:
+        health_status["services"]["alerting_system"] = "healthy"
+    
+    return health_status
 
 
 @app.get("/ready")
 async def readiness_check():
-    return {"status": "ready", "service": "opinion-market-api"}
+    """Readiness check endpoint"""
+    return {
+        "status": "ready", 
+        "service": "opinion-market-api",
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
 
 @app.get("/metrics")
 async def metrics():
-    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-    from fastapi.responses import Response
-
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    """Metrics endpoint"""
+    try:
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        from fastapi.responses import Response
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    except ImportError:
+        return {"error": "Prometheus client not available"}
 
 
 if __name__ == "__main__":

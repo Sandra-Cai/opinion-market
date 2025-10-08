@@ -274,3 +274,107 @@ class Market(Base):
 
         self.trending_score = min(100, base_score)
         return self.trending_score
+
+    def validate_trade(self, amount: float, outcome: str) -> Dict[str, Any]:
+        """Validate if a trade can be executed"""
+        validation_result = {
+            "valid": True,
+            "errors": [],
+            "warnings": []
+        }
+
+        # Check if market is active
+        if not self.is_active:
+            validation_result["valid"] = False
+            validation_result["errors"].append("Market is not active for trading")
+
+        # Check amount constraints
+        if amount < self.min_trade_amount:
+            validation_result["valid"] = False
+            validation_result["errors"].append(f"Trade amount below minimum: ${self.min_trade_amount}")
+
+        if amount > self.max_trade_amount:
+            validation_result["valid"] = False
+            validation_result["errors"].append(f"Trade amount above maximum: ${self.max_trade_amount}")
+
+        # Check liquidity
+        if outcome == "outcome_a" and self.liquidity_pool_a < amount:
+            validation_result["warnings"].append("Insufficient liquidity for outcome A")
+        elif outcome == "outcome_b" and self.liquidity_pool_b < amount:
+            validation_result["warnings"].append("Insufficient liquidity for outcome B")
+
+        return validation_result
+
+    def get_market_summary(self) -> Dict[str, Any]:
+        """Get comprehensive market summary"""
+        return {
+            "id": self.id,
+            "title": self.title,
+            "question": self.question,
+            "category": self.category.value,
+            "status": self.status.value,
+            "current_prices": {
+                "outcome_a": self.current_price_a,
+                "outcome_b": self.current_price_b
+            },
+            "liquidity": {
+                "total": self.total_liquidity,
+                "pool_a": self.liquidity_pool_a,
+                "pool_b": self.liquidity_pool_b
+            },
+            "volume": {
+                "total": self.volume_total,
+                "24h": self.volume_24h
+            },
+            "trading": {
+                "total_trades": self.total_trades,
+                "unique_traders": self.unique_traders,
+                "min_trade": self.min_trade_amount,
+                "max_trade": self.max_trade_amount,
+                "fee_rate": self.fee_rate
+            },
+            "quality": {
+                "score": self.market_quality_score,
+                "trending_score": self.trending_score,
+                "is_trending": self.is_trending,
+                "is_verified": self.is_verified
+            },
+            "timing": {
+                "created_at": self.created_at.isoformat(),
+                "closes_at": self.closes_at.isoformat(),
+                "time_until_close": self.time_until_close
+            }
+        }
+
+    def calculate_implied_probability(self) -> Dict[str, float]:
+        """Calculate implied probabilities from current prices"""
+        return {
+            "outcome_a": self.current_price_a,
+            "outcome_b": self.current_price_b,
+            "total": self.current_price_a + self.current_price_b
+        }
+
+    def get_trading_limits(self) -> Dict[str, float]:
+        """Get trading limits and constraints"""
+        return {
+            "min_trade_amount": self.min_trade_amount,
+            "max_trade_amount": self.max_trade_amount,
+            "fee_rate": self.fee_rate,
+            "available_liquidity_a": self.liquidity_pool_a,
+            "available_liquidity_b": self.liquidity_pool_b
+        }
+
+    def is_ready_for_resolution(self) -> bool:
+        """Check if market is ready for resolution"""
+        return (
+            self.status == MarketStatus.OPEN and 
+            datetime.utcnow() >= self.closes_at
+        )
+
+    def can_be_disputed(self) -> bool:
+        """Check if market can be disputed"""
+        return (
+            self.status == MarketStatus.RESOLVED and 
+            self.dispute_count == 0 and
+            datetime.utcnow() <= self.resolved_at + timedelta(days=7) if self.resolved_at else False
+        )

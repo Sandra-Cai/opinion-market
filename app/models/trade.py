@@ -1,7 +1,11 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Enum, JSON, ForeignKey, Index, CheckConstraint
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 import enum
+import hashlib
+import secrets
+from typing import Optional, Dict, Any
 from app.core.database import Base
 
 

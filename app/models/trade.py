@@ -22,8 +22,10 @@ class TradeOutcome(str, enum.Enum):
 class TradeStatus(str, enum.Enum):
     PENDING = "pending"
     EXECUTED = "executed"
+    COMPLETED = "completed"
     CANCELLED = "cancelled"
     FAILED = "failed"
+    PARTIALLY_FILLED = "partially_filled"
 
 
 class Trade(Base):
@@ -37,14 +39,22 @@ class Trade(Base):
         Enum(TradeOutcome), nullable=False
     )  # Which outcome they're trading
     amount = Column(Float, nullable=False)  # Number of shares
-    price_per_share = Column(Float, nullable=False)  # Price at time of trade
+    price_a = Column(Float, nullable=False)  # Price for outcome A at time of trade
+    price_b = Column(Float, nullable=False)  # Price for outcome B at time of trade
+    price_per_share = Column(Float, nullable=False)  # Price at time of trade (for compatibility)
     total_value = Column(Float, nullable=False)  # amount * price_per_share
 
     # Advanced trade details
-    status = Column(Enum(TradeStatus), default=TradeStatus.EXECUTED)
-    fee_amount = Column(Float, default=0.0)  # Trading fee
+    status = Column(Enum(TradeStatus), default=TradeStatus.COMPLETED)
+    fee = Column(Float, default=0.0)  # Trading fee (renamed from fee_amount)
+    fee_amount = Column(Float, default=0.0)  # Trading fee (for compatibility)
     price_impact = Column(Float, default=0.0)  # Price impact of this trade
     slippage = Column(Float, default=0.0)  # Slippage from expected price
+    
+    # Order details
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # Link to order if applicable
+    fill_amount = Column(Float, nullable=True)  # Actual amount filled (for partial fills)
+    fill_price = Column(Float, nullable=True)  # Actual fill price
 
     # Market and user
     market_id = Column(Integer, ForeignKey("markets.id"), nullable=False)
@@ -62,6 +72,7 @@ class Trade(Base):
     # Relationships
     market = relationship("Market", back_populates="trades")
     user = relationship("User", back_populates="trades")
+    order = relationship("Order", back_populates="trades", foreign_keys=[order_id])
 
     # Table constraints and indexes
     __table_args__ = (

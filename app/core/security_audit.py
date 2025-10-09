@@ -1,538 +1,628 @@
 """
-Comprehensive Security Audit System
-Provides automated security scanning, vulnerability detection, and compliance monitoring
+Security audit and compliance system for Opinion Market
+Provides comprehensive security monitoring, audit logging, and compliance reporting
 """
 
 import asyncio
-import logging
 import hashlib
-import re
-import json
-import time
-from typing import Dict, Any, List, Optional, Set, Tuple
+import secrets
 from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
-import threading
-from collections import defaultdict, deque
-import subprocess
-import os
-import ast
-import inspect
+import json
+import ipaddress
+import re
 
-logger = logging.getLogger(__name__)
+from app.core.logging import log_security_event
+from app.core.config import settings
+from app.core.database import get_db_session
+from app.core.cache import cache
 
 
-class SecurityLevel(Enum):
-    """Security severity levels"""
+class SecurityEventType(str, Enum):
+    LOGIN_SUCCESS = "login_success"
+    LOGIN_FAILURE = "login_failure"
+    LOGOUT = "logout"
+    PASSWORD_CHANGE = "password_change"
+    ACCOUNT_LOCKED = "account_locked"
+    SUSPICIOUS_ACTIVITY = "suspicious_activity"
+    RATE_LIMIT_EXCEEDED = "rate_limit_exceeded"
+    UNAUTHORIZED_ACCESS = "unauthorized_access"
+    DATA_ACCESS = "data_access"
+    DATA_MODIFICATION = "data_modification"
+    ADMIN_ACTION = "admin_action"
+    SECURITY_VIOLATION = "security_violation"
+
+
+class RiskLevel(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
 
-class VulnerabilityType(Enum):
-    """Types of security vulnerabilities"""
-    SQL_INJECTION = "sql_injection"
-    XSS = "cross_site_scripting"
-    CSRF = "cross_site_request_forgery"
-    PATH_TRAVERSAL = "path_traversal"
-    COMMAND_INJECTION = "command_injection"
-    WEAK_AUTHENTICATION = "weak_authentication"
-    INSECURE_DESERIALIZATION = "insecure_deserialization"
-    SECURITY_MISCONFIGURATION = "security_misconfiguration"
-    SENSITIVE_DATA_EXPOSURE = "sensitive_data_exposure"
-    BROKEN_ACCESS_CONTROL = "broken_access_control"
+@dataclass
+class SecurityEvent:
+    """Security event record"""
+    event_id: str
+    event_type: SecurityEventType
+    user_id: Optional[int]
+    ip_address: str
+    user_agent: Optional[str]
+    timestamp: datetime
+    details: Dict[str, Any] = field(default_factory=dict)
+    risk_level: RiskLevel = RiskLevel.LOW
+    resolved: bool = False
+    resolution_notes: Optional[str] = None
 
 
 @dataclass
-class SecurityVulnerability:
-    """Security vulnerability data structure"""
-    id: str
-    type: VulnerabilityType
-    severity: SecurityLevel
-    title: str
+class SecurityPolicy:
+    """Security policy configuration"""
+    name: str
     description: str
-    file_path: str
-    line_number: int
-    code_snippet: str
-    recommendation: str
-    cwe_id: Optional[str] = None
-    owasp_category: Optional[str] = None
-    detected_at: datetime = field(default_factory=datetime.now)
-    status: str = "open"  # open, fixed, false_positive, accepted_risk
-    false_positive: bool = False
-
-
-@dataclass
-class SecurityCompliance:
-    """Security compliance data structure"""
-    standard: str  # OWASP, NIST, ISO27001, etc.
-    requirement: str
-    status: str  # compliant, non_compliant, partial
-    evidence: List[str] = field(default_factory=list)
-    last_checked: datetime = field(default_factory=datetime.now)
-
-
-@dataclass
-class SecurityMetrics:
-    """Security metrics data structure"""
-    total_vulnerabilities: int = 0
-    critical_vulnerabilities: int = 0
-    high_vulnerabilities: int = 0
-    medium_vulnerabilities: int = 0
-    low_vulnerabilities: int = 0
-    fixed_vulnerabilities: int = 0
-    false_positives: int = 0
-    compliance_score: float = 0.0
-    last_scan: Optional[datetime] = None
-    scan_duration: float = 0.0
+    enabled: bool = True
+    severity: RiskLevel = RiskLevel.MEDIUM
+    conditions: Dict[str, Any] = field(default_factory=dict)
+    actions: List[str] = field(default_factory=list)
 
 
 class SecurityAuditor:
     """Comprehensive security audit system"""
     
     def __init__(self):
-        self.vulnerabilities: Dict[str, SecurityVulnerability] = {}
-        self.compliance_checks: List[SecurityCompliance] = []
-        self.metrics = SecurityMetrics()
-        self.scan_patterns: Dict[VulnerabilityType, List[str]] = {
-            VulnerabilityType.SQL_INJECTION: [
-                r"execute\s*\(\s*['\"].*%.*['\"]",
-                r"query\s*\(\s*['\"].*%.*['\"]",
-                r"cursor\.execute\s*\(\s*['\"].*%.*['\"]",
-                r"SELECT.*FROM.*WHERE.*%",
-                r"INSERT.*INTO.*VALUES.*%",
-                r"UPDATE.*SET.*WHERE.*%",
-                r"DELETE.*FROM.*WHERE.*%",
-            ],
-            VulnerabilityType.XSS: [
-                r"render_template_string\s*\(",
-                r"Markup\s*\(",
-                r"safe\s*\(",
-                r"innerHTML\s*=",
-                r"document\.write\s*\(",
-                r"eval\s*\(",
-            ],
-            VulnerabilityType.PATH_TRAVERSAL: [
-                r"open\s*\(\s*['\"].*\.\./",
-                r"file\s*\(\s*['\"].*\.\./",
-                r"os\.path\.join\s*\(.*\.\./",
-                r"\.\./.*\.\./",
-                r"%2e%2e%2f",
-                r"%2e%2e%5c",
-            ],
-            VulnerabilityType.COMMAND_INJECTION: [
-                r"os\.system\s*\(",
-                r"subprocess\.call\s*\(",
-                r"subprocess\.run\s*\(",
-                r"subprocess\.Popen\s*\(",
-                r"shell\s*=\s*True",
-                r"eval\s*\(",
-                r"exec\s*\(",
-            ],
-            VulnerabilityType.WEAK_AUTHENTICATION: [
-                r"password\s*=\s*['\"][^'\"]{1,7}['\"]",
-                r"SECRET_KEY\s*=\s*['\"]test['\"]",
-                r"DEBUG\s*=\s*True",
-                r"password.*123",
-                r"admin.*admin",
-            ],
-            VulnerabilityType.SENSITIVE_DATA_EXPOSURE: [
-                r"print\s*\(\s*password",
-                r"logger\.info\s*\(\s*password",
-                r"console\.log\s*\(\s*password",
-                r"api_key.*=.*['\"][^'\"]+['\"]",
-                r"secret.*=.*['\"][^'\"]+['\"]",
-            ],
+        self.security_events: List[SecurityEvent] = []
+        self.security_policies: Dict[str, SecurityPolicy] = {}
+        self.blocked_ips: Set[str] = set()
+        self.suspicious_ips: Set[str] = set()
+        self.user_failed_attempts: Dict[int, List[datetime]] = {}
+        self.ip_failed_attempts: Dict[str, List[datetime]] = {}
+        self.running = False
+        
+        # Initialize security policies
+        self._setup_default_policies()
+    
+    def _setup_default_policies(self):
+        """Setup default security policies"""
+        self.security_policies = {
+            "multiple_failed_logins": SecurityPolicy(
+                name="Multiple Failed Logins",
+                description="Detect multiple failed login attempts",
+                conditions={
+                    "max_attempts": 5,
+                    "time_window": 300,  # 5 minutes
+                    "action": "temporary_lock"
+                },
+                actions=["log_event", "temporary_lock", "notify_admin"],
+                severity=RiskLevel.HIGH
+            ),
+            "suspicious_ip_activity": SecurityPolicy(
+                name="Suspicious IP Activity",
+                description="Detect suspicious activity from IP addresses",
+                conditions={
+                    "max_requests": 100,
+                    "time_window": 60,  # 1 minute
+                    "action": "rate_limit"
+                },
+                actions=["log_event", "rate_limit", "monitor"],
+                severity=RiskLevel.MEDIUM
+            ),
+            "unusual_access_pattern": SecurityPolicy(
+                name="Unusual Access Pattern",
+                description="Detect unusual access patterns",
+                conditions={
+                    "max_different_ips": 5,
+                    "time_window": 3600,  # 1 hour
+                    "action": "investigate"
+                },
+                actions=["log_event", "investigate", "notify_user"],
+                severity=RiskLevel.MEDIUM
+            ),
+            "admin_action_monitoring": SecurityPolicy(
+                name="Admin Action Monitoring",
+                description="Monitor all admin actions",
+                conditions={
+                    "require_approval": True,
+                    "log_all": True
+                },
+                actions=["log_event", "require_approval", "audit_trail"],
+                severity=RiskLevel.HIGH
+            ),
+            "data_breach_detection": SecurityPolicy(
+                name="Data Breach Detection",
+                description="Detect potential data breaches",
+                conditions={
+                    "max_data_access": 1000,
+                    "time_window": 300,  # 5 minutes
+                    "action": "immediate_alert"
+                },
+                actions=["log_event", "immediate_alert", "block_access"],
+                severity=RiskLevel.CRITICAL
+            )
         }
+    
+    async def start(self):
+        """Start security audit system"""
+        if self.running:
+            return
         
-        self.compliance_standards = {
-            "OWASP_TOP_10": [
-                "A01:2021 – Broken Access Control",
-                "A02:2021 – Cryptographic Failures",
-                "A03:2021 – Injection",
-                "A04:2021 – Insecure Design",
-                "A05:2021 – Security Misconfiguration",
-                "A06:2021 – Vulnerable and Outdated Components",
-                "A07:2021 – Identification and Authentication Failures",
-                "A08:2021 – Software and Data Integrity Failures",
-                "A09:2021 – Security Logging and Monitoring Failures",
-                "A10:2021 – Server-Side Request Forgery (SSRF)",
-            ],
-            "NIST_CYBERSECURITY_FRAMEWORK": [
-                "Identify: Asset Management",
-                "Identify: Business Environment",
-                "Identify: Governance",
-                "Identify: Risk Assessment",
-                "Identify: Risk Management Strategy",
-                "Protect: Identity Management and Access Control",
-                "Protect: Awareness and Training",
-                "Protect: Data Security",
-                "Protect: Information Protection Processes and Procedures",
-                "Protect: Maintenance",
-                "Protect: Protective Technology",
-                "Detect: Anomalies and Events",
-                "Detect: Security Continuous Monitoring",
-                "Detect: Detection Processes",
-                "Respond: Response Planning",
-                "Respond: Communications",
-                "Respond: Analysis",
-                "Respond: Mitigation",
-                "Respond: Improvements",
-                "Recover: Recovery Planning",
-                "Recover: Improvements",
-                "Recover: Communications",
-            ]
-        }
+        self.running = True
+        self.logger.info("Starting security audit system")
         
-        self.lock = threading.Lock()
-        self.scan_in_progress = False
-        
-    async def run_comprehensive_scan(self, target_paths: List[str] = None) -> Dict[str, Any]:
-        """Run comprehensive security scan"""
-        if self.scan_in_progress:
-            return {"error": "Scan already in progress"}
-            
-        self.scan_in_progress = True
-        start_time = time.time()
-        
-        try:
-            logger.info("Starting comprehensive security scan")
-            
-            # Clear previous results
-            self.vulnerabilities.clear()
-            self.compliance_checks.clear()
-            
-            # Set default paths if none provided
-            if not target_paths:
-                target_paths = ["app/", "tests/", "scripts/"]
+        # Start monitoring tasks
+        asyncio.create_task(self._cleanup_old_events())
+        asyncio.create_task(self._analyze_security_events())
+    
+    async def stop(self):
+        """Stop security audit system"""
+        self.running = False
+        self.logger.info("Stopped security audit system")
+    
+    async def _cleanup_old_events(self):
+        """Cleanup old security events"""
+        while self.running:
+            try:
+                cutoff_time = datetime.utcnow() - timedelta(days=30)
+                self.security_events = [
+                    event for event in self.security_events
+                    if event.timestamp > cutoff_time
+                ]
                 
-            # Run different types of scans
-            await self._scan_code_vulnerabilities(target_paths)
-            await self._scan_dependencies()
-            await self._check_compliance()
-            await self._scan_configuration_files()
-            await self._check_security_headers()
-            
-            # Calculate metrics
-            self._calculate_metrics()
-            
-            scan_duration = time.time() - start_time
-            self.metrics.scan_duration = scan_duration
-            self.metrics.last_scan = datetime.now()
-            
-            logger.info(f"Security scan completed in {scan_duration:.2f} seconds")
-            
-            return {
-                "status": "completed",
-                "vulnerabilities_found": len(self.vulnerabilities),
-                "compliance_checks": len(self.compliance_checks),
-                "scan_duration": scan_duration,
-                "metrics": self._get_metrics_dict()
-            }
+                # Cleanup old failed attempts
+                cutoff_time = datetime.utcnow() - timedelta(hours=24)
+                for user_id in list(self.user_failed_attempts.keys()):
+                    self.user_failed_attempts[user_id] = [
+                        attempt for attempt in self.user_failed_attempts[user_id]
+                        if attempt > cutoff_time
+                    ]
+                    if not self.user_failed_attempts[user_id]:
+                        del self.user_failed_attempts[user_id]
+                
+                for ip in list(self.ip_failed_attempts.keys()):
+                    self.ip_failed_attempts[ip] = [
+                        attempt for attempt in self.ip_failed_attempts[ip]
+                        if attempt > cutoff_time
+                    ]
+                    if not self.ip_failed_attempts[ip]:
+                        del self.ip_failed_attempts[ip]
+                
+                await asyncio.sleep(3600)  # Run every hour
             
         except Exception as e:
-            logger.error(f"Error during security scan: {e}")
-            return {"error": str(e)}
-        finally:
-            self.scan_in_progress = False
-            
-    async def _scan_code_vulnerabilities(self, target_paths: List[str]):
-        """Scan code for security vulnerabilities"""
-        logger.info("Scanning code for vulnerabilities")
-        
-        for path in target_paths:
-            if not os.path.exists(path):
+                self.logger.error(f"Error in security event cleanup: {e}")
+                await asyncio.sleep(3600)
+    
+    async def _analyze_security_events(self):
+        """Analyze security events for patterns and threats"""
+        while self.running:
+            try:
+                # Analyze recent events for security patterns
+                recent_events = [
+                    event for event in self.security_events
+                    if event.timestamp > datetime.utcnow() - timedelta(hours=1)
+                ]
+                
+                # Check for policy violations
+                await self._check_policy_violations(recent_events)
+                
+                # Check for suspicious patterns
+                await self._detect_suspicious_patterns(recent_events)
+                
+                await asyncio.sleep(300)  # Run every 5 minutes
+                
+            except Exception as e:
+                self.logger.error(f"Error in security event analysis: {e}")
+                await asyncio.sleep(300)
+    
+    async def _check_policy_violations(self, events: List[SecurityEvent]):
+        """Check for security policy violations"""
+        for policy_name, policy in self.security_policies.items():
+            if not policy.enabled:
                 continue
-                
-            for root, dirs, files in os.walk(path):
-                # Skip certain directories
-                dirs[:] = [d for d in dirs if d not in ['.git', '__pycache__', 'node_modules', '.venv']]
-                
-                for file in files:
-                    if file.endswith(('.py', '.js', '.ts', '.html', '.php')):
-                        file_path = os.path.join(root, file)
-                        await self._scan_file(file_path)
-                        
-    async def _scan_file(self, file_path: str):
-        """Scan individual file for vulnerabilities"""
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                lines = content.split('\n')
-                
-            for vuln_type, patterns in self.scan_patterns.items():
-                for pattern in patterns:
-                    matches = re.finditer(pattern, content, re.IGNORECASE | re.MULTILINE)
-                    for match in matches:
-                        line_number = content[:match.start()].count('\n') + 1
-                        code_snippet = lines[line_number - 1].strip() if line_number <= len(lines) else ""
-                        
-                        vulnerability = SecurityVulnerability(
-                            id=self._generate_vuln_id(file_path, line_number, vuln_type),
-                            type=vuln_type,
-                            severity=self._get_severity(vuln_type),
-                            title=self._get_vuln_title(vuln_type),
-                            description=self._get_vuln_description(vuln_type),
-                            file_path=file_path,
-                            line_number=line_number,
-                            code_snippet=code_snippet,
-                            recommendation=self._get_recommendation(vuln_type),
-                            cwe_id=self._get_cwe_id(vuln_type),
-                            owasp_category=self._get_owasp_category(vuln_type)
-                        )
-                        
-                        self.vulnerabilities[vulnerability.id] = vulnerability
+            
+            try:
+                if policy_name == "multiple_failed_logins":
+                    await self._check_failed_login_policy(events, policy)
+                elif policy_name == "suspicious_ip_activity":
+                    await self._check_suspicious_ip_policy(events, policy)
+                elif policy_name == "unusual_access_pattern":
+                    await self._check_unusual_access_policy(events, policy)
+                elif policy_name == "data_breach_detection":
+                    await self._check_data_breach_policy(events, policy)
                         
         except Exception as e:
-            logger.error(f"Error scanning file {file_path}: {e}")
-            
-    async def _scan_dependencies(self):
-        """Scan dependencies for known vulnerabilities"""
-        logger.info("Scanning dependencies for vulnerabilities")
+                self.logger.error(f"Error checking policy {policy_name}: {e}")
+    
+    async def _check_failed_login_policy(self, events: List[SecurityEvent], policy: SecurityPolicy):
+        """Check for multiple failed login attempts"""
+        max_attempts = policy.conditions["max_attempts"]
+        time_window = policy.conditions["time_window"]
         
-        try:
-            # Check Python dependencies
-            if os.path.exists("requirements.txt"):
-                result = subprocess.run(
-                    ["safety", "check", "-r", "requirements.txt", "--json"],
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
+        # Group by user and IP
+        user_attempts = {}
+        ip_attempts = {}
+        
+        for event in events:
+            if event.event_type == SecurityEventType.LOGIN_FAILURE:
+                if event.user_id:
+                    if event.user_id not in user_attempts:
+                        user_attempts[event.user_id] = []
+                    user_attempts[event.user_id].append(event.timestamp)
                 
-                if result.returncode == 0 and result.stdout:
-                    vulnerabilities = json.loads(result.stdout)
-                    for vuln in vulnerabilities:
-                        vulnerability = SecurityVulnerability(
-                            id=f"dep_{hashlib.md5(vuln.get('package', '').encode()).hexdigest()}",
-                            type=VulnerabilityType.SECURITY_MISCONFIGURATION,
-                            severity=SecurityLevel.HIGH,
-                            title=f"Vulnerable Dependency: {vuln.get('package', 'Unknown')}",
-                            description=vuln.get('advisory', 'No description available'),
-                            file_path="requirements.txt",
-                            line_number=0,
-                            code_snippet=f"Package: {vuln.get('package', 'Unknown')}",
-                            recommendation=f"Update {vuln.get('package', 'Unknown')} to version {vuln.get('safe_version', 'latest')}",
-                            cwe_id=vuln.get('cve', ''),
-                            owasp_category="A06:2021 – Vulnerable and Outdated Components"
-                        )
-                        self.vulnerabilities[vulnerability.id] = vulnerability
-                        
-        except Exception as e:
-            logger.error(f"Error scanning dependencies: {e}")
+                if event.ip_address not in ip_attempts:
+                    ip_attempts[event.ip_address] = []
+                ip_attempts[event.ip_address].append(event.timestamp)
+        
+        # Check user attempts
+        for user_id, attempts in user_attempts.items():
+            recent_attempts = [
+                attempt for attempt in attempts
+                if attempt > datetime.utcnow() - timedelta(seconds=time_window)
+            ]
             
-    async def _check_compliance(self):
-        """Check compliance with security standards"""
-        logger.info("Checking security compliance")
-        
-        for standard, requirements in self.compliance_standards.items():
-            for requirement in requirements:
-                compliance = SecurityCompliance(
-                    standard=standard,
-                    requirement=requirement,
-                    status="partial",  # Default to partial, would be determined by actual checks
-                    evidence=[]
+            if len(recent_attempts) >= max_attempts:
+                await self._trigger_policy_violation(
+                    policy, f"User {user_id} has {len(recent_attempts)} failed login attempts",
+                    {"user_id": user_id, "attempts": len(recent_attempts)}
                 )
-                self.compliance_checks.append(compliance)
-                
-    async def _scan_configuration_files(self):
-        """Scan configuration files for security issues"""
-        logger.info("Scanning configuration files")
         
-        config_files = [
-            "docker-compose.yml",
-            "Dockerfile",
-            ".env",
-            "config.yaml",
-            "settings.py",
-            "app/core/config.py"
+        # Check IP attempts
+        for ip, attempts in ip_attempts.items():
+            recent_attempts = [
+                attempt for attempt in attempts
+                if attempt > datetime.utcnow() - timedelta(seconds=time_window)
+            ]
+            
+            if len(recent_attempts) >= max_attempts:
+                await self._trigger_policy_violation(
+                    policy, f"IP {ip} has {len(recent_attempts)} failed login attempts",
+                    {"ip_address": ip, "attempts": len(recent_attempts)}
+                )
+    
+    async def _check_suspicious_ip_policy(self, events: List[SecurityEvent], policy: SecurityPolicy):
+        """Check for suspicious IP activity"""
+        max_requests = policy.conditions["max_requests"]
+        time_window = policy.conditions["time_window"]
+        
+        # Count requests by IP
+        ip_requests = {}
+        for event in events:
+            if event.ip_address not in ip_requests:
+                ip_requests[event.ip_address] = []
+            ip_requests[event.ip_address].append(event.timestamp)
+        
+        # Check for high request rates
+        for ip, requests in ip_requests.items():
+            recent_requests = [
+                req for req in requests
+                if req > datetime.utcnow() - timedelta(seconds=time_window)
+            ]
+            
+            if len(recent_requests) >= max_requests:
+                await self._trigger_policy_violation(
+                    policy, f"IP {ip} has high request rate: {len(recent_requests)} requests",
+                    {"ip_address": ip, "requests": len(recent_requests)}
+                )
+    
+    async def _check_unusual_access_policy(self, events: List[SecurityEvent], policy: SecurityPolicy):
+        """Check for unusual access patterns"""
+        max_different_ips = policy.conditions["max_different_ips"]
+        time_window = policy.conditions["time_window"]
+        
+        # Group by user
+        user_ips = {}
+        for event in events:
+            if event.user_id and event.user_id not in user_ips:
+                user_ips[event.user_id] = set()
+            if event.user_id:
+                user_ips[event.user_id].add(event.ip_address)
+        
+        # Check for users accessing from many different IPs
+        for user_id, ips in user_ips.items():
+            if len(ips) >= max_different_ips:
+                await self._trigger_policy_violation(
+                    policy, f"User {user_id} accessed from {len(ips)} different IPs",
+                    {"user_id": user_id, "ip_count": len(ips), "ips": list(ips)}
+                )
+    
+    async def _check_data_breach_policy(self, events: List[SecurityEvent], policy: SecurityPolicy):
+        """Check for potential data breaches"""
+        max_data_access = policy.conditions["max_data_access"]
+        time_window = policy.conditions["time_window"]
+        
+        # Count data access events
+        data_access_events = [
+            event for event in events
+            if event.event_type == SecurityEventType.DATA_ACCESS
+            and event.timestamp > datetime.utcnow() - timedelta(seconds=time_window)
         ]
         
-        for config_file in config_files:
-            if os.path.exists(config_file):
-                await self._scan_file(config_file)
+        if len(data_access_events) >= max_data_access:
+            await self._trigger_policy_violation(
+                policy, f"High volume data access detected: {len(data_access_events)} events",
+                {"event_count": len(data_access_events), "events": data_access_events}
+            )
+    
+    async def _detect_suspicious_patterns(self, events: List[SecurityEvent]):
+        """Detect suspicious patterns in security events"""
+        # Detect brute force attacks
+        await self._detect_brute_force_attacks(events)
+        
+        # Detect credential stuffing
+        await self._detect_credential_stuffing(events)
+        
+        # Detect account takeover attempts
+        await self._detect_account_takeover_attempts(events)
+    
+    async def _detect_brute_force_attacks(self, events: List[SecurityEvent]):
+        """Detect brute force attacks"""
+        # Group failed logins by IP
+        ip_failures = {}
+        for event in events:
+            if event.event_type == SecurityEventType.LOGIN_FAILURE:
+                if event.ip_address not in ip_failures:
+                    ip_failures[event.ip_address] = []
+                ip_failures[event.ip_address].append(event)
+        
+        # Check for brute force patterns
+        for ip, failures in ip_failures.items():
+            if len(failures) >= 10:  # 10 failed attempts
+                # Check if attempts are against different users
+                unique_users = set(event.user_id for event in failures if event.user_id)
                 
-    async def _check_security_headers(self):
-        """Check for security headers configuration"""
-        logger.info("Checking security headers configuration")
+                if len(unique_users) >= 3:  # 3 or more different users
+                    await self._create_security_event(
+                        SecurityEventType.SUSPICIOUS_ACTIVITY,
+                        None, ip, None,
+                        {
+                            "attack_type": "brute_force",
+                            "attempts": len(failures),
+                            "unique_users": len(unique_users),
+                            "users": list(unique_users)
+                        },
+                        RiskLevel.HIGH
+                    )
+    
+    async def _detect_credential_stuffing(self, events: List[SecurityEvent]):
+        """Detect credential stuffing attacks"""
+        # Look for patterns of failed logins with similar usernames
+        username_patterns = {}
         
-        # This would typically check middleware configuration
-        # For now, we'll add a compliance check
-        compliance = SecurityCompliance(
-            standard="OWASP_TOP_10",
-            requirement="Security Headers Implementation",
-            status="partial",
-            evidence=["CORS middleware configured", "Security headers middleware needed"]
-        )
-        self.compliance_checks.append(compliance)
+        for event in events:
+            if event.event_type == SecurityEventType.LOGIN_FAILURE:
+                username = event.details.get("username", "")
+                if username:
+                    # Extract common patterns (e.g., email domains)
+                    if "@" in username:
+                        domain = username.split("@")[1]
+                        if domain not in username_patterns:
+                            username_patterns[domain] = []
+                        username_patterns[domain].append(event)
         
-    def _generate_vuln_id(self, file_path: str, line_number: int, vuln_type: VulnerabilityType) -> str:
-        """Generate unique vulnerability ID"""
-        content = f"{file_path}:{line_number}:{vuln_type.value}"
-        return hashlib.md5(content.encode()).hexdigest()[:12]
+        # Check for credential stuffing patterns
+        for domain, events_list in username_patterns.items():
+            if len(events_list) >= 5:  # 5 attempts with same domain
+                unique_ips = set(event.ip_address for event in events_list)
+                if len(unique_ips) >= 2:  # From multiple IPs
+                    await self._create_security_event(
+                        SecurityEventType.SUSPICIOUS_ACTIVITY,
+                        None, events_list[0].ip_address, None,
+                        {
+                            "attack_type": "credential_stuffing",
+                            "domain": domain,
+                            "attempts": len(events_list),
+                            "unique_ips": len(unique_ips)
+                        },
+                        RiskLevel.HIGH
+                    )
+    
+    async def _detect_account_takeover_attempts(self, events: List[SecurityEvent]):
+        """Detect account takeover attempts"""
+        # Look for patterns of password change attempts
+        password_change_events = [
+            event for event in events
+            if event.event_type == SecurityEventType.PASSWORD_CHANGE
+        ]
         
-    def _get_severity(self, vuln_type: VulnerabilityType) -> SecurityLevel:
-        """Get severity level for vulnerability type"""
-        severity_map = {
-            VulnerabilityType.SQL_INJECTION: SecurityLevel.CRITICAL,
-            VulnerabilityType.XSS: SecurityLevel.HIGH,
-            VulnerabilityType.PATH_TRAVERSAL: SecurityLevel.HIGH,
-            VulnerabilityType.COMMAND_INJECTION: SecurityLevel.CRITICAL,
-            VulnerabilityType.WEAK_AUTHENTICATION: SecurityLevel.HIGH,
-            VulnerabilityType.SENSITIVE_DATA_EXPOSURE: SecurityLevel.MEDIUM,
-            VulnerabilityType.SECURITY_MISCONFIGURATION: SecurityLevel.MEDIUM,
-        }
-        return severity_map.get(vuln_type, SecurityLevel.MEDIUM)
+        # Group by user
+        user_password_changes = {}
+        for event in password_change_events:
+            if event.user_id not in user_password_changes:
+                user_password_changes[event.user_id] = []
+            user_password_changes[event.user_id].append(event)
         
-    def _get_vuln_title(self, vuln_type: VulnerabilityType) -> str:
-        """Get vulnerability title"""
-        titles = {
-            VulnerabilityType.SQL_INJECTION: "SQL Injection Vulnerability",
-            VulnerabilityType.XSS: "Cross-Site Scripting (XSS) Vulnerability",
-            VulnerabilityType.PATH_TRAVERSAL: "Path Traversal Vulnerability",
-            VulnerabilityType.COMMAND_INJECTION: "Command Injection Vulnerability",
-            VulnerabilityType.WEAK_AUTHENTICATION: "Weak Authentication",
-            VulnerabilityType.SENSITIVE_DATA_EXPOSURE: "Sensitive Data Exposure",
-            VulnerabilityType.SECURITY_MISCONFIGURATION: "Security Misconfiguration",
-        }
-        return titles.get(vuln_type, "Security Vulnerability")
-        
-    def _get_vuln_description(self, vuln_type: VulnerabilityType) -> str:
-        """Get vulnerability description"""
-        descriptions = {
-            VulnerabilityType.SQL_INJECTION: "Potential SQL injection vulnerability detected. User input may be directly concatenated into SQL queries.",
-            VulnerabilityType.XSS: "Potential cross-site scripting vulnerability. User input may be rendered without proper sanitization.",
-            VulnerabilityType.PATH_TRAVERSAL: "Potential path traversal vulnerability. File paths may be constructed using user input.",
-            VulnerabilityType.COMMAND_INJECTION: "Potential command injection vulnerability. User input may be passed to system commands.",
-            VulnerabilityType.WEAK_AUTHENTICATION: "Weak authentication mechanism detected. Passwords or secrets may be hardcoded or easily guessable.",
-            VulnerabilityType.SENSITIVE_DATA_EXPOSURE: "Potential sensitive data exposure. Passwords, API keys, or other sensitive information may be logged or exposed.",
-            VulnerabilityType.SECURITY_MISCONFIGURATION: "Security misconfiguration detected. Default or insecure settings may be in use.",
-        }
-        return descriptions.get(vuln_type, "Security vulnerability detected")
-        
-    def _get_recommendation(self, vuln_type: VulnerabilityType) -> str:
-        """Get remediation recommendation"""
-        recommendations = {
-            VulnerabilityType.SQL_INJECTION: "Use parameterized queries or prepared statements. Never concatenate user input directly into SQL queries.",
-            VulnerabilityType.XSS: "Sanitize and validate all user input. Use proper output encoding and Content Security Policy (CSP).",
-            VulnerabilityType.PATH_TRAVERSAL: "Validate and sanitize file paths. Use allowlists for allowed directories and files.",
-            VulnerabilityType.COMMAND_INJECTION: "Avoid executing system commands with user input. Use safe alternatives or properly validate and sanitize input.",
-            VulnerabilityType.WEAK_AUTHENTICATION: "Use strong, unique passwords and secrets. Store them securely using environment variables or secret management systems.",
-            VulnerabilityType.SENSITIVE_DATA_EXPOSURE: "Remove sensitive data from logs and code. Use proper secret management and encryption.",
-            VulnerabilityType.SECURITY_MISCONFIGURATION: "Review and harden security configurations. Remove default credentials and disable unnecessary features.",
-        }
-        return recommendations.get(vuln_type, "Review and fix the security issue")
-        
-    def _get_cwe_id(self, vuln_type: VulnerabilityType) -> str:
-        """Get CWE ID for vulnerability type"""
-        cwe_map = {
-            VulnerabilityType.SQL_INJECTION: "CWE-89",
-            VulnerabilityType.XSS: "CWE-79",
-            VulnerabilityType.PATH_TRAVERSAL: "CWE-22",
-            VulnerabilityType.COMMAND_INJECTION: "CWE-78",
-            VulnerabilityType.WEAK_AUTHENTICATION: "CWE-287",
-            VulnerabilityType.SENSITIVE_DATA_EXPOSURE: "CWE-200",
-            VulnerabilityType.SECURITY_MISCONFIGURATION: "CWE-16",
-        }
-        return cwe_map.get(vuln_type, "")
-        
-    def _get_owasp_category(self, vuln_type: VulnerabilityType) -> str:
-        """Get OWASP Top 10 category"""
-        owasp_map = {
-            VulnerabilityType.SQL_INJECTION: "A03:2021 – Injection",
-            VulnerabilityType.XSS: "A03:2021 – Injection",
-            VulnerabilityType.PATH_TRAVERSAL: "A01:2021 – Broken Access Control",
-            VulnerabilityType.COMMAND_INJECTION: "A03:2021 – Injection",
-            VulnerabilityType.WEAK_AUTHENTICATION: "A07:2021 – Identification and Authentication Failures",
-            VulnerabilityType.SENSITIVE_DATA_EXPOSURE: "A02:2021 – Cryptographic Failures",
-            VulnerabilityType.SECURITY_MISCONFIGURATION: "A05:2021 – Security Misconfiguration",
-        }
-        return owasp_map.get(vuln_type, "")
-        
-    def _calculate_metrics(self):
-        """Calculate security metrics"""
-        self.metrics.total_vulnerabilities = len(self.vulnerabilities)
-        self.metrics.critical_vulnerabilities = len([v for v in self.vulnerabilities.values() if v.severity == SecurityLevel.CRITICAL])
-        self.metrics.high_vulnerabilities = len([v for v in self.vulnerabilities.values() if v.severity == SecurityLevel.HIGH])
-        self.metrics.medium_vulnerabilities = len([v for v in self.vulnerabilities.values() if v.severity == SecurityLevel.MEDIUM])
-        self.metrics.low_vulnerabilities = len([v for v in self.vulnerabilities.values() if v.severity == SecurityLevel.LOW])
-        self.metrics.fixed_vulnerabilities = len([v for v in self.vulnerabilities.values() if v.status == "fixed"])
-        self.metrics.false_positives = len([v for v in self.vulnerabilities.values() if v.false_positive])
-        
-        # Calculate compliance score
-        if self.compliance_checks:
-            compliant_count = len([c for c in self.compliance_checks if c.status == "compliant"])
-            self.metrics.compliance_score = (compliant_count / len(self.compliance_checks)) * 100
-        
-    def _get_metrics_dict(self) -> Dict[str, Any]:
-        """Get metrics as dictionary"""
-        return {
-            "total_vulnerabilities": self.metrics.total_vulnerabilities,
-            "critical_vulnerabilities": self.metrics.critical_vulnerabilities,
-            "high_vulnerabilities": self.metrics.high_vulnerabilities,
-            "medium_vulnerabilities": self.metrics.medium_vulnerabilities,
-            "low_vulnerabilities": self.metrics.low_vulnerabilities,
-            "fixed_vulnerabilities": self.metrics.fixed_vulnerabilities,
-            "false_positives": self.metrics.false_positives,
-            "compliance_score": round(self.metrics.compliance_score, 2),
-            "last_scan": self.metrics.last_scan.isoformat() if self.metrics.last_scan else None,
-            "scan_duration": round(self.metrics.scan_duration, 2)
-        }
-        
-    def get_vulnerabilities(self, severity: SecurityLevel = None, status: str = None) -> List[Dict[str, Any]]:
-        """Get vulnerabilities with optional filtering"""
-        vulnerabilities = list(self.vulnerabilities.values())
-        
-        if severity:
-            vulnerabilities = [v for v in vulnerabilities if v.severity == severity]
-        if status:
-            vulnerabilities = [v for v in vulnerabilities if v.status == status]
-            
-        return [
+        # Check for suspicious password change patterns
+        for user_id, changes in user_password_changes.items():
+            if len(changes) >= 3:  # 3 password changes in short time
+                unique_ips = set(event.ip_address for event in changes)
+                if len(unique_ips) >= 2:  # From multiple IPs
+                    await self._create_security_event(
+                        SecurityEventType.SUSPICIOUS_ACTIVITY,
+                        user_id, changes[0].ip_address, None,
+                        {
+                            "attack_type": "account_takeover",
+                            "user_id": user_id,
+                            "password_changes": len(changes),
+                            "unique_ips": len(unique_ips)
+                        },
+                        RiskLevel.CRITICAL
+                    )
+    
+    async def _trigger_policy_violation(self, policy: SecurityPolicy, message: str, details: Dict[str, Any]):
+        """Trigger a security policy violation"""
+        # Create security event
+        await self._create_security_event(
+            SecurityEventType.SECURITY_VIOLATION,
+            details.get("user_id"), details.get("ip_address"), None,
             {
-                "id": v.id,
-                "type": v.type.value,
-                "severity": v.severity.value,
-                "title": v.title,
-                "description": v.description,
-                "file_path": v.file_path,
-                "line_number": v.line_number,
-                "code_snippet": v.code_snippet,
-                "recommendation": v.recommendation,
-                "cwe_id": v.cwe_id,
-                "owasp_category": v.owasp_category,
-                "detected_at": v.detected_at.isoformat(),
-                "status": v.status,
-                "false_positive": v.false_positive
-            }
-            for v in vulnerabilities
+                "policy_name": policy.name,
+                "message": message,
+                "details": details
+            },
+            policy.severity
+        )
+        
+        # Execute policy actions
+        for action in policy.actions:
+            if action == "temporary_lock":
+                await self._temporary_lock_user(details.get("user_id"))
+            elif action == "rate_limit":
+                await self._rate_limit_ip(details.get("ip_address"))
+            elif action == "notify_admin":
+                await self._notify_admin(policy.name, message, details)
+            elif action == "block_access":
+                await self._block_ip(details.get("ip_address"))
+    
+    async def _create_security_event(
+        self,
+        event_type: SecurityEventType,
+        user_id: Optional[int],
+        ip_address: str,
+        user_agent: Optional[str],
+        details: Dict[str, Any],
+        risk_level: RiskLevel = RiskLevel.LOW
+    ) -> SecurityEvent:
+        """Create a security event"""
+        event = SecurityEvent(
+            event_id=self._generate_event_id(),
+            event_type=event_type,
+            user_id=user_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            timestamp=datetime.utcnow(),
+            details=details,
+            risk_level=risk_level
+        )
+        
+        self.security_events.append(event)
+        
+        # Log the security event
+        log_security_event(event_type.value, {
+            "event_id": event.event_id,
+            "user_id": user_id,
+            "ip_address": ip_address,
+            "risk_level": risk_level.value,
+            **details
+        })
+        
+        return event
+    
+    def _generate_event_id(self) -> str:
+        """Generate unique event ID"""
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        random_part = secrets.token_hex(8)
+        return f"SEC_{timestamp}_{random_part}"
+    
+    async def _temporary_lock_user(self, user_id: Optional[int]):
+        """Temporarily lock a user account"""
+        if user_id:
+            # This would integrate with the user management system
+            self.logger.warning(f"Temporarily locking user {user_id}")
+    
+    async def _rate_limit_ip(self, ip_address: Optional[str]):
+        """Apply rate limiting to an IP address"""
+        if ip_address:
+            self.suspicious_ips.add(ip_address)
+            self.logger.warning(f"Rate limiting IP {ip_address}")
+    
+    async def _block_ip(self, ip_address: Optional[str]):
+        """Block an IP address"""
+        if ip_address:
+            self.blocked_ips.add(ip_address)
+            self.logger.warning(f"Blocking IP {ip_address}")
+    
+    async def _notify_admin(self, policy_name: str, message: str, details: Dict[str, Any]):
+        """Notify administrators of security events"""
+        # This would integrate with notification systems
+        self.logger.critical(f"SECURITY ALERT: {policy_name} - {message}", **details)
+    
+    def log_security_event(
+        self,
+        event_type: SecurityEventType,
+        user_id: Optional[int],
+        ip_address: str,
+        user_agent: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None
+    ):
+        """Log a security event"""
+        asyncio.create_task(self._create_security_event(
+            event_type, user_id, ip_address, user_agent, details or {}
+        ))
+    
+    def is_ip_blocked(self, ip_address: str) -> bool:
+        """Check if IP is blocked"""
+        return ip_address in self.blocked_ips
+    
+    def is_ip_suspicious(self, ip_address: str) -> bool:
+        """Check if IP is suspicious"""
+        return ip_address in self.suspicious_ips
+    
+    def get_security_events(
+        self,
+        event_type: Optional[SecurityEventType] = None,
+        user_id: Optional[int] = None,
+        risk_level: Optional[RiskLevel] = None,
+        hours: int = 24
+    ) -> List[SecurityEvent]:
+        """Get security events with filters"""
+        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        
+        events = [
+            event for event in self.security_events
+            if event.timestamp > cutoff_time
         ]
         
-    def get_compliance_report(self) -> Dict[str, Any]:
-        """Get compliance report"""
-        standards = {}
-        for compliance in self.compliance_checks:
-            if compliance.standard not in standards:
-                standards[compliance.standard] = {
-                    "total_requirements": 0,
-                    "compliant": 0,
-                    "non_compliant": 0,
-                    "partial": 0,
-                    "requirements": []
-                }
-                
-            standards[compliance.standard]["total_requirements"] += 1
-            standards[compliance.standard][compliance.status] += 1
-            standards[compliance.standard]["requirements"].append({
-                "requirement": compliance.requirement,
-                "status": compliance.status,
-                "evidence": compliance.evidence,
-                "last_checked": compliance.last_checked.isoformat()
-            })
-            
-        return standards
+        if event_type:
+            events = [event for event in events if event.event_type == event_type]
+        
+        if user_id:
+            events = [event for event in events if event.user_id == user_id]
+        
+        if risk_level:
+            events = [event for event in events if event.risk_level == risk_level]
+        
+        return sorted(events, key=lambda x: x.timestamp, reverse=True)
+    
+    def get_security_summary(self, hours: int = 24) -> Dict[str, Any]:
+        """Get security summary"""
+        events = self.get_security_events(hours=hours)
+        
+        summary = {
+            "total_events": len(events),
+            "events_by_type": {},
+            "events_by_risk_level": {},
+            "top_ips": {},
+            "top_users": {},
+            "blocked_ips": len(self.blocked_ips),
+            "suspicious_ips": len(self.suspicious_ips),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Count by type
+        for event in events:
+            event_type = event.event_type.value
+            summary["events_by_type"][event_type] = summary["events_by_type"].get(event_type, 0) + 1
+        
+        # Count by risk level
+        for event in events:
+            risk_level = event.risk_level.value
+            summary["events_by_risk_level"][risk_level] = summary["events_by_risk_level"].get(risk_level, 0) + 1
+        
+        # Top IPs
+        ip_counts = {}
+        for event in events:
+            ip_counts[event.ip_address] = ip_counts.get(event.ip_address, 0) + 1
+        summary["top_ips"] = dict(sorted(ip_counts.items(), key=lambda x: x[1], reverse=True)[:10])
+        
+        # Top users
+        user_counts = {}
+        for event in events:
+            if event.user_id:
+                user_counts[event.user_id] = user_counts.get(event.user_id, 0) + 1
+        summary["top_users"] = dict(sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:10])
+        
+        return summary
 
 
 # Global security auditor instance

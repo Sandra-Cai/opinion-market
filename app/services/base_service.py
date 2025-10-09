@@ -1,320 +1,384 @@
 """
-Base Service Class for Microservices Architecture
-Provides common functionality for all microservices
+Base service class for Opinion Market services
+Provides common functionality for all services
 """
 
 import asyncio
 import logging
-import time
-from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, TypeVar, Generic
 from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_, func
 
-from app.core.enhanced_cache import enhanced_cache
-from app.core.security_manager import security_manager
+from app.core.database import get_db_session
+from app.core.cache import cache, cached
+from app.core.logging import LoggerMixin, PerformanceLogger, log_system_metric
+from app.core.config import settings
 
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ServiceHealth:
-    """Service health status"""
-    service_name: str
-    status: str  # "healthy", "degraded", "unhealthy"
-    timestamp: float
-    version: str
-    uptime: float
-    metrics: Dict[str, Any]
-    dependencies: List[str]
+T = TypeVar('T')
 
 
-@dataclass
-class ServiceMetrics:
-    """Service performance metrics"""
-    request_count: int
-    error_count: int
-    average_response_time: float
-    memory_usage: float
-    cpu_usage: float
-    active_connections: int
-
-
-class BaseService(ABC):
-    """Base class for all microservices"""
+class BaseService(ABC, LoggerMixin):
+    """Base service class with common functionality"""
     
-    def __init__(self, service_name: str, version: str = "1.0.0"):
-        self.service_name = service_name
-        self.version = version
-        self.start_time = time.time()
-        self.metrics = ServiceMetrics(
-            request_count=0,
-            error_count=0,
-            average_response_time=0.0,
-            memory_usage=0.0,
-            cpu_usage=0.0,
-            active_connections=0
-        )
-        self.dependencies = []
-        self.is_healthy = True
-        self.health_checks = []
+    def __init__(self):
+        self.logger = self.logger
+        self._initialized = False
+        self._startup_time = None
+        self._background_tasks = []
+    
+    async def initialize(self) -> None:
+        """Initialize the service"""
+        if self._initialized:
+            return
         
-        # Service configuration
-        self.config = {
-            "max_retries": 3,
-            "timeout": 30,
-            "circuit_breaker_threshold": 5,
-            "health_check_interval": 30
-        }
-    
-    async def start(self):
-        """Start the service"""
-        logger.info(f"Starting service: {self.service_name} v{self.version}")
-        
-        # Initialize service-specific components
-        await self.initialize()
-        
-        # Start health monitoring
-        asyncio.create_task(self._health_monitoring_loop())
-        
-        # Start metrics collection
-        asyncio.create_task(self._metrics_collection_loop())
-        
-        logger.info(f"Service {self.service_name} started successfully")
-    
-    async def stop(self):
-        """Stop the service"""
-        logger.info(f"Stopping service: {self.service_name}")
-        
-        # Cleanup service-specific resources
-        await self.cleanup()
-        
-        logger.info(f"Service {self.service_name} stopped")
-    
-    @abstractmethod
-    async def initialize(self):
-        """Initialize service-specific components"""
-        pass
-    
-    @abstractmethod
-    async def cleanup(self):
-        """Cleanup service-specific resources"""
-        pass
-    
-    async def health_check(self) -> ServiceHealth:
-        """Perform comprehensive health check"""
-        try:
-            # Check service-specific health
-            service_health = await self.check_service_health()
-            
-            # Check dependencies
-            dependency_health = await self.check_dependencies()
-            
-            # Calculate overall health status
-            if not service_health or not dependency_health:
-                status = "unhealthy"
-            elif any(dep.get("status") != "healthy" for dep in dependency_health):
-                status = "degraded"
-            else:
-                status = "healthy"
-            
-            health = ServiceHealth(
-                service_name=self.service_name,
-                status=status,
-                timestamp=time.time(),
-                version=self.version,
-                uptime=time.time() - self.start_time,
-                metrics=self.metrics.__dict__,
-                dependencies=[dep["name"] for dep in dependency_health]
-            )
-            
-            # Cache health status
-            await enhanced_cache.set(
-                f"health_{self.service_name}",
-                health,
-                ttl=60,
-                tags=["health", "service"]
-            )
-            
-            return health
-            
-        except Exception as e:
-            logger.error(f"Health check failed for {self.service_name}: {e}")
-            return ServiceHealth(
-                service_name=self.service_name,
-                status="unhealthy",
-                timestamp=time.time(),
-                version=self.version,
-                uptime=time.time() - self.start_time,
-                metrics=self.metrics.__dict__,
-                dependencies=[]
-            )
-    
-    async def check_service_health(self) -> bool:
-        """Check service-specific health (to be implemented by subclasses)"""
-        return True
-    
-    async def check_dependencies(self) -> List[Dict[str, Any]]:
-        """Check health of service dependencies"""
-        dependency_health = []
-        
-        for dependency in self.dependencies:
-            try:
-                # Check if dependency is healthy
-                health_data = await enhanced_cache.get(f"health_{dependency}")
-                if health_data:
-                    dependency_health.append({
-                        "name": dependency,
-                        "status": health_data.status,
-                        "last_check": health_data.timestamp
-                    })
-                else:
-                    dependency_health.append({
-                        "name": dependency,
-                        "status": "unknown",
-                        "last_check": time.time()
-                    })
-            except Exception as e:
-                logger.error(f"Failed to check dependency {dependency}: {e}")
-                dependency_health.append({
-                    "name": dependency,
-                    "status": "unhealthy",
-                    "last_check": time.time()
-                })
-        
-        return dependency_health
-    
-    async def _health_monitoring_loop(self):
-        """Background health monitoring loop"""
-        while True:
-            try:
-                health = await self.health_check()
-                self.is_healthy = health.status == "healthy"
-                
-                # Log health status changes
-                if health.status != "healthy":
-                    logger.warning(f"Service {self.service_name} health status: {health.status}")
-                
-                await asyncio.sleep(self.config["health_check_interval"])
-                
-            except Exception as e:
-                logger.error(f"Error in health monitoring for {self.service_name}: {e}")
-                await asyncio.sleep(60)  # Wait longer on error
-    
-    async def _metrics_collection_loop(self):
-        """Background metrics collection loop"""
-        while True:
-            try:
-                await self._collect_metrics()
-                await asyncio.sleep(10)  # Collect metrics every 10 seconds
-            except Exception as e:
-                logger.error(f"Error collecting metrics for {self.service_name}: {e}")
-                await asyncio.sleep(30)
-    
-    async def _collect_metrics(self):
-        """Collect service metrics"""
-        try:
-            import psutil
-            import os
-            
-            process = psutil.Process(os.getpid())
-            
-            # Update metrics
-            self.metrics.memory_usage = process.memory_info().rss / 1024 / 1024  # MB
-            self.metrics.cpu_usage = process.cpu_percent()
-            self.metrics.active_connections = len(process.connections())
-            
-            # Cache metrics
-            await enhanced_cache.set(
-                f"metrics_{self.service_name}",
-                self.metrics,
-                ttl=60,
-                tags=["metrics", "service"]
-            )
-            
-        except Exception as e:
-            logger.error(f"Error collecting metrics: {e}")
-    
-    async def handle_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle incoming request with metrics tracking"""
-        start_time = time.time()
+        self._startup_time = datetime.utcnow()
+        self.logger.info(f"Initializing {self.__class__.__name__}")
         
         try:
-            # Check rate limits
-            client_ip = request_data.get("client_ip", "unknown")
-            rate_limit_ok = await security_manager.check_rate_limit(client_ip, "api")
-            
-            if not rate_limit_ok:
-                self.metrics.error_count += 1
-                return {
-                    "success": False,
-                    "error": "Rate limit exceeded",
-                    "service": self.service_name
-                }
-            
-            # Process request
-            result = await self.process_request(request_data)
-            
-            # Update metrics
-            response_time = time.time() - start_time
-            self.metrics.request_count += 1
-            self.metrics.average_response_time = (
-                (self.metrics.average_response_time * (self.metrics.request_count - 1) + response_time) 
-                / self.metrics.request_count
-            )
-            
-            return {
-                "success": True,
-                "data": result,
-                "service": self.service_name,
-                "response_time": response_time
-            }
-            
+            await self._initialize_internal()
+            self._initialized = True
+            self.logger.info(f"{self.__class__.__name__} initialized successfully")
         except Exception as e:
-            # Update error metrics
-            self.metrics.error_count += 1
-            logger.error(f"Error handling request in {self.service_name}: {e}")
-            
-            return {
-                "success": False,
-                "error": str(e),
-                "service": self.service_name
-            }
+            self.logger.error(f"Failed to initialize {self.__class__.__name__}: {e}")
+            raise
     
     @abstractmethod
-    async def process_request(self, request_data: Dict[str, Any]) -> Any:
-        """Process service-specific request (to be implemented by subclasses)"""
+    async def _initialize_internal(self) -> None:
+        """Internal initialization logic - to be implemented by subclasses"""
         pass
     
-    def get_service_info(self) -> Dict[str, Any]:
-        """Get service information"""
+    async def cleanup(self) -> None:
+        """Cleanup service resources"""
+        self.logger.info(f"Cleaning up {self.__class__.__name__}")
+        
+        # Cancel background tasks
+        for task in self._background_tasks:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        
+        try:
+            await self._cleanup_internal()
+        except Exception as e:
+            self.logger.error(f"Error during cleanup of {self.__class__.__name__}: {e}")
+        
+        self._initialized = False
+        self.logger.info(f"{self.__class__.__name__} cleanup completed")
+    
+    async def _cleanup_internal(self) -> None:
+        """Internal cleanup logic - to be implemented by subclasses"""
+        pass
+    
+    def is_initialized(self) -> bool:
+        """Check if service is initialized"""
+        return self._initialized
+    
+    def get_uptime(self) -> Optional[float]:
+        """Get service uptime in seconds"""
+        if self._startup_time:
+            return (datetime.utcnow() - self._startup_time).total_seconds()
+        return None
+    
+    def add_background_task(self, coro) -> None:
+        """Add a background task"""
+        task = asyncio.create_task(coro)
+        self._background_tasks.append(task)
+    
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get service health status"""
         return {
-            "name": self.service_name,
-            "version": self.version,
-            "uptime": time.time() - self.start_time,
-            "is_healthy": self.is_healthy,
-            "dependencies": self.dependencies,
-            "metrics": self.metrics.__dict__
+            "service": self.__class__.__name__,
+            "initialized": self._initialized,
+            "uptime": self.get_uptime(),
+            "background_tasks": len(self._background_tasks)
+        }
+
+
+class CRUDService(BaseService, Generic[T]):
+    """Base CRUD service with database operations"""
+    
+    def __init__(self, model_class: type):
+        super().__init__()
+        self.model_class = model_class
+    
+    async def _initialize_internal(self) -> None:
+        """Initialize CRUD service"""
+        pass
+    
+    async def _cleanup_internal(self) -> None:
+        """Cleanup CRUD service"""
+        pass
+    
+    def get_by_id(self, db: Session, id: int) -> Optional[T]:
+        """Get entity by ID"""
+        with PerformanceLogger(f"get_{self.model_class.__name__}_by_id"):
+            return db.query(self.model_class).filter(self.model_class.id == id).first()
+    
+    def get_by_ids(self, db: Session, ids: List[int]) -> List[T]:
+        """Get entities by IDs"""
+        with PerformanceLogger(f"get_{self.model_class.__name__}_by_ids"):
+            return db.query(self.model_class).filter(self.model_class.id.in_(ids)).all()
+    
+    def get_all(self, db: Session, skip: int = 0, limit: int = 100) -> List[T]:
+        """Get all entities with pagination"""
+        with PerformanceLogger(f"get_all_{self.model_class.__name__}"):
+            return db.query(self.model_class).offset(skip).limit(limit).all()
+    
+    def count(self, db: Session) -> int:
+        """Count total entities"""
+        with PerformanceLogger(f"count_{self.model_class.__name__}"):
+            return db.query(self.model_class).count()
+    
+    def create(self, db: Session, obj_in: Dict[str, Any]) -> T:
+        """Create new entity"""
+        with PerformanceLogger(f"create_{self.model_class.__name__}"):
+            db_obj = self.model_class(**obj_in)
+            db.add(db_obj)
+            db.commit()
+            db.refresh(db_obj)
+            return db_obj
+    
+    def update(self, db: Session, db_obj: T, obj_in: Dict[str, Any]) -> T:
+        """Update entity"""
+        with PerformanceLogger(f"update_{self.model_class.__name__}"):
+            for field, value in obj_in.items():
+                if hasattr(db_obj, field):
+                    setattr(db_obj, field, value)
+            db.commit()
+            db.refresh(db_obj)
+            return db_obj
+    
+    def delete(self, db: Session, id: int) -> bool:
+        """Delete entity by ID"""
+        with PerformanceLogger(f"delete_{self.model_class.__name__}"):
+            obj = db.query(self.model_class).filter(self.model_class.id == id).first()
+            if obj:
+                db.delete(obj)
+                db.commit()
+                return True
+            return False
+    
+    def search(self, db: Session, query: str, fields: List[str], skip: int = 0, limit: int = 100) -> List[T]:
+        """Search entities by text in specified fields"""
+        with PerformanceLogger(f"search_{self.model_class.__name__}"):
+            search_conditions = []
+            search_term = f"%{query}%"
+            
+            for field in fields:
+                if hasattr(self.model_class, field):
+                    search_conditions.append(getattr(self.model_class, field).ilike(search_term))
+            
+            if not search_conditions:
+                return []
+            
+            return (
+                db.query(self.model_class)
+                .filter(or_(*search_conditions))
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+
+
+class CacheableService(BaseService):
+    """Service with caching capabilities"""
+    
+    def __init__(self, cache_ttl: int = 300):
+        super().__init__()
+        self.cache_ttl = cache_ttl
+        self.cache_prefix = self.__class__.__name__.lower()
+    
+    def get_cache_key(self, *parts: str) -> str:
+        """Generate cache key"""
+        return f"{self.cache_prefix}:{':'.join(str(part) for part in parts)}"
+    
+    def get_cached(self, key: str) -> Optional[Any]:
+        """Get value from cache"""
+        if not cache:
+            return None
+        return cache.get(key)
+    
+    def set_cached(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Set value in cache"""
+        if not cache:
+            return False
+        return cache.set(key, value, ttl or self.cache_ttl)
+    
+    def delete_cached(self, key: str) -> bool:
+        """Delete value from cache"""
+        if not cache:
+            return False
+        return cache.delete(key)
+    
+    def clear_cache_pattern(self, pattern: str) -> int:
+        """Clear cache entries matching pattern"""
+        if not cache:
+            return 0
+        return cache.delete_pattern(pattern)
+
+
+class MetricsService(BaseService):
+    """Service with metrics collection"""
+    
+    def __init__(self):
+        super().__init__()
+        self.metrics = {}
+        self.metrics_start_time = datetime.utcnow()
+    
+    def record_metric(self, name: str, value: float, tags: Optional[Dict[str, str]] = None):
+        """Record a metric"""
+        if name not in self.metrics:
+            self.metrics[name] = []
+        
+        self.metrics[name].append({
+            "value": value,
+            "timestamp": datetime.utcnow(),
+            "tags": tags or {}
+        })
+        
+        # Log to system metrics
+        log_system_metric(f"{self.__class__.__name__}_{name}", value, tags or {})
+    
+    def get_metric_summary(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get metric summary"""
+        if name not in self.metrics or not self.metrics[name]:
+            return None
+        
+        values = [m["value"] for m in self.metrics[name]]
+        return {
+            "count": len(values),
+            "min": min(values),
+            "max": max(values),
+            "avg": sum(values) / len(values),
+            "latest": values[-1] if values else None
         }
     
-    async def register_service(self):
-        """Register service with service registry"""
-        try:
-            service_info = self.get_service_info()
-            await enhanced_cache.set(
-                f"service_{self.service_name}",
-                service_info,
-                ttl=300,  # 5 minutes
-                tags=["service", "registry"]
-            )
-            logger.info(f"Service {self.service_name} registered")
-        except Exception as e:
-            logger.error(f"Failed to register service {self.service_name}: {e}")
+    def get_all_metrics(self) -> Dict[str, Any]:
+        """Get all metrics"""
+        return {
+            name: self.get_metric_summary(name)
+            for name in self.metrics.keys()
+        }
+
+
+class BackgroundTaskService(BaseService):
+    """Service with background task management"""
     
-    async def unregister_service(self):
-        """Unregister service from service registry"""
-        try:
-            await enhanced_cache.delete(f"service_{self.service_name}")
-            logger.info(f"Service {self.service_name} unregistered")
-        except Exception as e:
-            logger.error(f"Failed to unregister service {self.service_name}: {e}")
+    def __init__(self):
+        super().__init__()
+        self.tasks = {}
+        self.task_intervals = {}
+    
+    async def _initialize_internal(self) -> None:
+        """Initialize background tasks"""
+        pass
+    
+    async def _cleanup_internal(self) -> None:
+        """Stop all background tasks"""
+        for task_name, task in self.tasks.items():
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+    
+    def start_background_task(self, name: str, coro, interval: Optional[int] = None):
+        """Start a background task"""
+        if name in self.tasks and not self.tasks[name].done():
+            self.logger.warning(f"Task {name} is already running")
+            return
+        
+        async def task_wrapper():
+            try:
+                if interval:
+                    while True:
+                        await coro()
+                        await asyncio.sleep(interval)
+                else:
+                    await coro()
+            except asyncio.CancelledError:
+                self.logger.info(f"Background task {name} cancelled")
+            except Exception as e:
+                self.logger.error(f"Background task {name} failed: {e}")
+        
+        task = asyncio.create_task(task_wrapper())
+        self.tasks[name] = task
+        self.task_intervals[name] = interval
+        
+        self.logger.info(f"Started background task: {name}")
+    
+    def stop_background_task(self, name: str):
+        """Stop a background task"""
+        if name in self.tasks:
+            self.tasks[name].cancel()
+            del self.tasks[name]
+            if name in self.task_intervals:
+                del self.task_intervals[name]
+            self.logger.info(f"Stopped background task: {name}")
+    
+    def get_task_status(self) -> Dict[str, Any]:
+        """Get status of all background tasks"""
+        return {
+            name: {
+                "running": not task.done(),
+                "interval": self.task_intervals.get(name),
+                "exception": task.exception() if task.done() and task.exception() else None
+            }
+            for name, task in self.tasks.items()
+        }
+
+
+class ServiceRegistry:
+    """Registry for managing services"""
+    
+    def __init__(self):
+        self.services = {}
+        self._initialized = False
+    
+    def register(self, name: str, service: BaseService):
+        """Register a service"""
+        self.services[name] = service
+        self.logger.info(f"Registered service: {name}")
+    
+    def get(self, name: str) -> Optional[BaseService]:
+        """Get a service by name"""
+        return self.services.get(name)
+    
+    async def initialize_all(self):
+        """Initialize all registered services"""
+        if self._initialized:
+            return
+        
+        for name, service in self.services.items():
+            try:
+                await service.initialize()
+            except Exception as e:
+                self.logger.error(f"Failed to initialize service {name}: {e}")
+        
+        self._initialized = True
+    
+    async def cleanup_all(self):
+        """Cleanup all registered services"""
+        for name, service in self.services.items():
+            try:
+                await service.cleanup()
+            except Exception as e:
+                self.logger.error(f"Failed to cleanup service {name}: {e}")
+        
+        self._initialized = False
+    
+    def get_all_health_status(self) -> Dict[str, Any]:
+        """Get health status of all services"""
+        return {
+            name: service.get_health_status()
+            for name, service in self.services.items()
+        }
+
+
+# Global service registry
+service_registry = ServiceRegistry()

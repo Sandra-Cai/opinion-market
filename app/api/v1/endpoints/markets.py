@@ -1,12 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, and_, or_
 from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.config import settings
+from app.core.security import (
+    get_current_user, 
+    get_current_active_user,
+    rate_limit,
+    validate_request_data,
+    log_security_event,
+    get_client_ip
+)
+from app.core.cache import cache, cached
+from app.core.logging import log_trading_event, log_system_metric
 from app.models.user import User
 from app.models.market import Market, MarketStatus, MarketCategory
 from app.models.trade import Trade
@@ -21,10 +31,118 @@ from app.schemas.market import (
 router = APIRouter()
 
 
+@router.get("/", response_model=MarketListResponse)
+@cached(ttl=60)  # Cache for 1 minute
+async def list_markets(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    category: Optional[MarketCategory] = None,
+    status: Optional[MarketStatus] = None,
+    trending: bool = Query(False),
+    search: Optional[str] = Query(None, max_length=100),
+    db: Session = Depends(get_db)
+):
+    """List markets with filtering, pagination, and caching"""
+    query = db.query(Market)
+    
+    # Apply filters
+    if category:
+        query = query.filter(Market.category == category)
+    
+    if status:
+        query = query.filter(Market.status == status)
+    
+    if trending:
+        query = query.filter(Market.trending_score >= settings.MARKET_TRENDING_THRESHOLD)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Market.title.ilike(search_term),
+                Market.description.ilike(search_term),
+                Market.question.ilike(search_term)
+            )
+        )
+    
+    # Get total count
+    total = query.count()
+    
+    # Apply pagination and ordering
+    markets = query.order_by(desc(Market.created_at)).offset(skip).limit(limit).all()
+    
+    return MarketListResponse(
+        markets=markets,
+        total=total,
+        skip=skip,
+        limit=limit
+    )
+
+
+@router.get("/trending", response_model=List[MarketResponse])
+@cached(ttl=300)  # Cache for 5 minutes
+async def get_trending_markets(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Get trending markets based on activity and volume"""
+    markets = (
+        db.query(Market)
+        .filter(Market.status == MarketStatus.OPEN)
+        .filter(Market.trending_score >= settings.MARKET_TRENDING_THRESHOLD)
+        .order_by(desc(Market.trending_score))
+        .limit(limit)
+        .all()
+    )
+    
+    return markets
+
+
+@router.get("/stats", response_model=MarketStats)
+@cached(ttl=300)  # Cache for 5 minutes
+async def get_market_stats(db: Session = Depends(get_db)):
+    """Get comprehensive market statistics"""
+    # Total markets
+    total_markets = db.query(Market).count()
+    
+    # Active markets
+    active_markets = db.query(Market).filter(Market.status == MarketStatus.OPEN).count()
+    
+    # Total volume
+    total_volume = db.query(func.sum(Market.volume_total)).scalar() or 0
+    
+    # 24h volume
+    yesterday = datetime.utcnow() - timedelta(days=1)
+    volume_24h = db.query(func.sum(Market.volume_24h)).scalar() or 0
+    
+    # Top categories
+    category_stats = (
+        db.query(Market.category, func.count(Market.id), func.sum(Market.volume_total))
+        .group_by(Market.category)
+        .order_by(desc(func.count(Market.id)))
+        .limit(5)
+        .all()
+    )
+    
+    return MarketStats(
+        total_markets=total_markets,
+        active_markets=active_markets,
+        total_volume=total_volume,
+        volume_24h=volume_24h,
+        top_categories=[
+            {"category": cat.value, "count": count, "volume": volume or 0}
+            for cat, count, volume in category_stats
+        ]
+    )
+
+
 @router.post("/", response_model=MarketResponse)
+@rate_limit(requests=10, window=3600)  # 10 markets per hour
+@validate_request_data()
 async def create_market(
     market_data: MarketCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
     """Create a new prediction market with comprehensive validation"""

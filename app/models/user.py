@@ -62,6 +62,8 @@ class User(Base):
     markets_created = relationship("Market", foreign_keys="Market.creator_id", back_populates="creator")
     trades = relationship("Trade", back_populates="user")
     votes = relationship("Vote", back_populates="user")
+    orders = relationship("Order", back_populates="user")
+    positions = relationship("Position", back_populates="user")
 
     @property
     def success_rate(self) -> float:

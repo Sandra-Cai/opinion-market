@@ -119,6 +119,8 @@ class Market(Base):
     trades = relationship("Trade", back_populates="market")
     votes = relationship("Vote", back_populates="market")
     disputes = relationship("MarketDispute", back_populates="market")
+    orders = relationship("Order", back_populates="market")
+    positions = relationship("Position", back_populates="market")
 
     # Table constraints and indexes
     __table_args__ = (

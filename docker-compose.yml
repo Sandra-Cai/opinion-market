@@ -1,141 +1,255 @@
 version: '3.8'
 
 services:
-  # Main API Service
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile.development
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/opinion_market
-      - REDIS_URL=redis://redis:6379
-      - SECRET_KEY=development-secret-key
-      - ENVIRONMENT=development
-    depends_on:
-      - db
-      - redis
-    volumes:
-      - .:/app
-      - /app/__pycache__
-    networks:
-      - opinion-market-network
-
   # PostgreSQL Database
-  db:
-    image: postgres:13
+  postgres:
+    image: postgres:15-alpine
+    container_name: opinion_market_postgres
     environment:
-      - POSTGRES_DB=opinion_market
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: opinion_market
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./deployment/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
     networks:
-      - opinion-market-network
+      - opinion_market_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d opinion_market"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # Redis Cache
   redis:
-    image: redis:6-alpine
-    ports:
-      - "6379:6379"
+    image: redis:7-alpine
+    container_name: opinion_market_redis
+    command: redis-server --appendonly yes --requirepass redis_password
     volumes:
       - redis_data:/data
+    ports:
+      - "6379:6379"
     networks:
-      - opinion-market-network
+      - opinion_market_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Opinion Market API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: opinion_market_api
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/opinion_market
+      
+      # Redis
+      REDIS_URL: redis://:redis_password@redis:6379/0
+      
+      # Security
+      SECRET_KEY: your-super-secret-key-change-in-production
+      
+      # Application
+      ENVIRONMENT: production
+      DEBUG: false
+      LOG_LEVEL: INFO
+      
+      # CORS
+      ALLOWED_HOSTS: '["http://localhost:3000", "http://localhost:8000", "https://yourdomain.com"]'
+      
+      # Rate Limiting
+      RATE_LIMIT_ENABLED: true
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_WINDOW: 60
+      
+      # Caching
+      ENABLE_CACHING: true
+      CACHE_TTL: 300
+      
+      # Performance
+      ENABLE_COMPRESSION: true
+      DATABASE_POOL_SIZE: 20
+      DATABASE_MAX_OVERFLOW: 30
+      
+      # WebSocket
+      WS_HEARTBEAT_INTERVAL: 30
+      WS_MAX_CONNECTIONS: 1000
+      
+      # ML
+      ML_ENABLED: true
+      ML_MODEL_PATH: /app/models
+      
+      # Blockchain (Optional)
+      BLOCKCHAIN_ENABLED: false
+      
+      # Monitoring
+      ENABLE_METRICS: true
+      METRICS_PORT: 9090
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ./models:/app/models
+    ports:
+      - "8000:8000"
+    networks:
+      - opinion_market_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
+    container_name: opinion_market_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ./deployment/nginx.conf:/etc/nginx/nginx.conf
-      - ./deployment/ssl:/etc/nginx/ssl
+    networks:
+      - opinion_market_network
     depends_on:
       - api
-    networks:
-      - opinion-market-network
+    restart: unless-stopped
 
-  # Monitoring with Prometheus
+  # Prometheus Monitoring
   prometheus:
     image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./deployment/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
+    container_name: opinion_market_prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
     networks:
-      - opinion-market-network
+      - opinion_market_network
+    restart: unless-stopped
 
-  # Grafana for Visualization
+  # Grafana Dashboard
   grafana:
     image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
+    container_name: opinion_market_grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      GF_SECURITY_ADMIN_PASSWORD: admin_password
+      GF_USERS_ALLOW_SIGN_UP: false
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./deployment/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    networks:
+      - opinion_market_network
     depends_on:
       - prometheus
-    networks:
-      - opinion-market-network
+    restart: unless-stopped
 
-  # Elasticsearch for Logging
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.0
+  # Database Migration Service
+  migration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: opinion_market_migration
     environment:
-      - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/opinion_market
+      ENVIRONMENT: production
     networks:
-      - opinion-market-network
+      - opinion_market_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
 
-  # Kibana for Log Analysis
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.15.0
-    ports:
-      - "5601:5601"
+  # Development API (for development only)
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: opinion_market_api_dev
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
-    networks:
-      - opinion-market-network
-
-  # Logstash for Log Processing
-  logstash:
-    image: docker.elastic.co/logstash/logstash:7.15.0
+      DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/opinion_market
+      REDIS_URL: redis://:redis_password@redis:6379/0
+      SECRET_KEY: dev-secret-key
+      ENVIRONMENT: development
+      DEBUG: true
+      LOG_LEVEL: DEBUG
     volumes:
-      - ./deployment/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-    depends_on:
-      - elasticsearch
+      - .:/app
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    ports:
+      - "8001:8000"
     networks:
-      - opinion-market-network
+      - opinion_market_network
+    depends_on:
+      - postgres
+      - redis
+    profiles:
+      - dev
+    restart: unless-stopped
+
+  # Testing Service
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: testing
+    container_name: opinion_market_test
+    environment:
+      DATABASE_URL: sqlite:///./test.db
+      ENVIRONMENT: testing
+      DEBUG: true
+    volumes:
+      - .:/app
+    networks:
+      - opinion_market_network
+    profiles:
+      - test
+    command: ["pytest", "tests/", "-v", "--cov=app", "--cov-report=html"]
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
   prometheus_data:
+    driver: local
   grafana_data:
-  elasticsearch_data:
+    driver: local
 
 networks:
-  opinion-market-network:
+  opinion_market_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

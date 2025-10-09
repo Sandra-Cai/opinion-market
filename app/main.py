@@ -84,87 +84,114 @@ except Exception as e:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager with proper error handling"""
-    # Startup
-    print("🚀 Starting Opinion Market API...")
+    """Application lifespan manager with comprehensive error handling and monitoring"""
+    # Initialize logging system
+    logger = setup_logging()
+    logger.info("🚀 Starting Opinion Market API...", version=settings.APP_VERSION)
     
     # Track background tasks for cleanup
     background_tasks = []
+    startup_errors = []
     
     try:
-        # Check if Redis is available
-        redis_available = True
-        try:
-            import redis
-            r = redis.Redis.from_url(settings.REDIS_URL)
-            r.ping()
-            print("✅ Redis connection available")
-        except Exception as e:
-            redis_available = False
-            print(f"⚠️  Redis not available: {e}")
+        # Initialize core systems
+        logger.info("Initializing core systems...")
+        
+        # Check database health
+        db_health = check_database_health()
+        if db_health["status"] == "healthy":
+            logger.info("✅ Database connection established", 
+                       response_time=db_health["response_time"])
+        else:
+            startup_errors.append(f"Database health check failed: {db_health.get('error', 'Unknown error')}")
+        
+        # Check Redis health
+        redis_health = check_redis_health()
+        if redis_health["status"] == "healthy":
+            logger.info("✅ Redis connection established",
+                       response_time=redis_health["response_time"])
+        elif redis_health["status"] == "disabled":
+            logger.warning("⚠️  Redis caching disabled")
+        else:
+            startup_errors.append(f"Redis health check failed: {redis_health.get('error', 'Unknown error')}")
+        
+        # Check cache health
+        cache_health = cache_health_check()
+        if cache_health["status"] == "healthy":
+            logger.info("✅ Cache system operational")
+        else:
+            startup_errors.append(f"Cache health check failed: {cache_health.get('error', 'Unknown error')}")
 
         # Initialize core services that exist
         if ml_service:
             try:
                 await ml_service.initialize()
-                print("✅ Machine Learning service initialized")
+                logger.info("✅ Machine Learning service initialized")
             except Exception as e:
-                print(f"⚠️  ML service initialization failed: {e}")
+                startup_errors.append(f"ML service initialization failed: {e}")
 
         if analytics_service:
             try:
-                print("✅ Analytics service initialized")
+                logger.info("✅ Analytics service initialized")
             except Exception as e:
-                print(f"⚠️  Analytics service initialization failed: {e}")
+                startup_errors.append(f"Analytics service initialization failed: {e}")
 
         if market_service:
             try:
                 await market_service.initialize()
-                print("✅ Market service initialized")
+                logger.info("✅ Market service initialized")
             except Exception as e:
-                print(f"⚠️  Market service initialization failed: {e}")
+                startup_errors.append(f"Market service initialization failed: {e}")
 
         if real_time_engine:
             try:
                 await real_time_engine.start()
-                print("✅ Real-time engine initialized")
+                logger.info("✅ Real-time engine initialized")
             except Exception as e:
-                print(f"⚠️  Real-time engine initialization failed: {e}")
+                startup_errors.append(f"Real-time engine initialization failed: {e}")
 
         if alerting_system:
             try:
                 await alerting_system.start()
-                print("✅ Intelligent alerting system initialized")
+                logger.info("✅ Intelligent alerting system initialized")
             except Exception as e:
-                print(f"⚠️  Alerting system initialization failed: {e}")
+                startup_errors.append(f"Alerting system initialization failed: {e}")
 
         if price_feed_manager:
             try:
                 # Start price feed in background
                 task = asyncio.create_task(price_feed_manager.start_price_feed())
                 background_tasks.append(task)
-                print("✅ Price feed manager initialized")
+                logger.info("✅ Price feed manager initialized")
             except Exception as e:
-                print(f"⚠️  Price feed manager initialization failed: {e}")
+                startup_errors.append(f"Price feed manager initialization failed: {e}")
 
         # Initialize enhanced config if available
         if enhanced_config_manager:
             try:
                 enhanced_config_manager.start_file_watching()
-                print("✅ Enhanced configuration manager initialized")
+                logger.info("✅ Enhanced configuration manager initialized")
             except Exception as e:
-                print(f"⚠️  Enhanced config initialization failed: {e}")
+                startup_errors.append(f"Enhanced config initialization failed: {e}")
 
-        print("🎉 Opinion Market API startup completed successfully!")
+        # Log startup summary
+        if startup_errors:
+            logger.warning("⚠️  Some services failed to initialize", errors=startup_errors)
+        else:
+            logger.info("🎉 Opinion Market API startup completed successfully!")
+        
+        # Log system metrics
+        log_system_metric("app_startup", 1, {"version": settings.APP_VERSION, "environment": settings.ENVIRONMENT.value})
 
     except Exception as e:
-        print(f"❌ Error during startup: {e}")
-        logging.error(f"Startup error: {e}")
+        logger.error("❌ Critical error during startup", error=str(e))
+        startup_errors.append(f"Critical startup error: {e}")
 
     yield
 
     # Shutdown
-    print("👋 Shutting down Opinion Market API...")
+    logger.info("👋 Shutting down Opinion Market API...")
+    shutdown_errors = []
     
     try:
         # Cancel background tasks
@@ -179,53 +206,129 @@ async def lifespan(app: FastAPI):
         if real_time_engine:
             try:
                 await real_time_engine.stop()
-                print("✅ Real-time engine stopped")
+                logger.info("✅ Real-time engine stopped")
             except Exception as e:
-                print(f"⚠️  Error stopping real-time engine: {e}")
+                shutdown_errors.append(f"Error stopping real-time engine: {e}")
 
         if alerting_system:
             try:
                 await alerting_system.stop()
-                print("✅ Alerting system stopped")
+                logger.info("✅ Alerting system stopped")
             except Exception as e:
-                print(f"⚠️  Error stopping alerting system: {e}")
+                shutdown_errors.append(f"Error stopping alerting system: {e}")
 
         if market_service:
             try:
                 await market_service.cleanup()
-                print("✅ Market service stopped")
+                logger.info("✅ Market service stopped")
             except Exception as e:
-                print(f"⚠️  Error stopping market service: {e}")
+                shutdown_errors.append(f"Error stopping market service: {e}")
 
         if enhanced_config_manager:
             try:
                 enhanced_config_manager.stop_file_watching()
-                print("✅ Enhanced config manager stopped")
+                logger.info("✅ Enhanced config manager stopped")
             except Exception as e:
-                print(f"⚠️  Error stopping enhanced config: {e}")
+                shutdown_errors.append(f"Error stopping enhanced config: {e}")
 
-        print("✅ Opinion Market API shutdown completed")
+        if shutdown_errors:
+            logger.warning("⚠️  Some services failed to stop cleanly", errors=shutdown_errors)
+        else:
+            logger.info("✅ Opinion Market API shutdown completed")
+        
+        # Log system metrics
+        log_system_metric("app_shutdown", 1, {"version": settings.APP_VERSION})
         
     except Exception as e:
-        print(f"❌ Error during shutdown: {e}")
-        logging.error(f"Shutdown error: {e}")
+        logger.error("❌ Error during shutdown", error=str(e))
 
 
 app = FastAPI(
-    title="Opinion Market API",
+    title=settings.APP_NAME,
     description="A comprehensive prediction market platform with advanced features",
-    version="2.0.0",
+    version=settings.APP_VERSION,
     lifespan=lifespan,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+    openapi_url="/openapi.json" if settings.DEBUG else None,
 )
 
+# Add middleware in order (last added is first executed)
+# Trusted host middleware
+if settings.is_production:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=settings.ALLOWED_HOSTS
+    )
+
 # CORS middleware
+cors_config = settings.get_cors_config()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_HOSTS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    **cors_config
 )
+
+# Compression middleware
+if settings.ENABLE_COMPRESSION:
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all requests with performance metrics"""
+    start_time = time.time()
+    client_ip = get_client_ip(request)
+    
+    # Log API call
+    log_api_call(
+        endpoint=request.url.path,
+        method=request.method,
+        user_id=getattr(request.state, "user_id", None)
+    )
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Calculate processing time
+    process_time = time.time() - start_time
+    
+    # Log performance metrics
+    log_system_metric("request_duration", process_time, {
+        "method": request.method,
+        "endpoint": request.url.path,
+        "status_code": response.status_code,
+        "client_ip": client_ip
+    })
+    
+    # Add performance headers
+    response.headers["X-Process-Time"] = str(process_time)
+    
+    return response
+
+# Security middleware
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    """Security middleware for IP blocking and rate limiting"""
+    client_ip = get_client_ip(request)
+    
+    # Check if IP is blocked
+    if security_manager.is_ip_blocked(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="IP address is blocked"
+        )
+    
+    # Check if IP is suspicious
+    if security_manager.is_suspicious_ip(client_ip):
+        # Log suspicious activity
+        log_system_metric("suspicious_request", 1, {
+            "ip": client_ip,
+            "endpoint": request.url.path,
+            "method": request.method
+        })
+    
+    response = await call_next(request)
+    return response
 
 # Security
 security = HTTPBearer()

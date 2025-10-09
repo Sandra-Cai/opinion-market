@@ -182,6 +182,9 @@ async def lifespan(app: FastAPI):
         
         # Log system metrics
         log_system_metric("app_startup", 1, {"version": settings.APP_VERSION, "environment": settings.ENVIRONMENT.value})
+        
+        # Set startup time for uptime tracking
+        app.state.start_time = time.time()
 
     except Exception as e:
         logger.error("❌ Critical error during startup", error=str(e))
@@ -385,11 +388,25 @@ async def health_check():
     """Comprehensive health check endpoint"""
     health_status = {
         "status": "healthy",
-        "service": "opinion-market-api",
-        "version": "2.0.0",
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT.value,
         "timestamp": datetime.utcnow().isoformat(),
+        "uptime": time.time() - app.state.start_time if hasattr(app.state, "start_time") else 0,
         "services": {}
     }
+    
+    # Check database health
+    db_health = check_database_health()
+    health_status["services"]["database"] = db_health
+    
+    # Check Redis health
+    redis_health = check_redis_health()
+    health_status["services"]["redis"] = redis_health
+    
+    # Check cache health
+    cache_health = cache_health_check()
+    health_status["services"]["cache"] = cache_health
     
     # Check service health
     if ml_service:
@@ -403,16 +420,34 @@ async def health_check():
     if alerting_system:
         health_status["services"]["alerting_system"] = "healthy"
     
+    # Determine overall health
+    critical_services = ["database"]
+    unhealthy_services = [
+        service for service, status in health_status["services"].items()
+        if isinstance(status, dict) and status.get("status") != "healthy"
+    ]
+    
+    if any(service in unhealthy_services for service in critical_services):
+        health_status["status"] = "unhealthy"
+    elif unhealthy_services:
+        health_status["status"] = "degraded"
+    
     return health_status
 
 
 @app.get("/ready")
 async def readiness_check():
     """Readiness check endpoint"""
+    # Check critical services
+    db_health = check_database_health()
+    is_ready = db_health["status"] == "healthy"
+    
     return {
-        "status": "ready", 
-        "service": "opinion-market-api",
-        "timestamp": datetime.utcnow().isoformat()
+        "status": "ready" if is_ready else "not_ready",
+        "service": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": db_health["status"]
     }
 
 
@@ -425,6 +460,42 @@ async def metrics():
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
     except ImportError:
         return {"error": "Prometheus client not available"}
+
+
+@app.get("/cache/stats")
+async def cache_stats():
+    """Get cache statistics"""
+    return get_cache_stats()
+
+
+@app.get("/system/info")
+async def system_info():
+    """Get system information"""
+    import psutil
+    import platform
+    
+    return {
+        "system": {
+            "platform": platform.platform(),
+            "python_version": platform.python_version(),
+            "cpu_count": psutil.cpu_count(),
+            "memory_total": psutil.virtual_memory().total,
+            "memory_available": psutil.virtual_memory().available,
+            "disk_usage": psutil.disk_usage('/').percent
+        },
+        "application": {
+            "name": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "environment": settings.ENVIRONMENT.value,
+            "debug": settings.DEBUG
+        },
+        "configuration": {
+            "database_pool_size": settings.DATABASE_POOL_SIZE,
+            "redis_enabled": settings.ENABLE_CACHING,
+            "rate_limiting_enabled": settings.RATE_LIMIT_ENABLED,
+            "compression_enabled": settings.ENABLE_COMPRESSION
+        }
+    }
 
 
 if __name__ == "__main__":

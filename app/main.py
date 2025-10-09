@@ -1,14 +1,20 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import uvicorn
 import asyncio
 import logging
 from datetime import datetime
+import time
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, check_database_health, check_redis_health
+from app.core.logging import setup_logging, log_api_call, log_system_metric
+from app.core.cache import cache, get_cache_stats, cache_health_check
+from app.core.security import security_manager, get_client_ip, rate_limit
 
 # Import only existing modules
 try:

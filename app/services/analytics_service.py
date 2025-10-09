@@ -1,314 +1,395 @@
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
-from sqlalchemy import func, desc, and_
-from sqlalchemy.orm import Session
+"""
+Analytics Service for Opinion Market
+Handles data analytics, reporting, and business intelligence
+"""
 
-from app.core.database import SessionLocal
-from app.models.market import Market, MarketCategory
-from app.models.trade import Trade
+import asyncio
+import json
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any, Tuple
+from dataclasses import dataclass
+import math
+
+from sqlalchemy.orm import Session
+from sqlalchemy import func, and_, or_, desc, asc
+from fastapi import HTTPException, status
+
+from app.core.database import get_db, get_redis_client
+from app.core.config import settings
+from app.core.cache import cache
+from app.core.logging import log_system_metric
 from app.models.user import User
-from app.models.position import Position
+from app.models.market import Market, MarketCategory
+from app.models.trade import Trade, TradeType
+
+
+@dataclass
+class AnalyticsReport:
+    """Analytics report data structure"""
+    report_id: str
+    report_type: str
+    generated_at: datetime
+    data: Dict[str, Any]
+    summary: Dict[str, Any]
+    insights: List[str]
+    recommendations: List[str]
 
 
 class AnalyticsService:
+    """Service for analytics and reporting operations"""
+    
     def __init__(self):
-        self.db = SessionLocal()
-
-    def get_market_analytics(self, market_id: int) -> Dict:
-        """Get comprehensive analytics for a specific market"""
-        market = self.db.query(Market).filter(Market.id == market_id).first()
-        if not market:
-            return {}
-
-        # Get trade statistics
-        trades = self.db.query(Trade).filter(Trade.market_id == market_id).all()
-
-        # Calculate analytics
-        total_volume = sum(trade.total_value for trade in trades)
-        total_trades = len(trades)
-        unique_traders = len(set(trade.user_id for trade in trades))
-
-        # Price movement analysis
-        if len(trades) > 1:
-            first_trade = min(trades, key=lambda t: t.created_at)
-            last_trade = max(trades, key=lambda t: t.created_at)
-            price_change = (
-                (last_trade.price_per_share - first_trade.price_per_share)
-                / first_trade.price_per_share
-            ) * 100
-        else:
-            price_change = 0
-
-        # Volume over time
-        volume_by_hour = self._get_volume_by_time(market_id, "hour")
-        volume_by_day = self._get_volume_by_time(market_id, "day")
-
-        # Trader sentiment
-        buy_volume = sum(
-            trade.total_value for trade in trades if trade.trade_type == "buy"
-        )
-        sell_volume = sum(
-            trade.total_value for trade in trades if trade.trade_type == "sell"
-        )
-        sentiment_ratio = (
-            buy_volume / (buy_volume + sell_volume)
-            if (buy_volume + sell_volume) > 0
-            else 0.5
-        )
-
-        return {
-            "market_id": market_id,
-            "total_volume": total_volume,
-            "total_trades": total_trades,
-            "unique_traders": unique_traders,
-            "price_change_percent": price_change,
-            "sentiment_ratio": sentiment_ratio,
-            "volume_by_hour": volume_by_hour,
-            "volume_by_day": volume_by_day,
-            "current_price_a": market.current_price_a,
-            "current_price_b": market.current_price_b,
-            "liquidity_pool_a": market.liquidity_pool_a,
-            "liquidity_pool_b": market.liquidity_pool_b,
-        }
-
-    def get_user_analytics(self, user_id: int) -> Dict:
-        """Get comprehensive analytics for a specific user"""
-        user = self.db.query(User).filter(User.id == user_id).first()
-        if not user:
-            return {}
-
-        # Get user's trades
-        trades = self.db.query(Trade).filter(Trade.user_id == user_id).all()
-
-        # Calculate trading statistics
-        total_volume = sum(trade.total_value for trade in trades)
-        total_trades = len(trades)
-        successful_trades = user.successful_trades
-        win_rate = user.win_rate
-
-        # Profit/Loss analysis
-        total_profit = user.total_profit
-        avg_trade_size = user.avg_trade_size
-
-        # Trading frequency
-        if trades:
-            first_trade = min(trades, key=lambda t: t.created_at)
-            last_trade = max(trades, key=lambda t: t.created_at)
-            trading_days = (last_trade.created_at - first_trade.created_at).days + 1
-            trades_per_day = total_trades / trading_days if trading_days > 0 else 0
-        else:
-            trades_per_day = 0
-
-        # Portfolio analysis
-        positions = (
-            self.db.query(Position)
-            .filter(Position.user_id == user_id, Position.is_active == True)
-            .all()
-        )
-
-        portfolio_value = sum(pos.current_value for pos in positions)
-        total_invested = sum(pos.total_invested for pos in positions)
-        portfolio_return = (
-            ((portfolio_value - total_invested) / total_invested * 100)
-            if total_invested > 0
-            else 0
-        )
-
-        # Market preferences
-        market_categories = self._get_user_market_preferences(user_id)
-
-        return {
-            "user_id": user_id,
-            "total_volume": total_volume,
-            "total_trades": total_trades,
-            "successful_trades": successful_trades,
-            "win_rate": win_rate,
-            "total_profit": total_profit,
-            "avg_trade_size": avg_trade_size,
-            "trades_per_day": trades_per_day,
-            "portfolio_value": portfolio_value,
-            "total_invested": total_invested,
-            "portfolio_return_percent": portfolio_return,
-            "reputation_score": user.reputation_score,
-            "market_preferences": market_categories,
-        }
-
-    def get_platform_analytics(self) -> Dict:
-        """Get platform-wide analytics"""
-        # User statistics
-        total_users = self.db.query(User).count()
-        active_users_24h = (
-            self.db.query(User)
-            .filter(User.last_login >= datetime.utcnow() - timedelta(days=1))
-            .count()
-        )
-
-        # Market statistics
-        total_markets = self.db.query(Market).count()
-        active_markets = self.db.query(Market).filter(Market.status == "open").count()
-        resolved_markets = (
-            self.db.query(Market).filter(Market.status == "resolved").count()
-        )
-
-        # Trading statistics
-        total_volume = self.db.query(func.sum(Trade.total_value)).scalar() or 0
-        total_trades = self.db.query(Trade).count()
-
-        # Volume by category
-        volume_by_category = self._get_volume_by_category()
-
-        # Trending markets
-        trending_markets = self._get_trending_markets(limit=10)
-
-        return {
-            "users": {"total": total_users, "active_24h": active_users_24h},
-            "markets": {
-                "total": total_markets,
-                "active": active_markets,
-                "resolved": resolved_markets,
-            },
-            "trading": {"total_volume": total_volume, "total_trades": total_trades},
-            "volume_by_category": volume_by_category,
-            "trending_markets": trending_markets,
-        }
-
-    def get_market_predictions(self, market_id: int) -> Dict:
-        """Get market prediction analytics"""
-        market = self.db.query(Market).filter(Market.id == market_id).first()
-        if not market:
-            return {}
-
-        # Get recent trades for prediction
-        recent_trades = (
-            self.db.query(Trade)
-            .filter(
-                Trade.market_id == market_id,
-                Trade.created_at >= datetime.utcnow() - timedelta(hours=24),
-            )
-            .order_by(Trade.created_at)
-            .all()
-        )
-
-        if len(recent_trades) < 2:
-            return {"prediction": "insufficient_data"}
-
-        # Simple linear regression for price prediction
-        prices = [trade.price_per_share for trade in recent_trades]
-        times = [
-            (trade.created_at - recent_trades[0].created_at).total_seconds()
-            for trade in recent_trades
-        ]
-
-        # Calculate trend
-        if len(prices) > 1:
-            price_trend = (
-                (prices[-1] - prices[0]) / (times[-1] - times[0])
-                if times[-1] > times[0]
-                else 0
-            )
-            predicted_price = prices[-1] + (price_trend * 3600)  # Predict 1 hour ahead
-        else:
-            predicted_price = prices[0]
-
-        # Confidence based on volume and trader count
-        confidence = min(95, len(recent_trades) * 2 + market.unique_traders * 0.5)
-
-        return {
-            "market_id": market_id,
-            "current_price": market.current_price_a,
-            "predicted_price": max(0, min(1, predicted_price)),
-            "confidence": confidence,
-            "trend": "up" if predicted_price > market.current_price_a else "down",
-            "volume_24h": market.volume_24h,
-        }
-
-    def _get_volume_by_time(self, market_id: int, time_unit: str) -> List[Dict]:
-        """Get volume data grouped by time unit"""
-        if time_unit == "hour":
-            trades = (
-                self.db.query(
-                    func.date_trunc("hour", Trade.created_at).label("time"),
-                    func.sum(Trade.total_value).label("volume"),
-                )
-                .filter(Trade.market_id == market_id)
-                .group_by(func.date_trunc("hour", Trade.created_at))
-                .order_by("time")
+        self.redis_client = get_redis_client()
+        self.cache_ttl = 600  # 10 minutes
+        
+    async def generate_market_analytics(self, db: Session) -> Dict[str, Any]:
+        """Generate comprehensive market analytics"""
+        try:
+            # Get basic market statistics
+            total_markets = db.query(Market).count()
+            active_markets = db.query(Market).filter(Market.status == "open").count()
+            closed_markets = db.query(Market).filter(Market.status == "closed").count()
+            
+            # Get volume statistics
+            total_volume = db.query(func.sum(Market.volume_total)).scalar() or 0.0
+            avg_volume_per_market = total_volume / total_markets if total_markets > 0 else 0.0
+            
+            # Get category breakdown
+            category_stats = (
+                db.query(Market.category, func.count(Market.id), func.sum(Market.volume_total))
+                .group_by(Market.category)
                 .all()
             )
-        else:  # day
-            trades = (
-                self.db.query(
-                    func.date_trunc("day", Trade.created_at).label("time"),
-                    func.sum(Trade.total_value).label("volume"),
-                )
-                .filter(Trade.market_id == market_id)
-                .group_by(func.date_trunc("day", Trade.created_at))
-                .order_by("time")
+            
+            # Get trending markets
+            trending_markets = (
+                db.query(Market)
+                .filter(Market.trending_score >= settings.MARKET_TRENDING_THRESHOLD)
+                .order_by(desc(Market.trending_score))
+                .limit(10)
                 .all()
             )
-
-        return [
-            {"time": str(trade.time), "volume": float(trade.volume)} for trade in trades
-        ]
-
-    def _get_volume_by_category(self) -> List[Dict]:
-        """Get trading volume by market category"""
-        result = (
-            self.db.query(Market.category, func.sum(Trade.total_value).label("volume"))
-            .join(Trade, Market.id == Trade.market_id)
-            .group_by(Market.category)
-            .order_by(desc("volume"))
-            .all()
-        )
-
-        return [
-            {"category": str(r.category), "volume": float(r.volume)} for r in result
-        ]
-
-    def _get_trending_markets(self, limit: int = 10) -> List[Dict]:
-        """Get trending markets based on recent activity"""
-        trending = (
-            self.db.query(Market)
-            .filter(Market.status == "open")
-            .order_by(desc(Market.trending_score))
-            .limit(limit)
-            .all()
-        )
-
-        return [
-            {
-                "id": market.id,
-                "title": market.title,
-                "trending_score": market.trending_score,
-                "volume_24h": market.volume_24h,
-                "current_price_a": market.current_price_a,
+            
+            # Get market performance over time
+            market_performance = self._calculate_market_performance(db)
+            
+            return {
+                "total_markets": total_markets,
+                "active_markets": active_markets,
+                "closed_markets": closed_markets,
+                "total_volume": total_volume,
+                "avg_volume_per_market": avg_volume_per_market,
+                "category_breakdown": [
+                    {
+                        "category": cat.value,
+                        "count": count,
+                        "volume": volume or 0
+                    }
+                    for cat, count, volume in category_stats
+                ],
+                "trending_markets": [
+                    {
+                        "id": market.id,
+                        "title": market.title,
+                        "trending_score": market.trending_score,
+                        "volume": market.volume_total
+                    }
+                    for market in trending_markets
+                ],
+                "performance_over_time": market_performance
             }
-            for market in trending
-        ]
-
-    def _get_user_market_preferences(self, user_id: int) -> List[Dict]:
-        """Get user's preferred market categories"""
-        result = (
-            self.db.query(
-                Market.category,
-                func.count(Trade.id).label("trade_count"),
-                func.sum(Trade.total_value).label("total_volume"),
+            
+        except Exception as e:
+            log_system_metric("market_analytics_error", 1, {"error": str(e)})
+            raise
+    
+    async def generate_trading_analytics(self, db: Session) -> Dict[str, Any]:
+        """Generate comprehensive trading analytics"""
+        try:
+            # Get basic trade statistics
+            total_trades = db.query(Trade).count()
+            total_volume = db.query(func.sum(Trade.total_value)).scalar() or 0.0
+            avg_trade_size = total_volume / total_trades if total_trades > 0 else 0.0
+            
+            # Get trade type breakdown
+            trade_type_stats = (
+                db.query(Trade.trade_type, func.count(Trade.id), func.sum(Trade.total_value))
+                .group_by(Trade.trade_type)
+                .all()
             )
-            .join(Trade, Market.id == Trade.market_id)
-            .filter(Trade.user_id == user_id)
-            .group_by(Market.category)
-            .order_by(desc("total_volume"))
-            .all()
-        )
-
-        return [
-            {
-                "category": str(r.category),
-                "trade_count": r.trade_count,
-                "total_volume": float(r.total_volume),
+            
+            # Get active traders
+            active_traders = db.query(func.count(func.distinct(Trade.user_id))).scalar() or 0
+            
+            # Get top traders
+            top_traders = (
+                db.query(User, func.sum(Trade.total_value).label('total_volume'))
+                .join(Trade, User.id == Trade.user_id)
+                .group_by(User.id)
+                .order_by(desc('total_volume'))
+                .limit(10)
+                .all()
+            )
+            
+            # Get trading volume over time
+            volume_over_time = self._calculate_volume_over_time(db)
+            
+            return {
+                "total_trades": total_trades,
+                "total_volume": total_volume,
+                "avg_trade_size": avg_trade_size,
+                "active_traders": active_traders,
+                "trade_type_breakdown": [
+                    {
+                        "type": trade_type.value,
+                        "count": count,
+                        "volume": volume or 0
+                    }
+                    for trade_type, count, volume in trade_type_stats
+                ],
+                "top_traders": [
+                    {
+                        "user_id": trader[0].id,
+                        "username": trader[0].username,
+                        "total_volume": float(trader[1])
+                    }
+                    for trader in top_traders
+                ],
+                "volume_over_time": volume_over_time
             }
-            for r in result
-        ]
+            
+        except Exception as e:
+            log_system_metric("trading_analytics_error", 1, {"error": str(e)})
+            raise
+    
+    async def generate_user_analytics(self, db: Session) -> Dict[str, Any]:
+        """Generate comprehensive user analytics"""
+        try:
+            # Get basic user statistics
+            total_users = db.query(User).count()
+            active_users = db.query(User).filter(User.is_active == True).count()
+            verified_users = db.query(User).filter(User.is_verified == True).count()
+            
+            # Get user registration over time
+            registration_over_time = self._calculate_registration_over_time(db)
+            
+            # Get user activity levels
+            activity_levels = self._calculate_user_activity_levels(db)
+            
+            # Get user retention
+            retention_metrics = self._calculate_user_retention(db)
+            
+            return {
+                "total_users": total_users,
+                "active_users": active_users,
+                "verified_users": verified_users,
+                "registration_over_time": registration_over_time,
+                "activity_levels": activity_levels,
+                "retention_metrics": retention_metrics
+            }
+            
+        except Exception as e:
+            log_system_metric("user_analytics_error", 1, {"error": str(e)})
+            raise
+    
+    async def generate_financial_analytics(self, db: Session) -> Dict[str, Any]:
+        """Generate financial analytics and metrics"""
+        try:
+            # Get revenue metrics
+            total_fees = db.query(func.sum(Trade.fee)).scalar() or 0.0
+            
+            # Get volume metrics
+            total_volume = db.query(func.sum(Trade.total_value)).scalar() or 0.0
+            
+            # Calculate average fee rate
+            avg_fee_rate = (total_fees / total_volume * 100) if total_volume > 0 else 0.0
+            
+            # Get daily revenue
+            daily_revenue = self._calculate_daily_revenue(db)
+            
+            # Get revenue by category
+            revenue_by_category = self._calculate_revenue_by_category(db)
+            
+            return {
+                "total_fees": total_fees,
+                "total_volume": total_volume,
+                "avg_fee_rate": avg_fee_rate,
+                "daily_revenue": daily_revenue,
+                "revenue_by_category": revenue_by_category
+            }
+            
+        except Exception as e:
+            log_system_metric("financial_analytics_error", 1, {"error": str(e)})
+            raise
+    
+    def _calculate_market_performance(self, db: Session) -> List[Dict[str, Any]]:
+        """Calculate market performance over time"""
+        try:
+            # Get markets created over time
+            markets_over_time = (
+                db.query(
+                    func.date(Market.created_at).label('date'),
+                    func.count(Market.id).label('count'),
+                    func.sum(Market.volume_total).label('volume')
+                )
+                .group_by(func.date(Market.created_at))
+                .order_by('date')
+                .limit(30)
+                .all()
+            )
+            
+            return [
+                {
+                    "date": date.isoformat(),
+                    "markets_created": count,
+                    "volume": volume or 0
+                }
+                for date, count, volume in markets_over_time
+            ]
+        except Exception:
+            return []
+    
+    def _calculate_volume_over_time(self, db: Session) -> List[Dict[str, Any]]:
+        """Calculate trading volume over time"""
+        try:
+            # Get volume over time
+            volume_over_time = (
+                db.query(
+                    func.date(Trade.created_at).label('date'),
+                    func.count(Trade.id).label('trade_count'),
+                    func.sum(Trade.total_value).label('volume')
+                )
+                .group_by(func.date(Trade.created_at))
+                .order_by('date')
+                .limit(30)
+                .all()
+            )
+            
+            return [
+                {
+                    "date": date.isoformat(),
+                    "trade_count": count,
+                    "volume": volume or 0
+                }
+                for date, count, volume in volume_over_time
+            ]
+        except Exception:
+            return []
+    
+    def _calculate_registration_over_time(self, db: Session) -> List[Dict[str, Any]]:
+        """Calculate user registration over time"""
+        try:
+            # Get registrations over time
+            registrations_over_time = (
+                db.query(
+                    func.date(User.created_at).label('date'),
+                    func.count(User.id).label('count')
+                )
+                .group_by(func.date(User.created_at))
+                .order_by('date')
+                .limit(30)
+                .all()
+            )
+            
+            return [
+                {
+                    "date": date.isoformat(),
+                    "registrations": count
+                }
+                for date, count in registrations_over_time
+            ]
+        except Exception:
+            return []
+    
+    def _calculate_user_activity_levels(self, db: Session) -> Dict[str, int]:
+        """Calculate user activity levels"""
+        try:
+            # Get users by activity level
+            high_activity = db.query(User).join(Trade).group_by(User.id).having(func.count(Trade.id) > 50).count()
+            medium_activity = db.query(User).join(Trade).group_by(User.id).having(func.count(Trade.id).between(10, 50)).count()
+            low_activity = db.query(User).join(Trade).group_by(User.id).having(func.count(Trade.id).between(1, 9)).count()
+            inactive = db.query(User).outerjoin(Trade).filter(Trade.id.is_(None)).count()
+            
+            return {
+                "high_activity": high_activity,
+                "medium_activity": medium_activity,
+                "low_activity": low_activity,
+                "inactive": inactive
+            }
+        except Exception:
+            return {"high_activity": 0, "medium_activity": 0, "low_activity": 0, "inactive": 0}
+    
+    def _calculate_user_retention(self, db: Session) -> Dict[str, float]:
+        """Calculate user retention metrics"""
+        try:
+            # Calculate retention rates (simplified)
+            total_users = db.query(User).count()
+            
+            # Users who made at least one trade
+            active_users = db.query(User).join(Trade).distinct().count()
+            
+            # Users who made trades in the last 30 days
+            recent_active = db.query(User).join(Trade).filter(
+                Trade.created_at >= datetime.utcnow() - timedelta(days=30)
+            ).distinct().count()
+            
+            return {
+                "overall_retention": (active_users / total_users * 100) if total_users > 0 else 0,
+                "recent_retention": (recent_active / total_users * 100) if total_users > 0 else 0
+            }
+        except Exception:
+            return {"overall_retention": 0, "recent_retention": 0}
+    
+    def _calculate_daily_revenue(self, db: Session) -> List[Dict[str, Any]]:
+        """Calculate daily revenue"""
+        try:
+            # Get daily revenue
+            daily_revenue = (
+                db.query(
+                    func.date(Trade.created_at).label('date'),
+                    func.sum(Trade.fee).label('revenue')
+                )
+                .group_by(func.date(Trade.created_at))
+                .order_by('date')
+                .limit(30)
+                .all()
+            )
+            
+            return [
+                {
+                    "date": date.isoformat(),
+                    "revenue": revenue or 0
+                }
+                for date, revenue in daily_revenue
+            ]
+        except Exception:
+            return []
+    
+    def _calculate_revenue_by_category(self, db: Session) -> List[Dict[str, Any]]:
+        """Calculate revenue by market category"""
+        try:
+            # Get revenue by category
+            revenue_by_category = (
+                db.query(
+                    Market.category,
+                    func.sum(Trade.fee).label('revenue'),
+                    func.count(Trade.id).label('trade_count')
+                )
+                .join(Trade, Market.id == Trade.market_id)
+                .group_by(Market.category)
+                .all()
+            )
+            
+            return [
+                {
+                    "category": category.value,
+                    "revenue": revenue or 0,
+                    "trade_count": count
+                }
+                for category, revenue, count in revenue_by_category
+            ]
+        except Exception:
+            return []
 
 
 # Global analytics service instance

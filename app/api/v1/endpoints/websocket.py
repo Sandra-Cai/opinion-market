@@ -1,380 +1,377 @@
 """
-WebSocket API Endpoints
-Provides real-time communication endpoints
+WebSocket Endpoints for Opinion Market
+Handles real-time WebSocket connections and communication
 """
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from typing import Dict, Any, List, Optional
 import asyncio
-import time
 import json
+import logging
+from typing import Dict, Any, Optional
+from datetime import datetime
 
-from app.core.auth import get_current_user
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
+from fastapi.websockets import WebSocketState
+
+from app.core.websocket import websocket_service, WebSocketMessageType
+from app.core.security import get_current_user
+from app.core.logging import log_system_metric
+from app.core.security_audit import security_auditor, SecurityEventType, SecuritySeverity
 from app.models.user import User
-from app.websocket.websocket_manager import websocket_manager, MessageType
-from app.notifications.notification_manager import notification_manager
 
 router = APIRouter()
 
 
-@router.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: str):
-    """WebSocket endpoint for real-time communication"""
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Main WebSocket endpoint for real-time communication"""
     connection_id = None
     
     try:
-        # Accept connection
-        connection_id = await websocket_manager.connect(websocket)
+        # Get client information
+        client_ip = websocket.client.host if websocket.client else "unknown"
+        user_agent = websocket.headers.get("user-agent", "unknown")
         
-        # Authenticate connection
-        # In a real implementation, you would validate the JWT token
-        # For now, we'll use a simple authentication
-        auth_success = await websocket_manager.authenticate_connection(
-            connection_id, 
-            user_id, 
-            f"token_{user_id}_{int(time.time())}"
-        )
+        # Connect to WebSocket manager
+        connection_id = await websocket_service.get_manager().connect(websocket, client_ip, user_agent)
         
-        if not auth_success:
-            await websocket.close()
-            return
+        # Log connection
+        log_system_metric("websocket_connection_established", 1, {
+            "connection_id": connection_id,
+            "client_ip": client_ip
+        })
         
         # Main message loop
         while True:
             try:
                 # Receive message
-                data = await websocket.receive_text()
-                message_data = json.loads(data)
+                message_text = await websocket.receive_text()
+                message_data = json.loads(message_text)
                 
                 # Handle message
-                await websocket_manager.handle_message(connection_id, message_data)
+                await websocket_service.get_manager().handle_message(connection_id, message_data)
                 
             except WebSocketDisconnect:
                 break
             except json.JSONDecodeError:
-                await websocket_manager.send_message(
-                    connection_id, 
-                    MessageType.ERROR, 
+                # Send error message for invalid JSON
+                await websocket_service.get_manager().send_to_connection(
+                    connection_id,
+                    WebSocketMessageType.ERROR,
                     {"error": "Invalid JSON format"}
                 )
             except Exception as e:
-                await websocket_manager.send_message(
-                    connection_id, 
-                    MessageType.ERROR, 
-                    {"error": f"Message processing error: {str(e)}"}
+                # Log error and send error message
+                log_system_metric("websocket_message_error", 1, {"error": str(e)})
+                await websocket_service.get_manager().send_to_connection(
+                    connection_id,
+                    WebSocketMessageType.ERROR,
+                    {"error": "Internal server error"}
                 )
     
-    except WebSocketDisconnect:
-        pass
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        log_system_metric("websocket_endpoint_error", 1, {"error": str(e)})
+        
+        # Log security event for suspicious WebSocket activity
+        await security_auditor.log_security_event(
+            SecurityEventType.SUSPICIOUS_ACTIVITY,
+            SecuritySeverity.MEDIUM,
+            client_ip,
+            {
+                "endpoint": "/ws",
+                "error": str(e),
+                "connection_id": connection_id
+            }
+        )
+    
+    finally:
+        # Clean up connection
+        if connection_id:
+            await websocket_service.get_manager().disconnect(connection_id)
+
+
+@router.websocket("/ws/authenticated")
+async def authenticated_websocket_endpoint(websocket: WebSocket, token: str = None):
+    """Authenticated WebSocket endpoint for user-specific real-time features"""
+    connection_id = None
+    
+    try:
+        # Get client information
+        client_ip = websocket.client.host if websocket.client else "unknown"
+        user_agent = websocket.headers.get("user-agent", "unknown")
+        
+        # Connect to WebSocket manager
+        connection_id = await websocket_service.get_manager().connect(websocket, client_ip, user_agent)
+        
+        # Authenticate user
+        if token:
+            try:
+                # In a real implementation, you'd validate the JWT token here
+                # For now, we'll extract user_id from token (simplified)
+                user_id = int(token) if token.isdigit() else None
+                
+                if user_id:
+                    await websocket_service.get_manager().authenticate(connection_id, user_id)
+                    
+                    # Auto-subscribe to user-specific rooms
+                    await websocket_service.get_manager().subscribe(connection_id, f"user:{user_id}")
+                    await websocket_service.get_manager().subscribe(connection_id, "notifications")
+                    await websocket_service.get_manager().subscribe(connection_id, "trading")
+                    
+                    # Send welcome message
+                    await websocket_service.get_manager().send_to_connection(
+                        connection_id,
+                        WebSocketMessageType.SYSTEM_MESSAGE,
+                        {
+                            "message": f"Welcome, User {user_id}!",
+                            "authenticated": True,
+                            "user_id": user_id,
+                            "subscribed_rooms": [f"user:{user_id}", "notifications", "trading"]
+                        }
+                    )
+                else:
+                    await websocket_service.get_manager().send_to_connection(
+                        connection_id,
+                        WebSocketMessageType.ERROR,
+                        {"error": "Invalid authentication token"}
+                    )
+                    
+            except Exception as e:
+                await websocket_service.get_manager().send_to_connection(
+                    connection_id,
+                    WebSocketMessageType.ERROR,
+                    {"error": "Authentication failed"}
+                )
+        else:
+            await websocket_service.get_manager().send_to_connection(
+                connection_id,
+                WebSocketMessageType.ERROR,
+                {"error": "Authentication token required"}
+            )
+        
+        # Main message loop
+        while True:
+            try:
+                # Receive message
+                message_text = await websocket.receive_text()
+                message_data = json.loads(message_text)
+                
+                # Handle message
+                await websocket_service.get_manager().handle_message(connection_id, message_data)
+                
+            except WebSocketDisconnect:
+                break
+            except json.JSONDecodeError:
+                await websocket_service.get_manager().send_to_connection(
+                    connection_id,
+                    WebSocketMessageType.ERROR,
+                    {"error": "Invalid JSON format"}
+                )
+            except Exception as e:
+                log_system_metric("authenticated_websocket_message_error", 1, {"error": str(e)})
+                await websocket_service.get_manager().send_to_connection(
+                    connection_id,
+                    WebSocketMessageType.ERROR,
+                    {"error": "Internal server error"}
+                )
+    
+    except Exception as e:
+        log_system_metric("authenticated_websocket_endpoint_error", 1, {"error": str(e)})
+        
+        # Log security event
+        await security_auditor.log_security_event(
+            SecurityEventType.SUSPICIOUS_ACTIVITY,
+            SecuritySeverity.MEDIUM,
+            client_ip,
+            {
+                "endpoint": "/ws/authenticated",
+                "error": str(e),
+                "connection_id": connection_id
+            }
+        )
+    
     finally:
         if connection_id:
-            await websocket_manager.disconnect(connection_id, "client_disconnect")
+            await websocket_service.get_manager().disconnect(connection_id)
 
 
-@router.get("/connections/stats")
-async def get_websocket_stats(current_user: User = Depends(get_current_user)):
+@router.websocket("/ws/market/{market_id}")
+async def market_websocket_endpoint(websocket: WebSocket, market_id: int):
+    """Market-specific WebSocket endpoint for real-time market data"""
+    connection_id = None
+    
+    try:
+        # Get client information
+        client_ip = websocket.client.host if websocket.client else "unknown"
+        user_agent = websocket.headers.get("user-agent", "unknown")
+        
+        # Connect to WebSocket manager
+        connection_id = await websocket_service.get_manager().connect(websocket, client_ip, user_agent)
+        
+        # Subscribe to market room
+        await websocket_service.get_manager().subscribe(connection_id, f"market:{market_id}")
+        
+        # Send market subscription confirmation
+        await websocket_service.get_manager().send_to_connection(
+            connection_id,
+            WebSocketMessageType.SUBSCRIPTION,
+            {
+                "room": f"market:{market_id}",
+                "market_id": market_id,
+                "message": f"Subscribed to market {market_id} updates"
+            }
+        )
+        
+        # Main message loop
+        while True:
+            try:
+                # Receive message
+                message_text = await websocket.receive_text()
+                message_data = json.loads(message_text)
+                
+                # Handle message
+                await websocket_service.get_manager().handle_message(connection_id, message_data)
+                
+            except WebSocketDisconnect:
+                break
+            except json.JSONDecodeError:
+                await websocket_service.get_manager().send_to_connection(
+                    connection_id,
+                    WebSocketMessageType.ERROR,
+                    {"error": "Invalid JSON format"}
+                )
+            except Exception as e:
+                log_system_metric("market_websocket_message_error", 1, {"error": str(e)})
+                await websocket_service.get_manager().send_to_connection(
+                    connection_id,
+                    WebSocketMessageType.ERROR,
+                    {"error": "Internal server error"}
+                )
+    
+    except Exception as e:
+        log_system_metric("market_websocket_endpoint_error", 1, {"error": str(e)})
+        
+        # Log security event
+        await security_auditor.log_security_event(
+            SecurityEventType.SUSPICIOUS_ACTIVITY,
+            SecuritySeverity.MEDIUM,
+            client_ip,
+            {
+                "endpoint": f"/ws/market/{market_id}",
+                "error": str(e),
+                "connection_id": connection_id,
+                "market_id": market_id
+            }
+        )
+    
+    finally:
+        if connection_id:
+            await websocket_service.get_manager().disconnect(connection_id)
+
+
+@router.get("/ws/stats")
+async def websocket_stats():
     """Get WebSocket connection statistics"""
     try:
-        stats = websocket_manager.get_connection_stats()
-        
+        stats = websocket_service.get_manager().get_connection_stats()
         return {
-            "success": True,
+            "status": "success",
             "data": stats,
-            "timestamp": time.time()
+            "timestamp": datetime.utcnow().isoformat()
         }
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get WebSocket stats: {str(e)}")
-
-
-@router.get("/connections/{user_id}")
-async def get_user_connections(
-    user_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """Get WebSocket connections for a user"""
-    try:
-        connections = websocket_manager.get_user_connections(user_id)
-        
-        return {
-            "success": True,
-            "data": {
-                "user_id": user_id,
-                "connections": connections,
-                "connection_count": len(connections)
-            },
-            "timestamp": time.time()
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get user connections: {str(e)}")
-
-
-@router.get("/rooms/{room_id}")
-async def get_room_info(
-    room_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """Get information about a WebSocket room"""
-    try:
-        room_info = websocket_manager.get_room_info(room_id)
-        
-        if not room_info:
-            raise HTTPException(status_code=404, detail=f"Room {room_id} not found")
-        
-        return {
-            "success": True,
-            "data": room_info,
-            "timestamp": time.time()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get room info: {str(e)}")
-
-
-@router.post("/rooms/{room_id}/join")
-async def join_room(
-    room_id: str,
-    connection_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
-):
-    """Join a WebSocket room"""
-    try:
-        connection_id = connection_data.get("connection_id")
-        
-        if not connection_id:
-            raise HTTPException(status_code=400, detail="Connection ID is required")
-        
-        success = await websocket_manager.join_room(connection_id, room_id)
-        
-        if success:
-            return {
-                "success": True,
-                "message": f"Successfully joined room {room_id}",
-                "data": {
-                    "room_id": room_id,
-                    "connection_id": connection_id
-                },
-                "timestamp": time.time()
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Failed to join room")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to join room: {str(e)}")
-
-
-@router.post("/rooms/{room_id}/leave")
-async def leave_room(
-    room_id: str,
-    connection_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
-):
-    """Leave a WebSocket room"""
-    try:
-        connection_id = connection_data.get("connection_id")
-        
-        if not connection_id:
-            raise HTTPException(status_code=400, detail="Connection ID is required")
-        
-        success = await websocket_manager.leave_room(connection_id, room_id)
-        
-        if success:
-            return {
-                "success": True,
-                "message": f"Successfully left room {room_id}",
-                "data": {
-                    "room_id": room_id,
-                    "connection_id": connection_id
-                },
-                "timestamp": time.time()
-            }
-        else:
-            raise HTTPException(status_code=400, detail="Failed to leave room")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to leave room: {str(e)}")
-
-
-@router.post("/broadcast/room/{room_id}")
-async def broadcast_to_room(
-    room_id: str,
-    broadcast_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
-):
-    """Broadcast a message to all connections in a room"""
-    try:
-        message_type_str = broadcast_data.get("message_type", "notification")
-        message_data = broadcast_data.get("data", {})
-        exclude_connection = broadcast_data.get("exclude_connection")
-        
-        try:
-            message_type = MessageType(message_type_str)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid message type: {message_type_str}")
-        
-        sent_count = await websocket_manager.broadcast_to_room(
-            room_id, 
-            message_type, 
-            message_data, 
-            exclude_connection
+        log_system_metric("websocket_stats_error", 1, {"error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get WebSocket statistics"
         )
-        
-        return {
-            "success": True,
-            "message": f"Message broadcasted to {sent_count} connections",
-            "data": {
-                "room_id": room_id,
-                "message_type": message_type_str,
-                "sent_count": sent_count
-            },
-            "timestamp": time.time()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to broadcast to room: {str(e)}")
 
 
-@router.post("/broadcast/user/{user_id}")
-async def broadcast_to_user(
-    user_id: str,
-    broadcast_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
-):
-    """Broadcast a message to all connections of a user"""
+@router.post("/ws/broadcast")
+async def broadcast_message(message: str, message_type: str = "info"):
+    """Broadcast system message to all connected WebSocket clients"""
     try:
-        message_type_str = broadcast_data.get("message_type", "notification")
-        message_data = broadcast_data.get("data", {})
-        
-        try:
-            message_type = MessageType(message_type_str)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid message type: {message_type_str}")
-        
-        sent_count = await websocket_manager.broadcast_to_user(
-            user_id, 
-            message_type, 
-            message_data
+        await websocket_service.broadcast_system_message(message, message_type)
+        return {
+            "status": "success",
+            "message": "Message broadcasted successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        log_system_metric("websocket_broadcast_error", 1, {"error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to broadcast message"
         )
-        
-        return {
-            "success": True,
-            "message": f"Message broadcasted to {sent_count} connections",
-            "data": {
-                "user_id": user_id,
-                "message_type": message_type_str,
-                "sent_count": sent_count
-            },
-            "timestamp": time.time()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to broadcast to user: {str(e)}")
 
 
-@router.post("/send/{connection_id}")
-async def send_to_connection(
-    connection_id: str,
-    message_data: Dict[str, Any],
-    current_user: User = Depends(get_current_user)
-):
-    """Send a message to a specific connection"""
+@router.post("/ws/notify/{user_id}")
+async def send_user_notification(user_id: int, notification: Dict[str, Any]):
+    """Send notification to a specific user via WebSocket"""
     try:
-        message_type_str = message_data.get("message_type", "notification")
-        data = message_data.get("data", {})
-        
-        try:
-            message_type = MessageType(message_type_str)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid message type: {message_type_str}")
-        
-        success = await websocket_manager.send_message(
-            connection_id, 
-            message_type, 
-            data
+        await websocket_service.send_user_notification(user_id, notification)
+        return {
+            "status": "success",
+            "message": f"Notification sent to user {user_id}",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        log_system_metric("websocket_user_notification_error", 1, {"error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send user notification"
         )
-        
-        if success:
-            return {
-                "success": True,
-                "message": "Message sent successfully",
-                "data": {
-                    "connection_id": connection_id,
-                    "message_type": message_type_str
-                },
-                "timestamp": time.time()
-            }
-        else:
-            raise HTTPException(status_code=404, detail="Connection not found")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
 
 
-@router.post("/disconnect/{connection_id}")
-async def disconnect_connection(
-    connection_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    """Disconnect a specific WebSocket connection"""
+@router.post("/ws/market/{market_id}/update")
+async def broadcast_market_update(market_id: int, update_data: Dict[str, Any]):
+    """Broadcast market update to all subscribers"""
     try:
-        await websocket_manager.disconnect(connection_id, "admin_disconnect")
-        
+        update_data["market_id"] = market_id
+        await websocket_service.broadcast_market_update(update_data)
         return {
-            "success": True,
-            "message": f"Connection {connection_id} disconnected",
-            "data": {
-                "connection_id": connection_id
-            },
-            "timestamp": time.time()
+            "status": "success",
+            "message": f"Market update broadcasted for market {market_id}",
+            "timestamp": datetime.utcnow().isoformat()
         }
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to disconnect connection: {str(e)}")
+        log_system_metric("websocket_market_update_error", 1, {"error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to broadcast market update"
+        )
 
 
-@router.get("/health")
-async def websocket_health_check(current_user: User = Depends(get_current_user)):
-    """Get WebSocket system health status"""
+@router.post("/ws/trade/update")
+async def broadcast_trade_update(trade_data: Dict[str, Any]):
+    """Broadcast trade update to relevant subscribers"""
     try:
-        stats = websocket_manager.get_connection_stats()
-        
-        # Determine health status
-        if stats["active_connections"] > 1000:
-            health_status = "degraded"
-        elif stats["authentication_failures"] > 100:
-            health_status = "degraded"
-        else:
-            health_status = "healthy"
-        
+        await websocket_service.broadcast_trade_update(trade_data)
         return {
-            "success": True,
-            "data": {
-                "status": health_status,
-                "stats": stats,
-                "system_info": {
-                    "max_connections_per_user": websocket_manager.max_connections_per_user,
-                    "max_rooms_per_connection": websocket_manager.max_rooms_per_connection,
-                    "heartbeat_interval": websocket_manager.heartbeat_interval,
-                    "connection_timeout": websocket_manager.connection_timeout
-                }
-            },
-            "timestamp": time.time()
+            "status": "success",
+            "message": "Trade update broadcasted successfully",
+            "timestamp": datetime.utcnow().isoformat()
         }
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get health status: {str(e)}")
+        log_system_metric("websocket_trade_update_error", 1, {"error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to broadcast trade update"
+        )
+
+
+@router.post("/ws/price/update")
+async def broadcast_price_update(market_id: int, price_a: float, price_b: float):
+    """Broadcast price update for a specific market"""
+    try:
+        await websocket_service.broadcast_price_update(market_id, price_a, price_b)
+        return {
+            "status": "success",
+            "message": f"Price update broadcasted for market {market_id}",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        log_system_metric("websocket_price_update_error", 1, {"error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to broadcast price update"
+        )

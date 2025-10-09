@@ -1,16 +1,22 @@
 """
-Microservices Architecture Foundation
-This module provides the base classes and utilities for microservices
+Services package for Opinion Market
+Contains business logic services separated from API endpoints and database models
 """
 
-from .base_service import BaseService
-from .service_registry import ServiceRegistry
-from .service_discovery import ServiceDiscovery
-from .inter_service_communication import InterServiceCommunication
+from .user_service import UserService
+from .market_service import MarketService
+from .trade_service import TradeService
+from .analytics_service import AnalyticsService
+from .notification_service import NotificationService
+from .ml_service import MLService
+from .blockchain_service import BlockchainService
 
 __all__ = [
-    "BaseService",
-    "ServiceRegistry", 
-    "ServiceDiscovery",
-    "InterServiceCommunication"
+    "UserService",
+    "MarketService", 
+    "TradeService",
+    "AnalyticsService",
+    "NotificationService",
+    "MLService",
+    "BlockchainService"
 ]

@@ -1,13 +1,25 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from typing import Optional
+import re
 
 from app.core.database import get_db
-from app.core.auth import verify_password, create_access_token, get_password_hash
 from app.core.config import settings
+from app.core.security import (
+    security_manager, 
+    get_current_user, 
+    get_current_active_user,
+    rate_limit,
+    validate_request_data,
+    log_security_event,
+    get_client_ip
+)
+from app.core.cache import cache
+from app.core.logging import log_trading_event
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse, Token
+from app.schemas.user import UserCreate, UserResponse, Token, UserLogin, PasswordReset, PasswordChange
 
 router = APIRouter()
 

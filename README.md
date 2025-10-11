@@ -1,300 +1,217 @@
-# Opinion Market
+# Opinion Market - Advanced Prediction Market Platform
 
-A sophisticated prediction market platform where people can trade and vote on their opinions, built with advanced features similar to Polymarket.
+A comprehensive prediction market platform built with FastAPI, React, and modern web technologies. This platform enables users to create, trade, and manage prediction markets with advanced features including real-time trading, AI analytics, and social features.
 
-## 🎯 Purpose
-
-Opinion Market is a decentralized prediction market platform that allows users to:
-- **Trade on predictions** about real-world events
-- **Vote on market outcomes** with confidence levels
-- **Earn rewards** for accurate predictions
-- **Participate in governance** through dispute resolution
-- **Access real-time analytics** and market insights
-
-## ✨ Features
+## 🚀 Features
 
 ### Core Features
-- **Prediction Markets**: Create and trade on binary and multiple-choice markets
-- **Advanced Trading**: Market orders, limit orders, and stop orders
-- **Portfolio Management**: Track positions, P&L, and performance metrics
-- **Real-time Updates**: WebSocket-based live market data and trade feeds
-- **AMM Pricing**: Automated Market Maker for dynamic price discovery
-
-### Social Features
-- **User Profiles**: Comprehensive trading statistics and reputation scores
-- **Leaderboards**: Rank users by profit, volume, win rate, and reputation
-- **Market Discovery**: Trending markets, categories, and search functionality
-- **Community Voting**: Vote on market outcomes with confidence levels
+- **Prediction Markets**: Create and trade on future events
+- **Real-time Trading**: Live price updates and instant trade execution
+- **Advanced Orders**: Market, limit, stop, and stop-limit orders
+- **Portfolio Management**: Track performance and manage positions
+- **Social Features**: Follow traders, share insights, and build reputation
 
 ### Advanced Features
-- **Dispute Resolution**: Community-driven dispute system for contested market resolutions
-- **Market Verification**: Moderator/admin system for market quality control
-- **Notification System**: Email and push notifications for market events
-- **Analytics Dashboard**: Comprehensive market and user analytics
-- **Order Book**: Advanced order matching and depth visualization
-- **Price Predictions**: AI-powered market price forecasting
-- **Sentiment Analysis**: Trading sentiment and market psychology insights
-- **Mobile API**: Mobile-optimized endpoints and push notifications
-- **Advanced Orders**: Stop-loss, take-profit, trailing stops, and conditional orders
-- **Rewards System**: Gamification with achievements and token rewards
-- **Real-time Analytics**: Live market data and performance tracking
+- **AI Analytics**: Machine learning-powered market analysis
+- **Risk Management**: Advanced risk assessment and portfolio optimization
+- **Blockchain Integration**: Smart contract integration for decentralized features
+- **Enterprise Security**: Multi-layer security with threat detection
+- **Performance Optimization**: Caching, compression, and monitoring
+- **Real-time Notifications**: WebSocket-based live updates
 
-### Polymarket-like Features
-- **Liquidity Pools**: Separate pools for each market outcome
-- **Fee Structure**: Trading fees and platform revenue sharing
-- **Market Quality Scoring**: Algorithmic market quality assessment
-- **Trending Algorithm**: Real-time market trending detection
-- **Advanced Order Types**: Limit, market, and stop orders
-- **Real-time Price Feeds**: Live market data and trade broadcasts
+### Admin Features
+- **User Management**: Comprehensive user administration
+- **Market Moderation**: Content moderation and market management
+- **System Monitoring**: Real-time system health and performance metrics
+- **Analytics Dashboard**: Business intelligence and reporting
+- **Security Audit**: Comprehensive security monitoring and logging
 
-## 🎯 Advanced Features
+## 🏗️ Architecture
 
-### AI-Powered Analytics
-- **Market Predictions**: ML-based price forecasting and trend analysis
-- **User Insights**: Personalized trading recommendations and performance analysis
-- **Sentiment Analysis**: Real-time market sentiment tracking
-- **Risk Assessment**: AI-powered risk analysis for trades and portfolios
-- **Performance Analytics**: Advanced portfolio performance metrics
-- **Price Forecasting**: Short, medium, and long-term price predictions
-- **Technical Indicators**: RSI, MACD, Bollinger Bands, and more
-- **Market Correlation Analysis**: Cross-market relationship insights
+### Backend (FastAPI)
+- **API Layer**: RESTful API with OpenAPI documentation
+- **Service Layer**: Business logic separation
+- **Database Layer**: PostgreSQL with SQLAlchemy ORM
+- **Cache Layer**: Redis for high-performance caching
+- **Security Layer**: JWT authentication, rate limiting, input validation
+- **WebSocket Layer**: Real-time communication
+- **ML Layer**: Machine learning models for predictions
 
-### Rewards & Gamification
-- **Daily Login Rewards**: Earn tokens and XP for daily engagement
-- **Trade Streaks**: Bonus rewards for consecutive trading days
-- **Achievement System**: Unlock achievements for various milestones
-- **Volume Milestones**: Rewards for reaching trading volume targets
-- **Profit Milestones**: Bonuses for profitable trading performance
-- **Market Creation Rewards**: Incentives for creating quality markets
-- **Governance Participation**: Rewards for active governance involvement
-- **Winning Streaks**: Special rewards for consecutive profitable trades
-- **Leaderboards**: Competitive rankings across multiple categories
+### Frontend (React)
+- **Component Library**: Reusable UI components with Tailwind CSS
+- **State Management**: Zustand for global state
+- **Routing**: React Router for navigation
+- **Real-time Updates**: WebSocket integration
+- **Charts & Analytics**: Recharts for data visualization
+- **Responsive Design**: Mobile-first approach
 
-### Mobile API Support
-- **Mobile-Optimized Endpoints**: Streamlined API responses for mobile apps
-- **Push Notifications**: Real-time alerts for trades, market updates, and rewards
-- **Device Registration**: Secure mobile device management
-- **Mobile Dashboard**: Optimized data for mobile interfaces
-- **Portfolio Tracking**: Mobile-friendly portfolio management
-- **Performance Charts**: Mobile-optimized chart data
-- **Search & Discovery**: Fast market search for mobile users
+### Infrastructure
+- **Containerization**: Docker and Docker Compose
+- **Reverse Proxy**: Nginx with SSL termination
+- **Monitoring**: Prometheus and Grafana
+- **Database**: PostgreSQL with connection pooling
+- **Cache**: Redis for session and data caching
+- **File Storage**: Local and cloud storage options
 
-### Advanced Order Types
-- **Stop-Loss Orders**: Automatic selling when price falls below threshold
-- **Take-Profit Orders**: Secure gains when price reaches target
-- **Trailing Stops**: Dynamic stop-loss that follows price movements
-- **Conditional Orders**: Orders that trigger based on other market conditions
-- **Bracket Orders**: Entry orders with automatic stop-loss and take-profit
-- **Risk Management**: Built-in risk assessment and warnings
-- **Order Statistics**: Performance tracking for advanced orders
-
-### Real-Time Market Data Feeds
-- **Live Price Updates**: Real-time market price and volume data
-- **Market Alerts**: Automated alerts for price spikes, volume surges, and liquidity drops
-- **Market Statistics**: Detailed analytics for any time period
-- **Trending Markets**: Algorithm-based market trending detection
-- **Volatility Tracking**: Real-time volatility calculations and alerts
-- **WebSocket Feeds**: Live data streams for real-time applications
-
-### Comprehensive Monitoring & Alerting
-- **System Performance Monitoring**: CPU, memory, disk, and network monitoring
-- **Application Metrics**: User activity, trading volume, and performance tracking
-- **Automated Alerting**: Intelligent alerts for system and application issues
-- **Health Checks**: Database, Redis, and external service monitoring
-- **Performance Analysis**: Trend analysis and predictive insights
-- **Production-Ready Infrastructure**: Docker, monitoring stack, and backup systems
-
-### Advanced Machine Learning & AI
-- **Market Price Predictions**: ML-powered price forecasting with confidence scores
-- **User Behavior Analysis**: Comprehensive trading profile and risk assessment
-- **Personalized Recommendations**: AI-driven trading suggestions based on user patterns
-- **Model Performance Tracking**: Continuous model evaluation and retraining
-- **Bulk Market Analysis**: Multi-market prediction and trend analysis
-- **Intelligent Insights**: Automated market and user insights generation
-
-### Blockchain Integration & DeFi Features
-- **Smart Contract Integration**: Market creation and trading on blockchain
-- **Multi-Chain Support**: Ethereum, Polygon, and Arbitrum networks
-- **Governance on Blockchain**: Decentralized proposal creation and voting
-- **Token Balance Tracking**: Real-time cryptocurrency and token balances
-- **Transaction Monitoring**: Automated blockchain transaction tracking
-- **DeFi Rewards**: Blockchain-based reward distribution system
-
-### Enterprise Security & Compliance
-- **Advanced Threat Detection**: Real-time threat detection and prevention
-- **Encryption**: End-to-end encryption for sensitive data
-- **Audit Logging**: Comprehensive security audit trails
-- **Risk Assessment**: Dynamic user risk profiling and scoring
-- **Rate Limiting**: Intelligent rate limiting and DDoS protection
-- **Compliance**: GDPR, SOC2, and financial compliance features
-- **Security Monitoring**: 24/7 security event monitoring and alerting
-
-### Performance Optimization
-- **Intelligent Caching**: Multi-layer caching with Redis
-- **Database Optimization**: Connection pooling and query optimization
-- **Memory Management**: Automatic memory optimization and garbage collection
-- **Performance Monitoring**: Real-time performance metrics and profiling
-- **Load Balancing**: Intelligent request distribution and load management
-- **Resource Optimization**: CPU, memory, and network optimization
-
-### Social Features & Community
-- **User Profiles**: Rich user profiles with trading statistics
-- **Social Posts**: Share trading insights and market analysis
-- **Communities**: Create and join trading communities
-- **Follow System**: Follow other traders and get personalized feeds
-- **Social Analytics**: Influence scores, engagement metrics, and reach analysis
-- **Trending Topics**: Real-time trending topics and discussions
-- **Content Discovery**: Advanced content search and recommendation
-
-### Comprehensive API Documentation
-- **OpenAPI/Swagger**: Interactive API documentation
-- **Code Examples**: Multiple programming language examples
-- **SDK Libraries**: Official SDKs for Python, JavaScript, and Java
-- **Webhook Support**: Real-time webhook notifications
-- **Rate Limiting**: Transparent rate limiting documentation
-- **Error Handling**: Comprehensive error codes and troubleshooting
-- **Integration Guides**: Step-by-step integration tutorials
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Python 3.11+
-- PostgreSQL 13+
-- Redis 6+
-- Docker & Docker Compose (optional)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd opinion-market
-   ```
-
-2. **Run the setup script**
-   ```bash
-   python setup.py
-   ```
-
-3. **Start the application**
-   ```bash
-   python run.py
-   ```
-
-### Environment Setup
-
-1. **Copy environment file**
-   ```bash
-   cp env.example .env
-   ```
-
-2. **Configure environment variables**
-   ```bash
-   # Database
-   DATABASE_URL=postgresql://user:password@localhost/opinion_market
-   
-   # Security
-   SECRET_KEY=your-secret-key-here
-   
-   # Redis
-   REDIS_URL=redis://localhost:6379
-   
-   # Email (optional)
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_USER=your-email@gmail.com
-   SMTP_PASSWORD=your-app-password
-   ```
-
-### Running with Docker
-
-```bash
-# Build and start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop services
-docker-compose down
-```
-
-## 📁 Project Structure
-
-```
-opinion-market/
-├── app/
-│   ├── api/v1/endpoints/     # API endpoints
-│   │   ├── auth.py          # Authentication
-│   │   ├── users.py         # User management
-│   │   ├── markets.py       # Market operations
-│   │   ├── trades.py        # Trading operations
-│   │   ├── positions.py     # Portfolio management
-│   │   ├── orders.py        # Order book system
-│   │   ├── disputes.py      # Dispute resolution
-│   │   ├── notifications.py # Notification system
-│   │   ├── analytics.py     # Analytics endpoints
-│   │   ├── verification.py  # Market verification
-│   │   ├── leaderboard.py   # Leaderboards
-│   │   └── websocket.py     # Real-time updates
-│   ├── core/                # Core functionality
-│   │   ├── config.py        # Configuration
-│   │   ├── database.py      # Database setup
-│   │   └── auth.py          # Authentication utilities
-│   ├── models/              # Database models
-│   │   ├── user.py          # User model
-│   │   ├── market.py        # Market model
-│   │   ├── trade.py         # Trade model
-│   │   ├── position.py      # Position model
-│   │   ├── order.py         # Order book models
-│   │   ├── dispute.py       # Dispute models
-│   │   └── notification.py  # Notification models
-│   ├── schemas/             # Pydantic schemas
-│   ├── services/            # Business logic
-│   │   ├── price_feed.py    # Real-time price updates
-│   │   ├── notification_service.py # Notification handling
-│   │   └── analytics_service.py # Analytics processing
-│   └── main.py              # FastAPI application
-├── tests/                   # Test files
-├── requirements.txt         # Python dependencies
-├── docker-compose.yml       # Docker services
-├── Dockerfile              # Application container
-├── setup.py                # Setup script
-└── run.py                  # Application runner
-```
-
-## 🛠 Technology Stack
+## 🛠️ Technology Stack
 
 ### Backend
-- **FastAPI**: Modern, fast web framework for building APIs
+- **FastAPI**: Modern Python web framework
 - **SQLAlchemy**: SQL toolkit and ORM
 - **PostgreSQL**: Primary database
 - **Redis**: Caching and message brokering
-- **Alembic**: Database migrations
 - **Pydantic**: Data validation and serialization
-
-### Authentication & Security
-- **JWT**: JSON Web Tokens for authentication
-- **Bcrypt**: Password hashing
-- **OAuth2**: Token-based authentication
-
-### Real-time Features
+- **JWT**: Authentication and authorization
 - **WebSockets**: Real-time communication
-- **Redis Pub/Sub**: Message broadcasting
-- **Background Tasks**: Async task processing
-
-### Development & Deployment
-- **Docker**: Containerization
-- **Docker Compose**: Multi-service orchestration
-- **Uvicorn**: ASGI server
+- **Alembic**: Database migrations
 - **Pytest**: Testing framework
 
-## 📊 API Endpoints
+### Frontend
+- **React 18**: Modern React with hooks
+- **Vite**: Fast build tool and dev server
+- **Tailwind CSS**: Utility-first CSS framework
+- **Radix UI**: Accessible component primitives
+- **Recharts**: Chart library for React
+- **React Router**: Client-side routing
+- **Zustand**: State management
+- **Framer Motion**: Animation library
+
+### DevOps & Infrastructure
+- **Docker**: Containerization
+- **Docker Compose**: Multi-container orchestration
+- **Nginx**: Reverse proxy and load balancer
+- **Prometheus**: Metrics collection
+- **Grafana**: Metrics visualization
+- **GitHub Actions**: CI/CD pipeline
+- **AWS/GCP**: Cloud deployment options
+
+## 📦 Installation
+
+### Prerequisites
+- Python 3.11+
+- Node.js 16+
+- Docker and Docker Compose
+- PostgreSQL 15+
+- Redis 7+
+
+### Quick Start with Docker
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/opinion-market/opinion-market.git
+   cd opinion-market
+   ```
+
+2. **Start the services**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Run database migrations**
+   ```bash
+   docker-compose run --rm migration
+   ```
+
+4. **Access the application**
+   - API: http://localhost:8000
+   - Frontend: http://localhost:3000
+   - Admin Panel: http://localhost:3000/admin
+   - API Docs: http://localhost:8000/docs
+
+### Manual Installation
+
+1. **Backend Setup**
+   ```bash
+   # Create virtual environment
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   
+   # Install dependencies
+   pip install -r requirements.txt
+   
+   # Set up environment variables
+   cp .env.example .env
+   # Edit .env with your configuration
+   
+   # Run database migrations
+   alembic upgrade head
+   
+   # Start the server
+   uvicorn app.main:app --reload
+   ```
+
+2. **Frontend Setup**
+   ```bash
+   cd frontend
+   
+   # Install dependencies
+   npm install
+   
+   # Start development server
+   npm run dev
+   ```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5432/opinion_market
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# Security
+SECRET_KEY=your-super-secret-key
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# Application
+ENVIRONMENT=development
+DEBUG=true
+LOG_LEVEL=INFO
+
+# CORS
+ALLOWED_HOSTS=["http://localhost:3000", "http://localhost:8000"]
+
+# Rate Limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=60
+
+# Caching
+ENABLE_CACHING=true
+CACHE_TTL=300
+
+# WebSocket
+WS_ENABLED=true
+WS_HEARTBEAT_INTERVAL=30
+WS_MAX_CONNECTIONS=1000
+
+# ML
+ML_ENABLED=true
+ML_MODEL_PATH=./models
+
+# Blockchain
+BLOCKCHAIN_ENABLED=false
+
+# Monitoring
+ENABLE_METRICS=true
+METRICS_PORT=9090
+```
+
+## 📚 API Documentation
 
 ### Authentication
 - `POST /api/v1/auth/register` - User registration
 - `POST /api/v1/auth/login` - User login
-- `GET /api/v1/users/me` - Get current user
+- `POST /api/v1/auth/refresh` - Refresh access token
+- `GET /api/v1/auth/me` - Get current user
+- `POST /api/v1/auth/change-password` - Change password
+- `POST /api/v1/auth/logout` - User logout
 
 ### Markets
 - `GET /api/v1/markets/` - List markets
@@ -305,95 +222,126 @@ opinion-market/
 
 ### Trading
 - `POST /api/v1/trades/` - Create trade
-- `GET /api/v1/trades/` - Get user trades
+- `GET /api/v1/trades/` - List user trades
+- `GET /api/v1/trades/{id}` - Get trade details
 - `POST /api/v1/orders/` - Create order
-- `GET /api/v1/orders/` - Get user orders
-- `GET /api/v1/orders/market/{id}/orderbook` - Get order book
-
-### Portfolio
-- `GET /api/v1/positions/` - Get user positions
-- `GET /api/v1/positions/portfolio` - Get portfolio summary
-- `POST /api/v1/positions/{id}/close` - Close position
-
-### Analytics
-- `GET /api/v1/analytics/market/{id}` - Market analytics
-- `GET /api/v1/analytics/user/me` - User analytics
-- `GET /api/v1/analytics/platform` - Platform analytics
-- `GET /api/v1/analytics/market/{id}/predictions` - Market predictions
-- `GET /api/v1/analytics/sentiment-analysis` - Sentiment analysis
-
-### Disputes
-- `POST /api/v1/disputes/` - Create dispute
-- `GET /api/v1/disputes/` - List disputes
-- `POST /api/v1/disputes/{id}/vote` - Vote on dispute
-
-### Notifications
-- `GET /api/v1/notifications/` - Get notifications
-- `PUT /api/v1/notifications/preferences` - Update preferences
-- `POST /api/v1/notifications/{id}/read` - Mark as read
-
-### Verification
-- `GET /api/v1/verification/pending` - Pending verifications
-- `POST /api/v1/verification/{id}/verify` - Verify market
-- `POST /api/v1/verification/{id}/reject` - Reject market
-
-### Leaderboards
-- `GET /api/v1/leaderboard/traders` - Top traders
-- `GET /api/v1/leaderboard/volume` - Top volume traders
-- `GET /api/v1/leaderboard/creators` - Top market creators
+- `GET /api/v1/orders/` - List user orders
+- `DELETE /api/v1/orders/{id}` - Cancel order
 
 ### WebSocket
-- `ws://localhost:8000/ws/market/{id}` - Market updates
-- `ws://localhost:8000/ws/user` - User updates
-- `ws://localhost:8000/ws/global` - Global updates
+- `ws://localhost:8000/api/v1/ws` - WebSocket connection
+- Subscribe to market updates, trade notifications, and price feeds
+
+### Admin
+- `GET /api/v1/admin/stats` - Admin statistics
+- `GET /api/v1/admin/users` - User management
+- `GET /api/v1/admin/markets` - Market management
+- `POST /api/v1/admin/users/{id}/moderate` - Moderate user
+- `POST /api/v1/admin/markets/{id}/moderate` - Moderate market
 
 ## 🧪 Testing
 
-Run the comprehensive test suite:
-
+### Backend Tests
 ```bash
 # Run all tests
-python test_api.py
+pytest
 
-# Run specific test modules
-pytest tests/test_auth.py
-pytest tests/test_markets.py
-pytest tests/test_trades.py
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test file
+pytest tests/test_api/test_auth.py
+
+# Run with verbose output
+pytest -v
 ```
 
-## 📈 Advanced Features
+### Frontend Tests
+```bash
+cd frontend
 
-### Market Verification System
-- **Quality Control**: Markets require verification before trading
-- **Moderator Tools**: Admin interface for market management
-- **Dispute Resolution**: Community voting on contested resolutions
-- **Quality Scoring**: Algorithmic assessment of market quality
+# Run tests
+npm test
 
-### Notification System
-- **Real-time Alerts**: Market resolutions, price changes, trade executions
-- **Customizable Preferences**: Email and push notification settings
-- **Price Alerts**: Configurable thresholds for price movements
-- **System Announcements**: Platform-wide notifications
+# Run tests with coverage
+npm run test:coverage
 
-### Analytics & Insights
-- **Market Analytics**: Volume, sentiment, and price movement analysis
-- **User Analytics**: Trading performance and portfolio metrics
-- **Platform Analytics**: Overall platform statistics and trends
-- **Predictions**: AI-powered price forecasting with confidence scores
-- **Sentiment Analysis**: Trading sentiment and market psychology
+# Run tests in watch mode
+npm run test:watch
+```
 
-### Order Book System
-- **Limit Orders**: Set specific prices for trades
-- **Market Orders**: Immediate execution at current prices
-- **Stop Orders**: Trigger-based order execution
-- **Order Matching**: Advanced order matching engine
-- **Depth Visualization**: Real-time order book depth
+## 🚀 Deployment
 
-### Real-time Features
-- **Live Price Feeds**: Real-time market price updates
-- **Trade Broadcasting**: Live trade execution notifications
-- **WebSocket API**: Low-latency real-time communication
-- **Market Updates**: Live market statistics and changes
+### Production Deployment
+
+1. **Using Docker Compose**
+   ```bash
+   # Build and start production services
+   docker-compose -f docker-compose.prod.yml up -d
+   
+   # Run migrations
+   docker-compose -f docker-compose.prod.yml run --rm migration
+   ```
+
+2. **Using Kubernetes**
+   ```bash
+   # Apply Kubernetes manifests
+   kubectl apply -f k8s/
+   
+   # Check deployment status
+   kubectl get pods
+   ```
+
+3. **Using Cloud Providers**
+   - AWS: Use ECS, EKS, or Elastic Beanstalk
+   - GCP: Use Cloud Run, GKE, or App Engine
+   - Azure: Use Container Instances, AKS, or App Service
+
+### Environment-Specific Configurations
+
+- **Development**: `docker-compose.yml`
+- **Production**: `docker-compose.prod.yml`
+- **Testing**: `docker-compose.test.yml`
+
+## 📊 Monitoring
+
+### Health Checks
+- `GET /health` - Application health
+- `GET /ready` - Readiness check
+- `GET /metrics` - Prometheus metrics
+
+### Monitoring Stack
+- **Prometheus**: Metrics collection
+- **Grafana**: Metrics visualization
+- **AlertManager**: Alert management
+- **Jaeger**: Distributed tracing
+
+### Key Metrics
+- Request rate and latency
+- Database connection pool
+- Redis cache hit rate
+- WebSocket connections
+- Error rates and exceptions
+
+## 🔒 Security
+
+### Security Features
+- JWT-based authentication
+- Rate limiting and IP blocking
+- Input validation and sanitization
+- SQL injection prevention
+- XSS protection
+- CSRF protection
+- Security headers
+- Audit logging
+
+### Security Best Practices
+- Regular security updates
+- Dependency scanning
+- Code analysis with Bandit
+- Penetration testing
+- Security monitoring
+- Incident response plan
 
 ## 🤝 Contributing
 
@@ -403,51 +351,62 @@ pytest tests/test_trades.py
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+### Development Guidelines
+- Follow PEP 8 for Python code
+- Use ESLint and Prettier for JavaScript/TypeScript
+- Write tests for new features
+- Update documentation
+- Follow conventional commits
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-- **Documentation**: Check the API documentation at `/docs`
-- **Issues**: Report bugs and feature requests on GitHub
-- **Discussions**: Join community discussions for questions and ideas
+- **Documentation**: [docs.opinionmarket.com](https://docs.opinionmarket.com)
+- **Issues**: [GitHub Issues](https://github.com/opinion-market/opinion-market/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/opinion-market/opinion-market/discussions)
+- **Email**: support@opinionmarket.com
 
-## 🗺 Roadmap
+## 🗺️ Roadmap
 
-### Completed ✅
-- Core prediction market functionality
-- User authentication and profiles
-- Market creation and trading
-- Portfolio management
-- Real-time WebSocket updates
-- Leaderboards and rankings
-- Advanced analytics system
-- Dispute resolution system
-- Notification system
-- Market verification system
-- Order book and advanced trading
-- Price prediction algorithms
+### Phase 1 (Current)
+- ✅ Core prediction market functionality
+- ✅ Real-time trading
+- ✅ User management
+- ✅ Admin panel
+- ✅ Basic analytics
 
-### In Progress 🚧
-- Mobile app development
-- Advanced charting and visualization
-- Social features and following
-- API rate limiting and optimization
-- Advanced security features
+### Phase 2 (Q2 2024)
+- 🔄 Advanced order types
+- 🔄 Mobile application
+- 🔄 Social features
+- 🔄 API marketplace
+- 🔄 Advanced analytics
 
-### Planned 📋
-- DeFi integration (liquidity mining, yield farming)
-- Cross-chain compatibility
-- Advanced market types (futures, options)
-- Institutional trading features
-- Advanced AI/ML predictions
-- Governance token system
-- DAO governance structure
+### Phase 3 (Q3 2024)
+- 📋 Blockchain integration
+- 📋 DeFi features
+- 📋 Cross-chain support
+- 📋 NFT integration
+- 📋 Governance tokens
+
+### Phase 4 (Q4 2024)
+- 📋 AI-powered insights
+- 📋 Automated trading
+- 📋 Institutional features
+- 📋 Global expansion
+- 📋 Enterprise solutions
 
 ## 🙏 Acknowledgments
 
-- Inspired by Polymarket and other prediction market platforms
-- Built with modern Python web technologies
-- Community-driven development approach
-- Open source contributors and supporters
+- FastAPI team for the excellent web framework
+- React team for the powerful frontend library
+- PostgreSQL team for the robust database
+- Redis team for the high-performance cache
+- All contributors and community members
+
+---
+
+**Opinion Market** - Empowering prediction markets with cutting-edge technology.

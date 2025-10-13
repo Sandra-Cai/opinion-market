@@ -46,7 +46,7 @@ security = HTTPBearer(auto_error=False)
 
 class ThreatDetector:
     """Advanced threat detection system"""
-    
+
     def __init__(self):
         self.redis_client = get_redis_client()
         self.suspicious_patterns = deque(maxlen=10000)
@@ -153,12 +153,12 @@ class ThreatDetector:
                 
                 # If we have 5 different locations in the last hour, it's suspicious
                 if len(set(recent_locations)) >= 4:
-                    return True
+            return True
         except RedisError:
             pass
         
-        return False
-    
+            return False
+
     def detect_ddos_attack(self, client_ip: str, window: int = 60) -> bool:
         """Detect DDoS attacks"""
         if self.redis_client:

@@ -118,7 +118,7 @@ class CacheManager:
         }
         self.cache_dependencies = defaultdict(set)  # Track cache dependencies
         self.cache_tags = defaultdict(set)  # Group caches by tags
-        
+
     def get(self, key: str) -> Optional[Any]:
         """Get value from cache"""
         try:
@@ -197,7 +197,7 @@ class CacheManager:
         # For now, just return None
         self.cache_stats["misses"] += 1
         return None
-    
+
     def _set_in_memory(self, key: str, value: Any, ttl: int):
         """Set in in-memory cache"""
         # This would be implemented with a proper in-memory cache

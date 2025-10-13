@@ -700,6 +700,16 @@ class MiddlewareManager:
         """Build the complete middleware stack"""
         # Add middleware in reverse order (last added is first executed)
         for middleware_class, kwargs in reversed(self.middleware_stack):
+            if isinstance(middleware_class, str):
+                # Import middleware class from string
+                module_path, class_name = middleware_class.rsplit('.', 1)
+                try:
+                    module = __import__(module_path, fromlist=[class_name])
+                    middleware_class = getattr(module, class_name)
+                except (ImportError, AttributeError) as e:
+                    print(f"Warning: Could not import middleware {middleware_class}: {e}")
+                    continue
+            
             self.app = middleware_class(self.app, **kwargs)
         
         return self.app

@@ -364,19 +364,19 @@ except ImportError:
 # Setup middleware stack
 middleware_manager.app = app
 middleware_manager.add_middleware(
-    middleware_manager.__class__.__module__ + ".PerformanceMiddleware"
+    "app.core.middleware.PerformanceMiddleware"
 )
 middleware_manager.add_middleware(
-    middleware_manager.__class__.__module__ + ".SecurityMiddleware"
+    "app.core.middleware.SecurityMiddleware"
 )
 middleware_manager.add_middleware(
-    middleware_manager.__class__.__module__ + ".MonitoringMiddleware"
+    "app.core.middleware.MonitoringMiddleware"
 )
 middleware_manager.add_middleware(
-    middleware_manager.__class__.__module__ + ".CacheMiddleware"
+    "app.core.middleware.CacheMiddleware"
 )
 middleware_manager.add_middleware(
-    middleware_manager.__class__.__module__ + ".CompressionMiddleware",
+    "app.core.middleware.CompressionMiddleware",
     minimum_size=1000
 )
 

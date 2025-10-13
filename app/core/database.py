@@ -26,21 +26,30 @@ def get_database_url():
 database_url = get_database_url()
 database_config = settings.database_config
 
-# Choose pool class based on database type
+# Choose pool class and configuration based on database type
 if "sqlite" in database_url:
     poolclass = NullPool  # SQLite doesn't support connection pooling
+    # Remove pool-specific configs for SQLite
+    engine_config = {
+        "echo": settings.DEBUG,
+        "connect_args": {"check_same_thread": False}
+    }
 else:
     poolclass = QueuePool
+    # Use full database config for PostgreSQL/MySQL
+    engine_config = {
+        **database_config,
+        "echo": settings.DEBUG,
+        "connect_args": {
+            "options": "-c timezone=utc",
+            "application_name": "opinion_market_api",
+        }
+    }
 
 engine = create_engine(
     database_url,
     poolclass=poolclass,
-    **database_config,
-    echo=settings.DEBUG,  # Enable SQL logging in debug mode
-    connect_args={
-        "options": "-c timezone=utc",
-        "application_name": "opinion_market_api",
-    } if "postgresql" in database_url else {}
+    **engine_config
 )
 
 # Add connection event listeners for monitoring

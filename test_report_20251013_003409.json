@@ -1,0 +1,47 @@
+{
+  "test_timestamp": "2025-10-13T00:34:08.361503",
+  "tests_run": [
+    {
+      "name": "Import Tests",
+      "status": "FAILED",
+      "duration": 0.6841928958892822,
+      "timestamp": "2025-10-13T00:34:09.045858"
+    },
+    {
+      "name": "Security Features",
+      "status": "PASSED",
+      "duration": 0.11027097702026367,
+      "timestamp": "2025-10-13T00:34:09.156150"
+    },
+    {
+      "name": "Performance Features",
+      "status": "PASSED",
+      "duration": 0.007889986038208008,
+      "timestamp": "2025-10-13T00:34:09.164053"
+    },
+    {
+      "name": "Middleware Improvements",
+      "status": "FAILED",
+      "duration": 0.030462980270385742,
+      "timestamp": "2025-10-13T00:34:09.194529"
+    },
+    {
+      "name": "API Endpoints",
+      "status": "PASSED",
+      "duration": 0.006392955780029297,
+      "timestamp": "2025-10-13T00:34:09.200942"
+    },
+    {
+      "name": "Configuration",
+      "status": "PASSED",
+      "duration": 2.288818359375e-05,
+      "timestamp": "2025-10-13T00:34:09.200982"
+    }
+  ],
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 4,
+    "failed_tests": 2,
+    "success_rate": 66.66666666666666
+  }
+}

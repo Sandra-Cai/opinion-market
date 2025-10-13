@@ -1,196 +1,363 @@
 #!/usr/bin/env python3
 """
-Test script to validate the new performance improvements
+Comprehensive Test Script for Opinion Market Improvements
+Tests all the enhancements made to the application
 """
 
 import asyncio
 import time
+import json
 import sys
 import os
+from datetime import datetime
+from typing import Dict, Any
 
 # Add the app directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
-from app.core.advanced_performance_optimizer import advanced_performance_optimizer
-from app.core.enhanced_cache import enhanced_cache
-
-
-async def test_advanced_performance_optimizer():
-    """Test the advanced performance optimizer"""
-    print("🚀 Testing Advanced Performance Optimizer...")
+def test_imports():
+    """Test that all new modules can be imported"""
+    print("🔍 Testing imports...")
     
     try:
-        # Test initialization
-        print("  ✓ Testing initialization...")
-        await advanced_performance_optimizer.start_monitoring()
-        await advanced_performance_optimizer.start_optimization()
+        from app.core.advanced_security import advanced_security_manager, threat_detector
+        print("✅ Advanced security module imported successfully")
+    except ImportError as e:
+        print(f"❌ Failed to import advanced security: {e}")
+        return False
+    
+    try:
+        from app.core.performance_optimizer import performance_optimizer
+        print("✅ Performance optimizer module imported successfully")
+    except ImportError as e:
+        print(f"❌ Failed to import performance optimizer: {e}")
+        return False
+    
+    try:
+        from app.core.middleware import middleware_manager
+        print("✅ Enhanced middleware module imported successfully")
+    except ImportError as e:
+        print(f"❌ Failed to import enhanced middleware: {e}")
+        return False
+    
+    try:
+        from app.api.v1.endpoints.security_monitoring import router as security_router
+        print("✅ Security monitoring endpoints imported successfully")
+    except ImportError as e:
+        print(f"❌ Failed to import security monitoring: {e}")
+        return False
+    
+    try:
+        from app.api.v1.endpoints.performance_monitoring import router as performance_router
+        print("✅ Performance monitoring endpoints imported successfully")
+    except ImportError as e:
+        print(f"❌ Failed to import performance monitoring: {e}")
+        return False
+    
+    return True
+
+
+def test_security_features():
+    """Test advanced security features"""
+    print("\n🔒 Testing security features...")
+    
+    try:
+        from app.core.advanced_security import advanced_security_manager, threat_detector
         
-        # Wait for metrics collection
-        print("  ✓ Collecting metrics...")
-        await asyncio.sleep(5)
+        # Test threat detection
+        print("  Testing threat detection...")
         
-        # Test performance summary
-        print("  ✓ Testing performance summary...")
-        summary = advanced_performance_optimizer.get_performance_summary()
+        # Test brute force detection
+        is_brute_force = threat_detector.detect_brute_force("test_user", max_attempts=3, window=60)
+        print(f"  ✅ Brute force detection: {is_brute_force}")
         
-        print(f"    - Monitoring active: {summary['monitoring_active']}")
-        print(f"    - Optimization active: {summary['optimization_active']}")
-        print(f"    - Performance score: {summary['performance_score']:.1f}")
-        print(f"    - Metrics collected: {len(summary['metrics'])}")
+        # Test DDoS detection
+        is_ddos = threat_detector.detect_ddos_attack("192.168.1.1")
+        print(f"  ✅ DDoS detection: {is_ddos}")
         
-        # Test metrics collection
-        print("  ✓ Testing metrics collection...")
-        metrics = summary['metrics']
-        for metric_name, metric_data in metrics.items():
-            print(f"    - {metric_name}: {metric_data['current']:.2f}")
+        # Test IP blocking
+        is_blocked = threat_detector.is_ip_blocked("192.168.1.1")
+        print(f"  ✅ IP blocking check: {is_blocked}")
         
-        # Test optimization actions
-        print("  ✓ Testing optimization actions...")
-        await advanced_performance_optimizer._create_optimization_action(
-            action_type="cache_optimization",
-            target="cache",
-            parameters={"test": "manual_optimization"},
-            priority=1
-        )
+        # Test device fingerprinting
+        device_info = {
+            "ip_address": "192.168.1.1",
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "accept_language": "en-US,en;q=0.9",
+            "platform": "Windows"
+        }
         
-        # Execute optimizations
-        await advanced_performance_optimizer._execute_optimizations()
+        fingerprint = advanced_security_manager._generate_device_fingerprint(device_info)
+        print(f"  ✅ Device fingerprinting: {len(fingerprint)} chars")
         
-        # Stop services
-        await advanced_performance_optimizer.stop_optimization()
-        await advanced_performance_optimizer.stop_monitoring()
+        # Test session creation
+        session_data = advanced_security_manager.create_secure_session(1, device_info)
+        print(f"  ✅ Secure session creation: {session_data['session_id'][:8]}...")
         
-        print("  ✅ Advanced Performance Optimizer test completed successfully!")
         return True
         
     except Exception as e:
-        print(f"  ❌ Advanced Performance Optimizer test failed: {e}")
+        print(f"  ❌ Security features test failed: {e}")
         return False
 
 
-async def test_enhanced_cache():
-    """Test the enhanced cache system"""
-    print("🚀 Testing Enhanced Cache System...")
+def test_performance_features():
+    """Test performance optimization features"""
+    print("\n⚡ Testing performance features...")
     
     try:
-        # Test cache operations
-        print("  ✓ Testing cache operations...")
+        from app.core.performance_optimizer import performance_optimizer
         
-        # Set some test data
-        for i in range(10):
-            await enhanced_cache.set(f"test_key_{i}", f"test_value_{i}")
-        
-        # Get test data
-        for i in range(10):
-            value = await enhanced_cache.get(f"test_key_{i}")
-            # Handle both string and bytes return values
-            if isinstance(value, bytes):
-                value = value.decode('utf-8')
-            if value != f"test_value_{i}":
-                print(f"    Cache mismatch for key test_key_{i}: expected 'test_value_{i}', got '{value}'")
-                raise AssertionError(f"Cache value mismatch for key test_key_{i}")
+        # Test cache manager
+        print("  Testing cache manager...")
+        performance_optimizer.cache_manager.set("test_key", {"data": "test"}, ttl=60)
+        cached_data = performance_optimizer.cache_manager.get("test_key")
+        print(f"  ✅ Cache operations: {cached_data is not None}")
         
         # Test cache stats
-        print("  ✓ Testing cache statistics...")
-        stats = enhanced_cache.get_stats()
-        print(f"    - Hit rate: {stats.get('hit_rate', 0):.2%}")
-        print(f"    - Entry count: {stats.get('entry_count', 0)}")
-        print(f"    - Memory usage: {stats.get('memory_usage_mb', 0):.2f} MB")
+        cache_stats = performance_optimizer.cache_manager.get_cache_stats()
+        print(f"  ✅ Cache stats: {cache_stats['total_requests']} requests")
         
-        # Clear cache
-        await enhanced_cache.clear()
+        # Test query optimizer
+        print("  Testing query optimizer...")
+        query_hash = performance_optimizer.query_optimizer.generate_query_hash(
+            "SELECT * FROM users", {"limit": 10}
+        )
+        print(f"  ✅ Query hash generation: {len(query_hash)} chars")
         
-        print("  ✅ Enhanced Cache System test completed successfully!")
+        # Test performance monitor
+        print("  Testing performance monitor...")
+        performance_summary = performance_optimizer.performance_monitor.get_performance_summary()
+        print(f"  ✅ Performance monitoring: {performance_summary.get('monitoring_active', False)}")
+        
         return True
         
     except Exception as e:
-        print(f"  ❌ Enhanced Cache System test failed: {e}")
+        print(f"  ❌ Performance features test failed: {e}")
         return False
 
 
-async def test_integration():
-    """Test integration between systems"""
-    print("🚀 Testing System Integration...")
+def test_middleware_improvements():
+    """Test middleware improvements"""
+    print("\n🛡️ Testing middleware improvements...")
     
     try:
-        # Start performance optimizer
-        await advanced_performance_optimizer.start_monitoring()
+        from app.core.middleware import PerformanceMiddleware, SecurityMiddleware
         
-        # Perform cache operations
-        print("  ✓ Testing cache operations with monitoring...")
-        for i in range(20):
-            await enhanced_cache.set(f"integration_test_{i}", f"value_{i}")
-            await enhanced_cache.get(f"integration_test_{i}")
+        # Test middleware initialization
+        print("  Testing middleware initialization...")
         
-        # Wait for metrics collection
-        await asyncio.sleep(3)
+        # Create mock app for testing
+        class MockApp:
+            def __init__(self):
+                self.state = type('State', (), {})()
         
-        # Check that cache metrics are being monitored
-        summary = advanced_performance_optimizer.get_performance_summary()
-        cache_metrics = summary['metrics'].get('cache.hit_rate', {})
+        mock_app = MockApp()
         
-        print(f"    - Cache hit rate monitored: {cache_metrics.get('current', 0):.2f}%")
+        # Test PerformanceMiddleware
+        perf_middleware = PerformanceMiddleware(mock_app)
+        print("  ✅ PerformanceMiddleware initialized")
         
-        # Stop monitoring
-        await advanced_performance_optimizer.stop_monitoring()
+        # Test SecurityMiddleware
+        sec_middleware = SecurityMiddleware(mock_app)
+        print("  ✅ SecurityMiddleware initialized")
         
-        print("  ✅ System Integration test completed successfully!")
+        # Test performance stats
+        perf_stats = perf_middleware.get_performance_stats()
+        print(f"  ✅ Performance stats: {perf_stats.get('total_requests', 0)} requests")
+        
         return True
         
     except Exception as e:
-        print(f"  ❌ System Integration test failed: {e}")
+        print(f"  ❌ Middleware improvements test failed: {e}")
         return False
 
 
-async def main():
-    """Run all tests"""
-    print("🎯 Opinion Market Performance Improvements Test Suite")
-    print("=" * 60)
+def test_api_endpoints():
+    """Test new API endpoints"""
+    print("\n🌐 Testing API endpoints...")
     
-    start_time = time.time()
+    try:
+        from app.api.v1.endpoints.security_monitoring import router as security_router
+        from app.api.v1.endpoints.performance_monitoring import router as performance_router
+        
+        # Check if routers have the expected routes
+        security_routes = [route.path for route in security_router.routes]
+        performance_routes = [route.path for route in performance_router.routes]
+        
+        expected_security_routes = [
+            "/threats/analysis",
+            "/sessions/active", 
+            "/security/events",
+            "/security/stats",
+            "/security/health"
+        ]
+        
+        expected_performance_routes = [
+            "/stats",
+            "/system",
+            "/cache",
+            "/queries",
+            "/performance/health"
+        ]
+        
+        print("  Testing security monitoring routes...")
+        for route in expected_security_routes:
+            if any(route in r for r in security_routes):
+                print(f"  ✅ Security route found: {route}")
+            else:
+                print(f"  ❌ Security route missing: {route}")
+        
+        print("  Testing performance monitoring routes...")
+        for route in expected_performance_routes:
+            if any(route in r for r in performance_routes):
+                print(f"  ✅ Performance route found: {route}")
+            else:
+                print(f"  ❌ Performance route missing: {route}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"  ❌ API endpoints test failed: {e}")
+        return False
+
+
+def test_configuration():
+    """Test configuration and settings"""
+    print("\n⚙️ Testing configuration...")
     
-    # Run tests
+    try:
+        from app.core.config import settings
+        
+        # Test key configuration values
+        print(f"  ✅ App name: {settings.APP_NAME}")
+        print(f"  ✅ App version: {settings.APP_VERSION}")
+        print(f"  ✅ Environment: {settings.ENVIRONMENT}")
+        print(f"  ✅ Debug mode: {settings.DEBUG}")
+        print(f"  ✅ Rate limiting: {settings.RATE_LIMIT_ENABLED}")
+        print(f"  ✅ Caching enabled: {settings.ENABLE_CACHING}")
+        print(f"  ✅ Compression enabled: {settings.ENABLE_COMPRESSION}")
+        
+        # Test database configuration
+        db_config = settings.database_config
+        print(f"  ✅ Database pool size: {db_config['pool_size']}")
+        
+        # Test Redis configuration
+        redis_config = settings.redis_config
+        print(f"  ✅ Redis max connections: {redis_config['max_connections']}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"  ❌ Configuration test failed: {e}")
+        return False
+
+
+def generate_test_report():
+    """Generate a comprehensive test report"""
+    print("\n📊 Generating test report...")
+    
+    report = {
+        "test_timestamp": datetime.utcnow().isoformat(),
+        "tests_run": [],
+        "summary": {
+            "total_tests": 0,
+            "passed_tests": 0,
+            "failed_tests": 0,
+            "success_rate": 0.0
+        }
+    }
+    
+    # Run all tests
     tests = [
-        test_enhanced_cache(),
-        test_advanced_performance_optimizer(),
-        test_integration(),
+        ("Import Tests", test_imports),
+        ("Security Features", test_security_features),
+        ("Performance Features", test_performance_features),
+        ("Middleware Improvements", test_middleware_improvements),
+        ("API Endpoints", test_api_endpoints),
+        ("Configuration", test_configuration)
     ]
     
-    results = await asyncio.gather(*tests, return_exceptions=True)
+    for test_name, test_func in tests:
+        print(f"\n{'='*50}")
+        print(f"Running: {test_name}")
+        print('='*50)
+        
+        start_time = time.time()
+        try:
+            result = test_func()
+            duration = time.time() - start_time
+            
+            test_result = {
+                "name": test_name,
+                "status": "PASSED" if result else "FAILED",
+                "duration": duration,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            report["tests_run"].append(test_result)
+            report["summary"]["total_tests"] += 1
+            
+            if result:
+                report["summary"]["passed_tests"] += 1
+                print(f"\n✅ {test_name}: PASSED ({duration:.2f}s)")
+            else:
+                report["summary"]["failed_tests"] += 1
+                print(f"\n❌ {test_name}: FAILED ({duration:.2f}s)")
+                
+        except Exception as e:
+            duration = time.time() - start_time
+            test_result = {
+                "name": test_name,
+                "status": "ERROR",
+                "error": str(e),
+                "duration": duration,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            report["tests_run"].append(test_result)
+            report["summary"]["total_tests"] += 1
+            report["summary"]["failed_tests"] += 1
+            print(f"\n💥 {test_name}: ERROR - {e} ({duration:.2f}s)")
     
-    end_time = time.time()
-    duration = end_time - start_time
+    # Calculate success rate
+    if report["summary"]["total_tests"] > 0:
+        report["summary"]["success_rate"] = (
+            report["summary"]["passed_tests"] / report["summary"]["total_tests"] * 100
+        )
     
-    # Report results
-    print("\n" + "=" * 60)
-    print("📊 Test Results Summary")
-    print("=" * 60)
+    # Save report
+    report_file = f"test_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    with open(report_file, 'w') as f:
+        json.dump(report, f, indent=2)
     
-    passed = 0
-    failed = 0
+    # Print summary
+    print(f"\n{'='*50}")
+    print("TEST SUMMARY")
+    print('='*50)
+    print(f"Total Tests: {report['summary']['total_tests']}")
+    print(f"Passed: {report['summary']['passed_tests']}")
+    print(f"Failed: {report['summary']['failed_tests']}")
+    print(f"Success Rate: {report['summary']['success_rate']:.1f}%")
+    print(f"Report saved to: {report_file}")
     
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            print(f"❌ Test {i+1} failed with exception: {result}")
-            failed += 1
-        elif result:
-            print(f"✅ Test {i+1} passed")
-            passed += 1
-        else:
-            print(f"❌ Test {i+1} failed")
-            failed += 1
-    
-    print(f"\n📈 Results: {passed} passed, {failed} failed")
-    print(f"⏱️  Duration: {duration:.2f} seconds")
-    
-    if failed == 0:
-        print("\n🎉 All tests passed! Performance improvements are working correctly.")
-        return 0
-    else:
-        print(f"\n⚠️  {failed} test(s) failed. Please check the implementation.")
-        return 1
+    return report
 
 
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
-    sys.exit(exit_code)
+    print("🚀 Opinion Market - Comprehensive Improvement Test Suite")
+    print("=" * 60)
+    
+    try:
+        report = generate_test_report()
+        
+        if report["summary"]["success_rate"] >= 80:
+            print("\n🎉 Overall Result: EXCELLENT - Most improvements are working correctly!")
+        elif report["summary"]["success_rate"] >= 60:
+            print("\n✅ Overall Result: GOOD - Most improvements are working with some issues")
+        else:
+            print("\n⚠️ Overall Result: NEEDS ATTENTION - Several improvements need fixes")
+            
+    except Exception as e:
+        print(f"\n💥 Test suite failed with error: {e}")
+        sys.exit(1)

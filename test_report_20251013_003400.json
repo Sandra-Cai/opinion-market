@@ -1,0 +1,48 @@
+{
+  "test_timestamp": "2025-10-13T00:33:59.720566",
+  "tests_run": [
+    {
+      "name": "Import Tests",
+      "status": "ERROR",
+      "error": "Invalid argument(s) 'pool_size','max_overflow','pool_timeout' sent to create_engine(), using configuration SQLiteDialect_pysqlite/NullPool/Engine.  Please check that the keyword arguments are appropriate for this combination of components.",
+      "duration": 0.9372358322143555,
+      "timestamp": "2025-10-13T00:34:00.657980"
+    },
+    {
+      "name": "Security Features",
+      "status": "FAILED",
+      "duration": 0.0005359649658203125,
+      "timestamp": "2025-10-13T00:34:00.658619"
+    },
+    {
+      "name": "Performance Features",
+      "status": "FAILED",
+      "duration": 0.031488895416259766,
+      "timestamp": "2025-10-13T00:34:00.690127"
+    },
+    {
+      "name": "Middleware Improvements",
+      "status": "FAILED",
+      "duration": 0.019170761108398438,
+      "timestamp": "2025-10-13T00:34:00.709323"
+    },
+    {
+      "name": "API Endpoints",
+      "status": "FAILED",
+      "duration": 0.003462076187133789,
+      "timestamp": "2025-10-13T00:34:00.712807"
+    },
+    {
+      "name": "Configuration",
+      "status": "PASSED",
+      "duration": 2.193450927734375e-05,
+      "timestamp": "2025-10-13T00:34:00.712846"
+    }
+  ],
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 1,
+    "failed_tests": 5,
+    "success_rate": 16.666666666666664
+  }
+}

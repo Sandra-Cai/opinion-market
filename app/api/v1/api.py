@@ -10,7 +10,7 @@ from typing import Optional
 try:
     from app.api.v1.endpoints import auth, markets, trades, users, orders, positions
     from app.api.v1.endpoints import analytics, notifications, votes, disputes
-    from app.api.v1.endpoints import leaderboard, verification, websocket, security_monitoring
+    from app.api.v1.endpoints import leaderboard, verification, websocket, security_monitoring, performance_monitoring
 except ImportError as e:
     print(f"Warning: Some API endpoints not available: {e}")
 
@@ -33,6 +33,7 @@ try:
     api_router.include_router(verification.router, prefix="/verification", tags=["Verification"])
     api_router.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
     api_router.include_router(security_monitoring.router, prefix="/security", tags=["Security Monitoring"])
+    api_router.include_router(performance_monitoring.router, prefix="/performance", tags=["Performance Monitoring"])
 except Exception as e:
     print(f"Warning: Error including API routers: {e}")
 
@@ -57,7 +58,8 @@ async def api_root():
             "/leaderboard",
             "/verification",
             "/ws",
-            "/security"
+            "/security",
+            "/performance"
         ]
     }
 

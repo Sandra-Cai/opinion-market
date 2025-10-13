@@ -183,6 +183,28 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
             "method": request.method,
             "error_type": type(error).__name__
         })
+    
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """Get performance statistics"""
+        if not self.request_times:
+            return {"error": "No performance data available"}
+        
+        request_times_list = list(self.request_times)
+        return {
+            "total_requests": len(request_times_list),
+            "average_response_time": sum(request_times_list) / len(request_times_list),
+            "min_response_time": min(request_times_list),
+            "max_response_time": max(request_times_list),
+            "p95_response_time": sorted(request_times_list)[int(len(request_times_list) * 0.95)],
+            "p99_response_time": sorted(request_times_list)[int(len(request_times_list) * 0.99)],
+            "slow_requests_count": len(self.slow_queries),
+            "endpoints_tracked": len(self.performance_metrics),
+            "memory_usage": {
+                "performance_metrics_size": sum(len(metrics) for metrics in self.performance_metrics.values()),
+                "slow_queries_size": len(self.slow_queries),
+                "request_times_size": len(self.request_times)
+            }
+        }
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):

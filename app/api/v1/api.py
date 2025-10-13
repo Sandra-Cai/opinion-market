@@ -32,6 +32,7 @@ try:
     api_router.include_router(leaderboard.router, prefix="/leaderboard", tags=["Leaderboard"])
     api_router.include_router(verification.router, prefix="/verification", tags=["Verification"])
     api_router.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
+    api_router.include_router(security_monitoring.router, prefix="/security", tags=["Security Monitoring"])
 except Exception as e:
     print(f"Warning: Error including API routers: {e}")
 
@@ -55,7 +56,8 @@ async def api_root():
             "/disputes",
             "/leaderboard",
             "/verification",
-            "/ws"
+            "/ws",
+            "/security"
         ]
     }
 

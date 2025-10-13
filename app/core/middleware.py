@@ -84,33 +84,50 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
             raise
     
     async def _record_performance_metrics(self, request: Request, response: Response, process_time: float):
-        """Record performance metrics"""
-        metrics_data = {
-            "endpoint": request.url.path,
-            "method": request.method,
-            "status_code": response.status_code,
-            "process_time": process_time,
-            "timestamp": datetime.utcnow().isoformat(),
-            "user_agent": request.headers.get("user-agent", ""),
-            "content_length": response.headers.get("content-length", 0)
-        }
-        
-        # Store in Redis for real-time monitoring
-        if self.redis_client:
-            metrics_key = f"perf_metrics:{datetime.utcnow().strftime('%Y-%m-%d-%H')}"
-            self.redis_client.lpush(metrics_key, json.dumps(metrics_data))
-            self.redis_client.expire(metrics_key, 24 * 3600)  # 24 hours retention
-        
-        # Store in memory for quick access
-        self.performance_metrics[request.url.path].append(metrics_data)
-        self.request_times.append(process_time)
-        
-        # Log system metric
-        log_system_metric("request_duration", process_time, {
-            "endpoint": request.url.path,
-            "method": request.method,
-            "status_code": response.status_code
-        })
+        """Record performance metrics with enhanced error handling"""
+        try:
+            metrics_data = {
+                "endpoint": request.url.path,
+                "method": request.method,
+                "status_code": response.status_code,
+                "process_time": process_time,
+                "timestamp": datetime.utcnow().isoformat(),
+                "user_agent": request.headers.get("user-agent", "")[:200],  # Truncate long user agents
+                "content_length": response.headers.get("content-length", 0),
+                "request_id": getattr(request.state, "request_id", None)
+            }
+            
+            # Store in Redis for real-time monitoring (with error handling)
+            if self.redis_client:
+                try:
+                    metrics_key = f"perf_metrics:{datetime.utcnow().strftime('%Y-%m-%d-%H')}"
+                    self.redis_client.lpush(metrics_key, json.dumps(metrics_data))
+                    self.redis_client.expire(metrics_key, 24 * 3600)  # 24 hours retention
+                except Exception as redis_error:
+                    # Log Redis error but don't fail the request
+                    log_system_metric("redis_error", 1, {"error": str(redis_error)})
+            
+            # Store in memory for quick access (with size limits)
+            endpoint_metrics = self.performance_metrics[request.url.path]
+            if len(endpoint_metrics) >= 1000:  # Limit memory usage
+                endpoint_metrics.pop(0)  # Remove oldest entry
+            endpoint_metrics.append(metrics_data)
+            
+            # Limit request times buffer
+            if len(self.request_times) >= 10000:
+                self.request_times.popleft()
+            self.request_times.append(process_time)
+            
+            # Log system metric
+            log_system_metric("request_duration", process_time, {
+                "endpoint": request.url.path,
+                "method": request.method,
+                "status_code": response.status_code
+            })
+            
+        except Exception as e:
+            # Don't let metrics collection break the request
+            log_system_metric("metrics_error", 1, {"error": str(e)})
     
     async def _handle_slow_request(self, request: Request, process_time: float):
         """Handle slow requests"""
@@ -326,20 +343,50 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         return any(request.url.path.startswith(endpoint) for endpoint in sensitive_endpoints)
     
     async def _validate_request_input(self, request: Request) -> Dict[str, Any]:
-        """Validate request input"""
-        validation_result = {"is_valid": True, "errors": []}
+        """Validate request input with enhanced security checks"""
+        validation_result = {"is_valid": True, "errors": [], "warnings": []}
         
-        # Validate query parameters
-        for param, value in request.query_params.items():
-            if len(value) > 1000:
+        try:
+            # Validate query parameters
+            for param, value in request.query_params.items():
+                if len(value) > 1000:
+                    validation_result["is_valid"] = False
+                    validation_result["errors"].append(f"Query parameter '{param}' is too long")
+                
+                # Check for potential SQL injection patterns
+                sql_patterns = ["'", '"', ";", "--", "/*", "*/", "xp_", "sp_"]
+                if any(pattern in value.lower() for pattern in sql_patterns):
+                    validation_result["warnings"].append(f"Query parameter '{param}' contains suspicious characters")
+                
+                # Check for potential XSS patterns
+                xss_patterns = ["<script", "javascript:", "onload=", "onerror="]
+                if any(pattern in value.lower() for pattern in xss_patterns):
+                    validation_result["warnings"].append(f"Query parameter '{param}' contains potential XSS patterns")
+            
+            # Validate headers
+            for header, value in request.headers.items():
+                if len(value) > 1000:
+                    validation_result["is_valid"] = False
+                    validation_result["errors"].append(f"Header '{header}' is too long")
+                
+                # Check for suspicious header values
+                if header.lower() in ["user-agent", "referer", "origin"]:
+                    if len(value) > 500:
+                        validation_result["warnings"].append(f"Header '{header}' is unusually long")
+            
+            # Validate request path
+            if len(request.url.path) > 2000:
                 validation_result["is_valid"] = False
-                validation_result["errors"].append(f"Query parameter '{param}' is too long")
-        
-        # Validate headers
-        for header, value in request.headers.items():
-            if len(value) > 1000:
+                validation_result["errors"].append("Request path is too long")
+            
+            # Check for path traversal attempts
+            if ".." in request.url.path or "//" in request.url.path:
                 validation_result["is_valid"] = False
-                validation_result["errors"].append(f"Header '{header}' is too long")
+                validation_result["errors"].append("Invalid path detected")
+            
+        except Exception as e:
+            validation_result["is_valid"] = False
+            validation_result["errors"].append(f"Validation error: {str(e)}")
         
         return validation_result
     

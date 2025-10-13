@@ -10,7 +10,7 @@ from typing import Optional
 try:
     from app.api.v1.endpoints import auth, markets, trades, users, orders, positions
     from app.api.v1.endpoints import analytics, notifications, votes, disputes
-    from app.api.v1.endpoints import leaderboard, verification, websocket
+    from app.api.v1.endpoints import leaderboard, verification, websocket, security_monitoring
 except ImportError as e:
     print(f"Warning: Some API endpoints not available: {e}")
 

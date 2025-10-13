@@ -1,560 +1,500 @@
 """
-Advanced Security System
-Comprehensive security features including threat detection, rate limiting, and audit logging
+Advanced Security Module for Opinion Market
+Provides enhanced security features including threat detection, anomaly detection, and advanced authentication
 """
 
 import hashlib
-import hmac
 import secrets
 import time
-import ipaddress
-import functools
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Set, Tuple, Callable
-from dataclasses import dataclass, field
-from enum import Enum
 import json
-import logging
-from collections import defaultdict, deque
-import asyncio
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any, List, Union, Tuple
+from functools import wraps
+import jwt
+from passlib.context import CryptContext
+from fastapi import HTTPException, status, Request, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+import redis
+from redis.exceptions import RedisError
+import ipaddress
 import re
-from fastapi import HTTPException
+import asyncio
+from collections import defaultdict, deque
+import logging
+
+from app.core.config import settings
+from app.core.database import get_db, get_redis_client
+from app.core.logging import log_security_event, log_api_call
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
+# Enhanced password hashing with multiple schemes
+pwd_context = CryptContext(
+    schemes=["bcrypt", "argon2"],
+    deprecated="auto",
+    bcrypt__rounds=12,
+    argon2__memory_cost=65536,
+    argon2__time_cost=3,
+    argon2__parallelism=4
+)
 
-class ThreatLevel(Enum):
-    """Threat level classifications"""
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class SecurityEvent(Enum):
-    """Security event types"""
-    LOGIN_ATTEMPT = "login_attempt"
-    LOGIN_SUCCESS = "login_success"
-    LOGIN_FAILURE = "login_failure"
-    ACCOUNT_LOCKED = "account_locked"
-    SUSPICIOUS_ACTIVITY = "suspicious_activity"
-    RATE_LIMIT_EXCEEDED = "rate_limit_exceeded"
-    INVALID_TOKEN = "invalid_token"
-    UNAUTHORIZED_ACCESS = "unauthorized_access"
-    SQL_INJECTION_ATTEMPT = "sql_injection_attempt"
-    XSS_ATTEMPT = "xss_attempt"
-    BRUTE_FORCE_ATTEMPT = "brute_force_attempt"
-    DATA_BREACH_ATTEMPT = "data_breach_attempt"
+# JWT token handling
+security = HTTPBearer(auto_error=False)
 
 
-@dataclass
-class SecurityAlert:
-    """Security alert information"""
-    alert_id: str
-    event_type: SecurityEvent
-    threat_level: ThreatLevel
-    user_id: Optional[str]
-    ip_address: Optional[str]
-    user_agent: Optional[str]
-    description: str
-    timestamp: datetime
-    additional_data: Dict[str, Any] = field(default_factory=dict)
-    resolved: bool = False
-    resolution_notes: Optional[str] = None
-
-
-@dataclass
-class UserSecurityProfile:
-    """User security profile for risk assessment"""
-    user_id: str
-    risk_score: float = 0.0
-    failed_login_attempts: int = 0
-    last_failed_login: Optional[datetime] = None
-    last_successful_login: Optional[datetime] = None
-    suspicious_activities: List[str] = field(default_factory=list)
-    ip_addresses: Set[str] = field(default_factory=set)
-    user_agents: Set[str] = field(default_factory=set)
-    account_locked_until: Optional[datetime] = None
-    two_factor_enabled: bool = False
-    security_questions_answered: bool = False
+class ThreatDetector:
+    """Advanced threat detection system"""
+    
+    def __init__(self):
+        self.redis_client = get_redis_client()
+        self.suspicious_patterns = deque(maxlen=10000)
+        self.attack_attempts = defaultdict(int)
+        self.geo_blocked_countries = set()
+        self.suspicious_user_agents = set()
+        self.known_bad_ips = set()
+        
+    def detect_brute_force(self, identifier: str, max_attempts: int = 5, window: int = 300) -> bool:
+        """Detect brute force attacks"""
+        if self.redis_client:
+            try:
+                key = f"brute_force:{identifier}"
+                attempts = self.redis_client.incr(key)
+                if attempts == 1:
+                    self.redis_client.expire(key, window)
+                
+                if attempts >= max_attempts:
+                    self.redis_client.setex(f"blocked_brute_force:{identifier}", 3600, "1")
+                    return True
+            except RedisError:
+                pass
+        
+        # Fallback to in-memory tracking
+        current_time = time.time()
+        if identifier not in self.attack_attempts:
+            self.attack_attempts[identifier] = []
+        
+        # Clean old attempts
+        self.attack_attempts[identifier] = [
+            attempt_time for attempt_time in self.attack_attempts[identifier]
+            if current_time - attempt_time < window
+        ]
+        
+        self.attack_attempts[identifier].append(current_time)
+        return len(self.attack_attempts[identifier]) >= max_attempts
+    
+    def detect_anomalous_behavior(self, user_id: int, request_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Detect anomalous user behavior"""
+        anomaly_score = 0
+        anomalies = []
+        
+        # Check for unusual request patterns
+        if self.redis_client:
+            try:
+                # Check request frequency
+                key = f"user_requests:{user_id}"
+                current_hour = datetime.utcnow().strftime('%Y-%m-%d-%H')
+                hourly_key = f"{key}:{current_hour}"
+                
+                requests_this_hour = self.redis_client.incr(hourly_key)
+                if requests_this_hour == 1:
+                    self.redis_client.expire(hourly_key, 3600)
+                
+                if requests_this_hour > 1000:  # More than 1000 requests per hour
+                    anomaly_score += 30
+                    anomalies.append("Unusually high request frequency")
+                
+                # Check for unusual endpoints
+                endpoint_key = f"user_endpoints:{user_id}"
+                endpoint = request_data.get("endpoint", "")
+                self.redis_client.sadd(endpoint_key, endpoint)
+                self.redis_client.expire(endpoint_key, 86400)  # 24 hours
+                
+                unique_endpoints = self.redis_client.scard(endpoint_key)
+                if unique_endpoints > 50:  # More than 50 unique endpoints in 24h
+                    anomaly_score += 20
+                    anomalies.append("Accessing too many different endpoints")
+                
+            except RedisError:
+                pass
+        
+        # Check for suspicious patterns
+        user_agent = request_data.get("user_agent", "")
+        if any(pattern in user_agent.lower() for pattern in ["bot", "crawler", "scraper", "spider"]):
+            anomaly_score += 15
+            anomalies.append("Suspicious user agent")
+        
+        # Check for rapid location changes (if IP geolocation is available)
+        client_ip = request_data.get("client_ip", "")
+        if self._is_rapid_location_change(user_id, client_ip):
+            anomaly_score += 25
+            anomalies.append("Rapid location changes detected")
+        
+        return {
+            "anomaly_score": anomaly_score,
+            "anomalies": anomalies,
+            "is_suspicious": anomaly_score > 50
+        }
+    
+    def _is_rapid_location_change(self, user_id: int, current_ip: str) -> bool:
+        """Check for rapid location changes"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            key = f"user_locations:{user_id}"
+            recent_locations = self.redis_client.lrange(key, 0, 4)  # Last 5 locations
+            
+            if current_ip not in recent_locations:
+                self.redis_client.lpush(key, current_ip)
+                self.redis_client.ltrim(key, 0, 9)  # Keep last 10
+                self.redis_client.expire(key, 3600)  # 1 hour
+                
+                # If we have 5 different locations in the last hour, it's suspicious
+                if len(set(recent_locations)) >= 4:
+                    return True
+        except RedisError:
+            pass
+        
+        return False
+    
+    def detect_ddos_attack(self, client_ip: str, window: int = 60) -> bool:
+        """Detect DDoS attacks"""
+        if self.redis_client:
+            try:
+                key = f"ddos_check:{client_ip}"
+                requests = self.redis_client.incr(key)
+                if requests == 1:
+                    self.redis_client.expire(key, window)
+                
+                # More than 100 requests per minute is suspicious
+                if requests > 100:
+                    self.redis_client.setex(f"ddos_blocked:{client_ip}", 3600, "1")
+                    return True
+            except RedisError:
+                pass
+        
+        return False
+    
+    def is_ip_blocked(self, ip: str) -> bool:
+        """Check if IP is blocked for various reasons"""
+        if self.redis_client:
+            try:
+                # Check various block reasons
+                block_reasons = [
+                    f"blocked_ip:{ip}",
+                    f"blocked_brute_force:{ip}",
+                    f"ddos_blocked:{ip}",
+                    f"suspicious_ip:{ip}"
+                ]
+                
+                for reason in block_reasons:
+                    if self.redis_client.get(reason):
+                        return True
+            except RedisError:
+                pass
+        
+        return ip in self.known_bad_ips
 
 
 class AdvancedSecurityManager:
-    """Advanced security management system with threat detection"""
-
+    """Enhanced security manager with advanced features"""
+    
     def __init__(self):
-        self.user_profiles: Dict[str, UserSecurityProfile] = {}
-        self.security_alerts: List[SecurityAlert] = []
-        self.blocked_ips: Set[str] = set()
-        self.rate_limits: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
-        self.suspicious_patterns: Dict[str, int] = defaultdict(int)
-        self.security_rules: List[Dict[str, Any]] = []
+        self.redis_client = get_redis_client()
+        self.threat_detector = ThreatDetector()
+        self.session_tokens = {}  # In-memory session storage
+        self.device_fingerprints = {}
+        self.security_events = deque(maxlen=10000)
         
-        # Security thresholds
-        self.max_failed_logins = 5
-        self.account_lockout_duration = 300  # 5 minutes
-        self.rate_limit_window = 60  # 1 minute
-        self.rate_limit_max_requests = 100
-        self.suspicious_activity_threshold = 3
+    def create_secure_session(self, user_id: int, device_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a secure session with device fingerprinting"""
+        session_id = secrets.token_urlsafe(32)
+        device_fingerprint = self._generate_device_fingerprint(device_info)
         
-        # Initialize security rules
-        self._initialize_security_rules()
-
-    def _initialize_security_rules(self):
-        """Initialize security rules and patterns"""
-        self.security_rules = [
-            {
-                "name": "sql_injection_detection",
-                "pattern": r"(union|select|insert|update|delete|drop|create|alter|exec|execute)",
-                "case_sensitive": False,
-                "threat_level": ThreatLevel.HIGH
-            },
-            {
-                "name": "xss_detection",
-                "pattern": r"<script|javascript:|onload=|onerror=|onclick=",
-                "case_sensitive": False,
-                "threat_level": ThreatLevel.MEDIUM
-            },
-            {
-                "name": "path_traversal_detection",
-                "pattern": r"\.\./|\.\.\\|%2e%2e%2f|%2e%2e%5c",
-                "case_sensitive": False,
-                "threat_level": ThreatLevel.HIGH
-            },
-            {
-                "name": "command_injection_detection",
-                "pattern": r"[;&|`$(){}[\]\\]",
-                "case_sensitive": False,
-                "threat_level": ThreatLevel.HIGH
-            }
-        ]
-
-    def get_user_profile(self, user_id: str) -> UserSecurityProfile:
-        """Get or create user security profile"""
-        if user_id not in self.user_profiles:
-            self.user_profiles[user_id] = UserSecurityProfile(user_id=user_id)
-        return self.user_profiles[user_id]
-
-    def analyze_input_security(self, input_data: str, user_id: Optional[str] = None) -> List[SecurityAlert]:
-        """Analyze input data for security threats"""
-        alerts = []
-        
-        for rule in self.security_rules:
-            pattern = re.compile(rule["pattern"], re.IGNORECASE if not rule["case_sensitive"] else 0)
-            if pattern.search(input_data):
-                alert = SecurityAlert(
-                    alert_id=f"SEC_{int(time.time() * 1000)}",
-                    event_type=self._get_event_type_from_rule(rule["name"]),
-                    threat_level=rule["threat_level"],
-                    user_id=user_id,
-                    ip_address=None,
-                    user_agent=None,
-                    description=f"Potential {rule['name']} detected in input",
-                    timestamp=datetime.utcnow(),
-                    additional_data={
-                        "rule_name": rule["name"],
-                        "pattern": rule["pattern"],
-                        "input_sample": input_data[:100]  # First 100 chars
-                    }
-                )
-                alerts.append(alert)
-                self.security_alerts.append(alert)
-                
-                # Update suspicious patterns
-                self.suspicious_patterns[rule["name"]] += 1
-                
-                logger.warning(f"Security threat detected: {rule['name']} by user {user_id}")
-        
-        return alerts
-
-    def _get_event_type_from_rule(self, rule_name: str) -> SecurityEvent:
-        """Map rule name to security event type"""
-        mapping = {
-            "sql_injection_detection": SecurityEvent.SQL_INJECTION_ATTEMPT,
-            "xss_detection": SecurityEvent.XSS_ATTEMPT,
-            "path_traversal_detection": SecurityEvent.UNAUTHORIZED_ACCESS,
-            "command_injection_detection": SecurityEvent.UNAUTHORIZED_ACCESS
+        session_data = {
+            "user_id": user_id,
+            "session_id": session_id,
+            "device_fingerprint": device_fingerprint,
+            "created_at": datetime.utcnow().isoformat(),
+            "last_activity": datetime.utcnow().isoformat(),
+            "ip_address": device_info.get("ip_address"),
+            "user_agent": device_info.get("user_agent"),
+            "is_secure": True
         }
-        return mapping.get(rule_name, SecurityEvent.SUSPICIOUS_ACTIVITY)
-
-    def check_rate_limit(self, identifier: str, limit: int = None) -> Tuple[bool, int]:
-        """Check if rate limit is exceeded"""
-        if limit is None:
-            limit = self.rate_limit_max_requests
         
-        now = datetime.utcnow()
-        window_start = now - timedelta(seconds=self.rate_limit_window)
-        
-        # Clean old entries
-        while self.rate_limits[identifier] and self.rate_limits[identifier][0] < window_start:
-            self.rate_limits[identifier].popleft()
-        
-        # Check if limit exceeded
-        current_count = len(self.rate_limits[identifier])
-        if current_count >= limit:
-            # Log rate limit exceeded
-            alert = SecurityAlert(
-                alert_id=f"RATE_{int(time.time() * 1000)}",
-                event_type=SecurityEvent.RATE_LIMIT_EXCEEDED,
-                threat_level=ThreatLevel.MEDIUM,
-                user_id=None,
-                ip_address=identifier if self._is_ip_address(identifier) else None,
-                user_agent=None,
-                description=f"Rate limit exceeded for {identifier}",
-                timestamp=now,
-                additional_data={
-                    "current_count": current_count,
-                    "limit": limit,
-                    "window_seconds": self.rate_limit_window
-                }
-            )
-            self.security_alerts.append(alert)
-            logger.warning(f"Rate limit exceeded for {identifier}: {current_count}/{limit}")
-            return False, current_count
-        
-        # Add current request
-        self.rate_limits[identifier].append(now)
-        return True, current_count + 1
-
-    def _is_ip_address(self, identifier: str) -> bool:
-        """Check if identifier is an IP address"""
-        try:
-            ipaddress.ip_address(identifier)
-            return True
-        except ValueError:
-            return False
-
-    def handle_login_attempt(self, user_id: str, ip_address: str, user_agent: str, success: bool) -> List[SecurityAlert]:
-        """Handle login attempt and assess security risk"""
-        alerts = []
-        profile = self.get_user_profile(user_id)
-        
-        # Update profile
-        profile.ip_addresses.add(ip_address)
-        profile.user_agents.add(user_agent)
-        
-        if success:
-            profile.failed_login_attempts = 0
-            profile.last_successful_login = datetime.utcnow()
-            profile.account_locked_until = None
-            
-            # Log successful login
-            alert = SecurityAlert(
-                alert_id=f"LOGIN_{int(time.time() * 1000)}",
-                event_type=SecurityEvent.LOGIN_SUCCESS,
-                threat_level=ThreatLevel.LOW,
-                user_id=user_id,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                description=f"Successful login for user {user_id}",
-                timestamp=datetime.utcnow()
-            )
-            alerts.append(alert)
-            
-        else:
-            profile.failed_login_attempts += 1
-            profile.last_failed_login = datetime.utcnow()
-            
-            # Check for brute force
-            if profile.failed_login_attempts >= self.max_failed_logins:
-                profile.account_locked_until = datetime.utcnow() + timedelta(seconds=self.account_lockout_duration)
-                
-                alert = SecurityAlert(
-                    alert_id=f"LOCK_{int(time.time() * 1000)}",
-                    event_type=SecurityEvent.ACCOUNT_LOCKED,
-                    threat_level=ThreatLevel.HIGH,
-                    user_id=user_id,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
-                    description=f"Account locked due to {profile.failed_login_attempts} failed attempts",
-                    timestamp=datetime.utcnow(),
-                    additional_data={
-                        "failed_attempts": profile.failed_login_attempts,
-                        "locked_until": profile.account_locked_until.isoformat()
-                    }
+        # Store session in Redis
+        if self.redis_client:
+            try:
+                session_key = f"session:{session_id}"
+                self.redis_client.setex(
+                    session_key, 
+                    settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, 
+                    json.dumps(session_data)
                 )
-                alerts.append(alert)
-                logger.critical(f"Account locked for user {user_id} due to brute force")
-            
-            else:
-                alert = SecurityAlert(
-                    alert_id=f"FAIL_{int(time.time() * 1000)}",
-                    event_type=SecurityEvent.LOGIN_FAILURE,
-                    threat_level=ThreatLevel.MEDIUM,
-                    user_id=user_id,
-                    ip_address=ip_address,
-                    user_agent=user_agent,
-                    description=f"Failed login attempt {profile.failed_login_attempts}/{self.max_failed_logins}",
-                    timestamp=datetime.utcnow(),
-                    additional_data={
-                        "failed_attempts": profile.failed_login_attempts,
-                        "max_attempts": self.max_failed_logins
-                    }
+            except RedisError:
+                pass
+        
+        # Store in memory as backup
+        self.session_tokens[session_id] = session_data
+        self.device_fingerprints[user_id] = device_fingerprint
+        
+        return session_data
+    
+    def _generate_device_fingerprint(self, device_info: Dict[str, Any]) -> str:
+        """Generate device fingerprint for security"""
+        fingerprint_data = {
+            "user_agent": device_info.get("user_agent", ""),
+            "accept_language": device_info.get("accept_language", ""),
+            "accept_encoding": device_info.get("accept_encoding", ""),
+            "screen_resolution": device_info.get("screen_resolution", ""),
+            "timezone": device_info.get("timezone", ""),
+            "platform": device_info.get("platform", "")
+        }
+        
+        fingerprint_string = json.dumps(fingerprint_data, sort_keys=True)
+        return hashlib.sha256(fingerprint_string.encode()).hexdigest()
+    
+    def validate_session(self, session_id: str, device_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate session and check for anomalies"""
+        session_data = None
+        
+        # Get session from Redis
+        if self.redis_client:
+            try:
+                session_key = f"session:{session_id}"
+                session_json = self.redis_client.get(session_key)
+                if session_json:
+                    session_data = json.loads(session_json)
+            except RedisError:
+                pass
+        
+        # Fallback to memory
+        if not session_data and session_id in self.session_tokens:
+            session_data = self.session_tokens[session_id]
+        
+        if not session_data:
+            return {"valid": False, "reason": "Session not found"}
+        
+        # Check session expiration
+        created_at = datetime.fromisoformat(session_data["created_at"])
+        if datetime.utcnow() - created_at > timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES):
+            return {"valid": False, "reason": "Session expired"}
+        
+        # Check device fingerprint
+        current_fingerprint = self._generate_device_fingerprint(device_info)
+        stored_fingerprint = session_data.get("device_fingerprint")
+        
+        if current_fingerprint != stored_fingerprint:
+            # Log potential session hijacking
+            log_security_event("potential_session_hijacking", {
+                "user_id": session_data["user_id"],
+                "session_id": session_id,
+                "stored_fingerprint": stored_fingerprint,
+                "current_fingerprint": current_fingerprint
+            })
+            return {"valid": False, "reason": "Device fingerprint mismatch"}
+        
+        # Update last activity
+        session_data["last_activity"] = datetime.utcnow().isoformat()
+        
+        if self.redis_client:
+            try:
+                session_key = f"session:{session_id}"
+                self.redis_client.setex(
+                    session_key,
+                    settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                    json.dumps(session_data)
                 )
-                alerts.append(alert)
+            except RedisError:
+                pass
         
-        # Update risk score
-        self._update_risk_score(profile)
+        return {"valid": True, "session_data": session_data}
+    
+    def create_enhanced_token(self, user_id: int, device_info: Dict[str, Any]) -> Dict[str, str]:
+        """Create enhanced JWT token with additional security features"""
+        # Create secure session first
+        session_data = self.create_secure_session(user_id, device_info)
         
-        # Store alerts
-        self.security_alerts.extend(alerts)
-        return alerts
-
-    def _update_risk_score(self, profile: UserSecurityProfile):
-        """Update user risk score based on various factors"""
-        risk_score = 0.0
+        # Create access token
+        access_token_data = {
+            "sub": user_id,
+            "session_id": session_data["session_id"],
+            "device_fingerprint": session_data["device_fingerprint"],
+            "iat": datetime.utcnow(),
+            "type": "access"
+        }
         
-        # Failed login attempts
-        risk_score += profile.failed_login_attempts * 10
-        
-        # Account lockout
-        if profile.account_locked_until and profile.account_locked_until > datetime.utcnow():
-            risk_score += 50
-        
-        # Multiple IP addresses (potential account sharing/compromise)
-        if len(profile.ip_addresses) > 3:
-            risk_score += 20
-        
-        # Multiple user agents (potential account sharing)
-        if len(profile.user_agents) > 2:
-            risk_score += 15
-        
-        # No 2FA
-        if not profile.two_factor_enabled:
-            risk_score += 10
-        
-        # No security questions
-        if not profile.security_questions_answered:
-            risk_score += 5
-        
-        # Recent suspicious activities
-        risk_score += len(profile.suspicious_activities) * 5
-        
-        profile.risk_score = min(risk_score, 100.0)  # Cap at 100
-
-    def is_account_locked(self, user_id: str) -> bool:
-        """Check if account is locked"""
-        profile = self.get_user_profile(user_id)
-        if profile.account_locked_until:
-            if profile.account_locked_until > datetime.utcnow():
-                return True
-            else:
-                # Unlock expired account
-                profile.account_locked_until = None
-                profile.failed_login_attempts = 0
-        return False
-
-    def block_ip_address(self, ip_address: str, reason: str, duration_hours: int = 24):
-        """Block an IP address"""
-        self.blocked_ips.add(ip_address)
-        
-        alert = SecurityAlert(
-            alert_id=f"BLOCK_{int(time.time() * 1000)}",
-            event_type=SecurityEvent.UNAUTHORIZED_ACCESS,
-            threat_level=ThreatLevel.HIGH,
-            user_id=None,
-            ip_address=ip_address,
-            user_agent=None,
-            description=f"IP address blocked: {reason}",
-            timestamp=datetime.utcnow(),
-            additional_data={
-                "reason": reason,
-                "duration_hours": duration_hours,
-                "blocked_until": (datetime.utcnow() + timedelta(hours=duration_hours)).isoformat()
-            }
+        access_token = jwt.encode(
+            access_token_data,
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM
         )
-        self.security_alerts.append(alert)
-        logger.critical(f"IP address {ip_address} blocked: {reason}")
-
-    def is_ip_blocked(self, ip_address: str) -> bool:
-        """Check if IP address is blocked"""
-        return ip_address in self.blocked_ips
-
-    def generate_security_token(self, user_id: str, additional_data: str = "") -> str:
-        """Generate secure token with HMAC"""
-        timestamp = str(int(time.time()))
-        data = f"{user_id}:{timestamp}:{additional_data}"
-        secret_key = "your-secret-key"  # In production, use environment variable
-        token = hmac.new(
-            secret_key.encode(),
-            data.encode(),
-            hashlib.sha256
-        ).hexdigest()
-        return f"{timestamp}:{token}"
-
-    def verify_security_token(self, token: str, user_id: str, additional_data: str = "", max_age_seconds: int = 3600) -> bool:
-        """Verify security token"""
-        try:
-            parts = token.split(":")
-            if len(parts) != 2:
-                return False
-            
-            timestamp_str, token_hash = parts
-            timestamp = int(timestamp_str)
-            
-            # Check token age
-            if time.time() - timestamp > max_age_seconds:
-                return False
-            
-            # Regenerate token and compare
-            data = f"{user_id}:{timestamp_str}:{additional_data}"
-            secret_key = "your-secret-key"  # In production, use environment variable
-            expected_token = hmac.new(
-                secret_key.encode(),
-                data.encode(),
-                hashlib.sha256
-            ).hexdigest()
-            
-            return hmac.compare_digest(token_hash, expected_token)
-            
-        except (ValueError, IndexError):
-            return False
-
-    def get_security_summary(self, hours: int = 24) -> Dict[str, Any]:
-        """Get security summary for the specified time period"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        recent_alerts = [alert for alert in self.security_alerts if alert.timestamp >= cutoff_time]
         
-        summary = {
-            "time_period_hours": hours,
-            "total_alerts": len(recent_alerts),
-            "alerts_by_type": {},
-            "alerts_by_threat_level": {},
-            "top_threats": [],
-            "blocked_ips_count": len(self.blocked_ips),
-            "locked_accounts_count": 0,
-            "high_risk_users": []
+        # Create refresh token
+        refresh_token_data = {
+            "sub": user_id,
+            "session_id": session_data["session_id"],
+            "iat": datetime.utcnow(),
+            "type": "refresh"
         }
         
-        # Count alerts by type
-        for alert in recent_alerts:
-            event_type = alert.event_type.value
-            summary["alerts_by_type"][event_type] = summary["alerts_by_type"].get(event_type, 0) + 1
+        refresh_token = jwt.encode(
+            refresh_token_data,
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM
+        )
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "session_id": session_data["session_id"],
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        }
+    
+    def verify_enhanced_token(self, token: str, device_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Verify enhanced JWT token with session validation"""
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             
-            threat_level = alert.threat_level.value
-            summary["alerts_by_threat_level"][threat_level] = summary["alerts_by_threat_level"].get(threat_level, 0) + 1
-        
-        # Top threats
-        threat_counts = defaultdict(int)
-        for alert in recent_alerts:
-            if alert.additional_data.get("rule_name"):
-                threat_counts[alert.additional_data["rule_name"]] += 1
-        
-        summary["top_threats"] = sorted(threat_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-        
-        # Count locked accounts
-        for profile in self.user_profiles.values():
-            if profile.account_locked_until and profile.account_locked_until > datetime.utcnow():
-                summary["locked_accounts_count"] += 1
+            # Check token type
+            if payload.get("type") != "access":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token type"
+                )
             
-            # High risk users
-            if profile.risk_score > 70:
-                summary["high_risk_users"].append({
-                    "user_id": profile.user_id,
-                    "risk_score": profile.risk_score,
-                    "failed_attempts": profile.failed_login_attempts,
-                    "locked": profile.account_locked_until is not None
-                })
-        
-        return summary
-
-    def cleanup_old_data(self, days: int = 30):
-        """Clean up old security data"""
-        cutoff_time = datetime.utcnow() - timedelta(days=days)
-        
-        # Clean old alerts
-        self.security_alerts = [alert for alert in self.security_alerts if alert.timestamp >= cutoff_time]
-        
-        # Clean old rate limit data
-        for identifier in list(self.rate_limits.keys()):
-            while self.rate_limits[identifier] and self.rate_limits[identifier][0] < cutoff_time:
-                self.rate_limits[identifier].popleft()
+            # Validate session
+            session_id = payload.get("session_id")
+            if not session_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No session ID in token"
+                )
             
-            # Remove empty rate limit entries
-            if not self.rate_limits[identifier]:
-                del self.rate_limits[identifier]
+            session_validation = self.validate_session(session_id, device_info)
+            if not session_validation["valid"]:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"Session validation failed: {session_validation['reason']}"
+                )
+            
+            return {
+                "valid": True,
+                "user_id": payload.get("sub"),
+                "session_data": session_validation["session_data"]
+            }
+            
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired"
+            )
+        except jwt.JWTError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
+    
+    def detect_security_threats(self, request: Request, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Comprehensive security threat detection"""
+        client_ip = request.client.host
+        user_agent = request.headers.get("user-agent", "")
+        
+        threat_analysis = {
+            "threat_level": "low",
+            "threats_detected": [],
+            "recommended_action": "allow"
+        }
+        
+        # Check for blocked IP
+        if self.threat_detector.is_ip_blocked(client_ip):
+            threat_analysis["threat_level"] = "critical"
+            threat_analysis["threats_detected"].append("Blocked IP address")
+            threat_analysis["recommended_action"] = "block"
+            return threat_analysis
+        
+        # Check for DDoS attack
+        if self.threat_detector.detect_ddos_attack(client_ip):
+            threat_analysis["threat_level"] = "high"
+            threat_analysis["threats_detected"].append("DDoS attack detected")
+            threat_analysis["recommended_action"] = "block"
+            return threat_analysis
+        
+        # Check for brute force
+        if user_id and self.threat_detector.detect_brute_force(f"user:{user_id}"):
+            threat_analysis["threat_level"] = "high"
+            threat_analysis["threats_detected"].append("Brute force attack detected")
+            threat_analysis["recommended_action"] = "block"
+            return threat_analysis
+        
+        # Check for anomalous behavior
+        if user_id:
+            request_data = {
+                "endpoint": request.url.path,
+                "method": request.method,
+                "user_agent": user_agent,
+                "client_ip": client_ip
+            }
+            
+            anomaly_result = self.threat_detector.detect_anomalous_behavior(user_id, request_data)
+            if anomaly_result["is_suspicious"]:
+                threat_analysis["threat_level"] = "medium"
+                threat_analysis["threats_detected"].extend(anomaly_result["anomalies"])
+                threat_analysis["recommended_action"] = "monitor"
+        
+        return threat_analysis
 
 
-# Global security manager instance
+# Global instances
 advanced_security_manager = AdvancedSecurityManager()
+threat_detector = ThreatDetector()
 
 
-# Security decorators and utilities
-def require_security_check(func):
-    """Decorator to add security checks to functions"""
-    @functools.wraps(func)
-    async def async_wrapper(*args, **kwargs):
-        # Extract user_id and input data from arguments
-        user_id = kwargs.get('user_id') or (args[0] if args else None)
-        input_data = str(kwargs.get('data', '')) + str(kwargs.get('input', ''))
-        
-        # Check for security threats
-        if input_data:
-            alerts = advanced_security_manager.analyze_input_security(input_data, user_id)
-            if alerts:
-                # Log security alerts
-                for alert in alerts:
-                    logger.warning(f"Security alert: {alert.description}")
-        
-        return await func(*args, **kwargs)
-    
-    @functools.wraps(func)
-    def sync_wrapper(*args, **kwargs):
-        # Extract user_id and input data from arguments
-        user_id = kwargs.get('user_id') or (args[0] if args else None)
-        input_data = str(kwargs.get('data', '')) + str(kwargs.get('input', ''))
-        
-        # Check for security threats
-        if input_data:
-            alerts = advanced_security_manager.analyze_input_security(input_data, user_id)
-            if alerts:
-                # Log security alerts
-                for alert in alerts:
-                    logger.warning(f"Security alert: {alert.description}")
-        
-        return func(*args, **kwargs)
-    
-    return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
-
-
-def rate_limit_check(identifier_func: Callable = None, limit: int = None):
-    """Decorator for rate limiting"""
+def enhanced_auth_required():
+    """Enhanced authentication decorator with threat detection"""
     def decorator(func):
-        @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            # Get identifier (IP, user_id, etc.)
-            if identifier_func:
-                identifier = identifier_func(*args, **kwargs)
-            else:
-                identifier = kwargs.get('ip_address') or kwargs.get('user_id') or 'default'
+        @wraps(func)
+        async def wrapper(request: Request, *args, **kwargs):
+            # Perform threat detection
+            threat_analysis = advanced_security_manager.detect_security_threats(request)
             
-            # Check rate limit
-            allowed, count = advanced_security_manager.check_rate_limit(identifier, limit)
-            if not allowed:
+            if threat_analysis["recommended_action"] == "block":
+                log_security_event("request_blocked", {
+                    "ip": request.client.host,
+                    "endpoint": request.url.path,
+                    "threats": threat_analysis["threats_detected"]
+                })
                 raise HTTPException(
-                    status_code=429,
-                    detail=f"Rate limit exceeded. Try again later."
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Request blocked due to security threats"
                 )
             
-            return await func(*args, **kwargs)
-        
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            # Get identifier (IP, user_id, etc.)
-            if identifier_func:
-                identifier = identifier_func(*args, **kwargs)
-            else:
-                identifier = kwargs.get('ip_address') or kwargs.get('user_id') or 'default'
-            
-            # Check rate limit
-            allowed, count = advanced_security_manager.check_rate_limit(identifier, limit)
-            if not allowed:
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"Rate limit exceeded. Try again later."
-                )
-            
-            return func(*args, **kwargs)
-        
-        return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+            # Continue with normal authentication
+            return await func(request, *args, **kwargs)
+        return wrapper
     return decorator
+
+
+def get_device_info(request: Request) -> Dict[str, Any]:
+    """Extract device information from request"""
+    return {
+        "ip_address": request.client.host,
+        "user_agent": request.headers.get("user-agent", ""),
+        "accept_language": request.headers.get("accept-language", ""),
+        "accept_encoding": request.headers.get("accept-encoding", ""),
+        "platform": request.headers.get("sec-ch-ua-platform", ""),
+        "timezone": request.headers.get("timezone", "")
+    }
+
+
+# Export functions
+__all__ = [
+    "AdvancedSecurityManager",
+    "ThreatDetector",
+    "advanced_security_manager",
+    "threat_detector",
+    "enhanced_auth_required",
+    "get_device_info"
+]

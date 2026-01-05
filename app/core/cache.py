@@ -176,8 +176,12 @@ class MemoryCache:
             return True
         return False
     
-    def clear(self):
-        """Clear all cache entries"""
+    def clear(self) -> None:
+        """
+        Clear all cache entries.
+        
+        This removes all cached data and access time tracking.
+        """
         self.cache.clear()
         self.access_times.clear()
     

@@ -5,7 +5,7 @@ Combines all endpoint routers into a single API
 
 import logging
 from fastapi import APIRouter
-from typing import Optional
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +42,14 @@ except Exception as e:
     logger.error(f"Error including API routers: {e}", exc_info=True)
 
 # Add basic endpoints if routers are not available
-@api_router.get("/")
-async def api_root():
-    """API root endpoint"""
+@api_router.get("/", response_model=Dict[str, Any])
+async def api_root() -> Dict[str, Any]:
+    """
+    API root endpoint
+    
+    Returns:
+        Dict containing API information and available endpoints
+    """
     return {
         "message": "Opinion Market API v1",
         "version": "1.0.0",
@@ -67,11 +72,17 @@ async def api_root():
         ]
     }
 
-@api_router.get("/status")
-async def api_status():
-    """API status endpoint"""
+@api_router.get("/status", response_model=Dict[str, Any])
+async def api_status() -> Dict[str, Any]:
+    """
+    API status endpoint
+    
+    Returns:
+        Dict containing API status information
+    """
+    from datetime import datetime
     return {
         "status": "operational",
         "version": "1.0.0",
-        "timestamp": "2024-01-01T00:00:00Z"
+        "timestamp": datetime.utcnow().isoformat() + "Z"
     }

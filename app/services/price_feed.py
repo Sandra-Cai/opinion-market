@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from fastapi import WebSocket, WebSocketDisconnect
 from app.core.database import SessionLocal
@@ -13,13 +13,29 @@ logger = logging.getLogger(__name__)
 
 
 class PriceFeedManager:
-    def __init__(self):
-        self.active_connections: Dict[int, List[WebSocket]] = (
-            {}
-        )  # market_id -> connections
-        self.price_history: Dict[int, List[Dict]] = {}  # market_id -> price history
+    """
+    Manages real-time price feeds for markets via WebSocket connections.
+    
+    This class handles WebSocket connections for market price updates,
+    maintains connection state, and broadcasts price updates to connected clients.
+    """
+    
+    def __init__(self) -> None:
+        """Initialize the PriceFeedManager with empty connection and history dictionaries."""
+        self.active_connections: Dict[int, List[WebSocket]] = {}  # market_id -> connections
+        self.price_history: Dict[int, List[Dict[str, Any]]] = {}  # market_id -> price history
 
-    async def connect(self, websocket: WebSocket, market_id: int):
+    async def connect(self, websocket: WebSocket, market_id: int) -> None:
+        """
+        Connect a WebSocket client to a market's price feed.
+        
+        Args:
+            websocket: The WebSocket connection to add
+            market_id: The ID of the market to subscribe to
+            
+        Raises:
+            WebSocketDisconnect: If the connection fails
+        """
         await websocket.accept()
         if market_id not in self.active_connections:
             self.active_connections[market_id] = []
@@ -28,7 +44,14 @@ class PriceFeedManager:
         # Send current market data
         await self.send_market_update(market_id, websocket)
 
-    def disconnect(self, websocket: WebSocket, market_id: int):
+    def disconnect(self, websocket: WebSocket, market_id: int) -> None:
+        """
+        Disconnect a WebSocket client from a market's price feed.
+        
+        Args:
+            websocket: The WebSocket connection to remove
+            market_id: The ID of the market to unsubscribe from
+        """
         if market_id in self.active_connections:
             self.active_connections[market_id].remove(websocket)
             if not self.active_connections[market_id]:
@@ -36,8 +59,18 @@ class PriceFeedManager:
 
     async def send_market_update(
         self, market_id: int, websocket: Optional[WebSocket] = None
-    ):
-        """Send market update to connected clients"""
+    ) -> None:
+        """
+        Send market update to connected clients.
+        
+        Args:
+            market_id: The ID of the market to send updates for
+            websocket: Optional specific WebSocket to send to. If None, broadcasts to all.
+            
+        Note:
+            If websocket is provided, only that connection receives the update.
+            Otherwise, all connections for the market receive the update.
+        """
         db = SessionLocal()
         try:
             market = db.query(Market).filter(Market.id == market_id).first()
@@ -94,8 +127,14 @@ class PriceFeedManager:
         finally:
             db.close()
 
-    async def broadcast_to_market(self, market_id: int, message: Dict):
-        """Broadcast message to all clients connected to a market"""
+    async def broadcast_to_market(self, market_id: int, message: Dict[str, Any]) -> None:
+        """
+        Broadcast a message to all clients connected to a market.
+        
+        Args:
+            market_id: The ID of the market to broadcast to
+            message: The message dictionary to send
+        """
         if market_id in self.active_connections:
             disconnected = []
             for connection in self.active_connections[market_id]:
@@ -111,8 +150,13 @@ class PriceFeedManager:
             for connection in disconnected:
                 self.disconnect(connection, market_id)
 
-    async def broadcast_trade(self, trade: Trade):
-        """Broadcast new trade to all connected clients"""
+    async def broadcast_trade(self, trade: Trade) -> None:
+        """
+        Broadcast a new trade to all subscribers of the trade's market.
+        
+        Args:
+            trade: The Trade object to broadcast
+        """
         message = {
             "type": "new_trade",
             "market_id": trade.market_id,

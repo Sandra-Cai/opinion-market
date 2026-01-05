@@ -1,29 +1,51 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import desc
+from typing import List, Optional
 from datetime import datetime
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.decorators import handle_errors, log_execution_time
+from app.core.response_helpers import success_response, error_response, paginated_response
 from app.models.user import User
 from app.models.market import Market, MarketStatus
 from app.models.trade import Trade, TradeType, TradeOutcome
 from app.schemas.trade import TradeCreate, TradeResponse, TradeListResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.post("/", response_model=TradeResponse)
-def create_trade(
+@handle_errors(default_message="Failed to create trade")
+@log_execution_time
+async def create_trade(
     trade_data: TradeCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """
+    Create a new trade.
+    
+    Args:
+        trade_data: Trade creation data
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Created trade response
+        
+    Raises:
+        HTTPException: If market not found, inactive, or validation fails
+    """
     # Get market
     market = db.query(Market).filter(Market.id == trade_data.market_id).first()
     if not market:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Market not found"
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Market not found"
         )
 
     # Check if market is active
@@ -133,13 +155,28 @@ def create_trade(
 
 
 @router.get("/", response_model=TradeListResponse)
-def get_trades(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    market_id: int = None,
-    user_id: int = None,
+@handle_errors(default_message="Failed to retrieve trades")
+@log_execution_time
+async def get_trades(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    market_id: Optional[int] = Query(None, description="Filter by market ID"),
+    user_id: Optional[int] = Query(None, description="Filter by user ID"),
     db: Session = Depends(get_db),
 ):
+    """
+    Get list of trades with optional filtering and pagination.
+    
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        market_id: Optional market ID filter
+        user_id: Optional user ID filter
+        db: Database session
+        
+    Returns:
+        Paginated list of trades
+    """
     query = db.query(Trade)
 
     if market_id:
@@ -149,7 +186,7 @@ def get_trades(
         query = query.filter(Trade.user_id == user_id)
 
     total = query.count()
-    trades = query.offset(skip).limit(limit).all()
+    trades = query.order_by(desc(Trade.created_at)).offset(skip).limit(limit).all()
 
     return TradeListResponse(
         trades=trades, total=total, page=skip // limit + 1, per_page=limit
@@ -157,25 +194,58 @@ def get_trades(
 
 
 @router.get("/{trade_id}", response_model=TradeResponse)
-def get_trade(trade_id: int, db: Session = Depends(get_db)):
+@handle_errors(default_message="Failed to retrieve trade")
+@log_execution_time
+async def get_trade(
+    trade_id: int, 
+    db: Session = Depends(get_db)
+):
+    """
+    Get a specific trade by ID.
+    
+    Args:
+        trade_id: Trade ID
+        db: Database session
+        
+    Returns:
+        Trade response
+        
+    Raises:
+        HTTPException: If trade not found
+    """
     trade = db.query(Trade).filter(Trade.id == trade_id).first()
     if not trade:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Trade not found"
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Trade not found"
         )
     return trade
 
 
 @router.get("/user/me", response_model=TradeListResponse)
-def get_my_trades(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+@handle_errors(default_message="Failed to retrieve user trades")
+@log_execution_time
+async def get_my_trades(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """
+    Get current user's trades with pagination.
+    
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Paginated list of user's trades
+    """
     query = db.query(Trade).filter(Trade.user_id == current_user.id)
     total = query.count()
-    trades = query.offset(skip).limit(limit).all()
+    trades = query.order_by(desc(Trade.created_at)).offset(skip).limit(limit).all()
 
     return TradeListResponse(
         trades=trades, total=total, page=skip // limit + 1, per_page=limit

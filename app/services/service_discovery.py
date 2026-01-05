@@ -4,9 +4,12 @@ Simple mock implementation for service discovery functionality
 """
 
 import asyncio
+import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -112,7 +115,7 @@ class ServiceRegistry:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"Health check error: {e}")
+                logger.error(f"Health check error: {e}", exc_info=True)
                 await asyncio.sleep(self.health_check_interval)
 
 

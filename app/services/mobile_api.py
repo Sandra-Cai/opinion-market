@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import json
@@ -12,6 +13,8 @@ from app.models.trade import Trade
 from app.models.position import Position
 from app.models.notification import Notification, NotificationType
 from app.services.rewards_system import get_rewards_system
+
+logger = logging.getLogger(__name__)
 
 
 class MobileAPIService:
@@ -341,7 +344,7 @@ class MobileAPIService:
         }
 
         # Simulate sending notification
-        print(f"📱 PUSH NOTIFICATION to user {user_id}: {title} - {body}")
+        logger.info(f"Push notification sent to user {user_id}: {title} - {body}")
 
         return {
             "success": True,

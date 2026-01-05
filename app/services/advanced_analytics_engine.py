@@ -26,7 +26,6 @@ try:
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
-    print("Warning: scikit-learn not available. ML features will be limited.")
 
 try:
     import joblib

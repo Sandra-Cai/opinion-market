@@ -358,8 +358,9 @@ else:
 try:
     from app.api.v1.endpoints.websocket import router as websocket_router
     app.include_router(websocket_router, prefix="/api/v1")
-except ImportError:
-    logger.warning("WebSocket endpoints not available")
+    logger.info("WebSocket router registered")
+except ImportError as e:
+    logger.warning(f"WebSocket endpoints not available: {e}", exc_info=True)
 
 # Setup middleware stack
 middleware_manager.app = app
@@ -405,18 +406,18 @@ async def root():
             "Enterprise Security",
             "Performance Optimization",
         ],
-               "services": {
-                   "ml_service": ml_service is not None,
-                   "analytics_service": analytics_service is not None,
-                   "market_service": market_service is not None,
-                   "real_time_engine": real_time_engine is not None,
-                   "alerting_system": alerting_system is not None,
-                   "price_feed": price_feed_manager is not None,
-                   "websocket_service": websocket_service is not None,
-                   "security_auditor": security_auditor is not None,
-                   "input_validator": input_validator is not None,
-                   "middleware_manager": middleware_manager is not None,
-               }
+        "services": {
+            "ml_service": ml_service is not None,
+            "analytics_service": analytics_service is not None,
+            "market_service": market_service is not None,
+            "real_time_engine": real_time_engine is not None,
+            "alerting_system": alerting_system is not None,
+            "price_feed": price_feed_manager is not None,
+            "websocket_service": websocket_service is not None,
+            "security_auditor": security_auditor is not None,
+            "input_validator": input_validator is not None,
+            "middleware_manager": middleware_manager is not None,
+        }
     }
 
 
@@ -445,25 +446,25 @@ async def health_check():
     cache_health = cache_health_check()
     health_status["services"]["cache"] = cache_health
     
-           # Check service health
-           if ml_service:
-               health_status["services"]["ml_service"] = "healthy"
-           if analytics_service:
-               health_status["services"]["analytics_service"] = "healthy"
-           if market_service:
-               health_status["services"]["market_service"] = "healthy"
-           if real_time_engine:
-               health_status["services"]["real_time_engine"] = "healthy"
-           if alerting_system:
-               health_status["services"]["alerting_system"] = "healthy"
-           if websocket_service:
-               health_status["services"]["websocket_service"] = "healthy"
-           if security_auditor:
-               health_status["services"]["security_auditor"] = "healthy"
-           if input_validator:
-               health_status["services"]["input_validator"] = "healthy"
-           if middleware_manager:
-               health_status["services"]["middleware_manager"] = "healthy"
+        # Check service health
+        if ml_service:
+            health_status["services"]["ml_service"] = "healthy"
+        if analytics_service:
+            health_status["services"]["analytics_service"] = "healthy"
+        if market_service:
+            health_status["services"]["market_service"] = "healthy"
+        if real_time_engine:
+            health_status["services"]["real_time_engine"] = "healthy"
+        if alerting_system:
+            health_status["services"]["alerting_system"] = "healthy"
+        if websocket_service:
+            health_status["services"]["websocket_service"] = "healthy"
+        if security_auditor:
+            health_status["services"]["security_auditor"] = "healthy"
+        if input_validator:
+            health_status["services"]["input_validator"] = "healthy"
+        if middleware_manager:
+            health_status["services"]["middleware_manager"] = "healthy"
     
     # Determine overall health
     critical_services = ["database"]

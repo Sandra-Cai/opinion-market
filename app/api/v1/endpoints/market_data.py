@@ -1,3 +1,4 @@
+import logging
 from fastapi import (
     APIRouter,
     Depends,
@@ -21,6 +22,8 @@ from app.services.market_data_feed import (
     MarketDataPoint,
     MarketAlert,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -410,9 +413,9 @@ async def websocket_market_data(websocket: WebSocket):
             )
 
     except WebSocketDisconnect:
-        print("WebSocket client disconnected")
+        logger.info("WebSocket client disconnected")
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         await websocket.close()
 
 
@@ -458,9 +461,9 @@ async def websocket_market_alerts(websocket: WebSocket):
             )
 
     except WebSocketDisconnect:
-        print("WebSocket client disconnected")
+        logger.info("WebSocket client disconnected")
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         await websocket.close()
 
 

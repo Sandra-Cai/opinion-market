@@ -3,8 +3,11 @@ Main API Router for Opinion Market
 Combines all endpoint routers into a single API
 """
 
+import logging
 from fastapi import APIRouter
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # Import core endpoint routers
 try:
@@ -12,7 +15,7 @@ try:
     from app.api.v1.endpoints import analytics, notifications, votes, disputes
     from app.api.v1.endpoints import leaderboard, verification, websocket, security_monitoring, performance_monitoring
 except ImportError as e:
-    print(f"Warning: Some API endpoints not available: {e}")
+    logger.warning(f"Some API endpoints not available: {e}", exc_info=True)
 
 # Create main API router
 api_router = APIRouter()
@@ -34,8 +37,9 @@ try:
     api_router.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
     api_router.include_router(security_monitoring.router, prefix="/security", tags=["Security Monitoring"])
     api_router.include_router(performance_monitoring.router, prefix="/performance", tags=["Performance Monitoring"])
+    logger.info("API routers registered successfully")
 except Exception as e:
-    print(f"Warning: Error including API routers: {e}")
+    logger.error(f"Error including API routers: {e}", exc_info=True)
 
 # Add basic endpoints if routers are not available
 @api_router.get("/")

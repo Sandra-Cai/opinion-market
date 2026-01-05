@@ -21,6 +21,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 import uvicorn
 
+import logging
+
 from app.core.config import settings
 from app.core.database import get_redis_client
 from app.core.logging import log_api_call, log_system_metric, log_security_event
@@ -28,6 +30,8 @@ from app.core.security import security_manager, get_client_ip
 from app.core.cache import cache
 from app.core.validation import input_validator
 from app.core.security_audit import security_auditor, SecurityEventType, SecuritySeverity
+
+logger = logging.getLogger(__name__)
 
 
 class PerformanceMiddleware(BaseHTTPMiddleware):
@@ -707,7 +711,7 @@ class MiddlewareManager:
                     module = __import__(module_path, fromlist=[class_name])
                     middleware_class = getattr(module, class_name)
                 except (ImportError, AttributeError) as e:
-                    print(f"Warning: Could not import middleware {middleware_class}: {e}")
+                    logger.warning(f"Could not import middleware {middleware_class}: {e}", exc_info=True)
                     continue
             
             self.app = middleware_class(self.app, **kwargs)

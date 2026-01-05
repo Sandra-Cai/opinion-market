@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -7,6 +8,8 @@ from fastapi import WebSocket, WebSocketDisconnect
 from app.core.database import SessionLocal
 from app.models.market import Market
 from app.models.trade import Trade
+
+logger = logging.getLogger(__name__)
 
 
 class PriceFeedManager:
@@ -101,7 +104,7 @@ class PriceFeedManager:
                 except WebSocketDisconnect:
                     disconnected.append(connection)
                 except Exception as e:
-                    print(f"Error sending to websocket: {e}")
+                    logger.warning(f"Error sending to websocket: {e}", exc_info=True)
                     disconnected.append(connection)
 
             # Remove disconnected connections
@@ -132,7 +135,7 @@ class PriceFeedManager:
 
     async def start_price_feed(self):
         """Start background price feed updates"""
-        print("🔄 Starting price feed service...")
+        logger.info("Starting price feed service")
         error_count = 0
         max_errors = 10
         
@@ -157,11 +160,17 @@ class PriceFeedManager:
 
                 except Exception as db_error:
                     error_count += 1
-                    print(f"⚠️  Database error in price feed (attempt {error_count}): {str(db_error)[:100]}...")
+                    logger.warning(
+                        f"Database error in price feed (attempt {error_count})",
+                        error=str(db_error)[:100],
+                        exc_info=True
+                    )
                     
                     # If too many errors, wait longer before retrying
                     if error_count >= max_errors:
-                        print(f"🛑 Too many database errors ({error_count}), waiting 30 seconds before retry...")
+                        logger.error(
+                            f"Too many database errors ({error_count}), waiting 30 seconds before retry"
+                        )
                         await asyncio.sleep(30)
                         error_count = 0
                     
@@ -173,11 +182,17 @@ class PriceFeedManager:
 
             except Exception as e:
                 error_count += 1
-                print(f"❌ Critical error in price feed (attempt {error_count}): {str(e)[:100]}...")
+                logger.error(
+                    f"Critical error in price feed (attempt {error_count})",
+                    error=str(e)[:100],
+                    exc_info=True
+                )
                 
                 # If too many critical errors, wait longer
                 if error_count >= max_errors:
-                    print(f"🛑 Too many critical errors ({error_count}), waiting 60 seconds before retry...")
+                    logger.critical(
+                        f"Too many critical errors ({error_count}), waiting 60 seconds before retry"
+                    )
                     await asyncio.sleep(60)
                     error_count = 0
                 else:

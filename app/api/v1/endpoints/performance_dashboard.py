@@ -3,6 +3,7 @@ Advanced Performance Dashboard API
 Provides real-time performance monitoring and analytics
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from typing import Dict, Any, List, Optional
@@ -21,6 +22,8 @@ from app.core.enhanced_cache import enhanced_cache
 from app.core.performance_monitor import performance_monitor
 from app.core.database import engine
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -75,7 +78,7 @@ class PerformanceCollector:
                 
                 await asyncio.sleep(1)  # Collect every second
             except Exception as e:
-                print(f"Error in metrics collection: {e}")
+                logger.error(f"Error in metrics collection: {e}", exc_info=True)
                 await asyncio.sleep(5)  # Wait longer on error
     
     async def _collect_system_metrics(self):
@@ -133,7 +136,7 @@ class PerformanceCollector:
             self.metrics_history["system"].append(system_metrics)
             
         except Exception as e:
-            print(f"Error collecting system metrics: {e}")
+            logger.error(f"Error collecting system metrics: {e}", exc_info=True)
     
     async def _collect_cache_metrics(self):
         """Collect cache performance metrics"""
@@ -154,7 +157,7 @@ class PerformanceCollector:
             self.metrics_history["cache"].append(cache_metrics)
             
         except Exception as e:
-            print(f"Error collecting cache metrics: {e}")
+            logger.error(f"Error collecting cache metrics: {e}", exc_info=True)
     
     async def _collect_database_metrics(self):
         """Collect database performance metrics"""
@@ -187,7 +190,7 @@ class PerformanceCollector:
             self.metrics_history["database"].append(db_metrics)
             
         except Exception as e:
-            print(f"Error collecting database metrics: {e}")
+            logger.error(f"Error collecting database metrics: {e}", exc_info=True)
     
     async def _collect_api_metrics(self):
         """Collect API performance metrics"""
@@ -206,7 +209,7 @@ class PerformanceCollector:
             self.metrics_history["api"].append(api_metrics)
             
         except Exception as e:
-            print(f"Error collecting API metrics: {e}")
+            logger.error(f"Error collecting API metrics: {e}", exc_info=True)
     
     async def _broadcast_metrics(self):
         """Broadcast metrics to all connected WebSocket clients"""
@@ -587,7 +590,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         active_connections.remove(websocket)
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         if websocket in active_connections:
             active_connections.remove(websocket)
 

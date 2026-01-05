@@ -152,7 +152,8 @@ def check_database_health() -> dict:
         start_time = time.time()
         with get_db_session() as db:
             # Simple query to test connection
-            db.execute("SELECT 1")
+            from sqlalchemy import text
+            db.execute(text("SELECT 1"))
             health_status["response_time"] = time.time() - start_time
             health_status["status"] = "healthy"
             health_status["database"] = "connected"

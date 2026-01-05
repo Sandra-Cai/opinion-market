@@ -3,6 +3,7 @@ Advanced Real-time Performance Dashboard
 Interactive dashboard with AI insights and predictive analytics
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from typing import Dict, Any, List, Optional
@@ -19,6 +20,8 @@ from app.models.user import User
 from app.core.advanced_performance_optimizer import advanced_performance_optimizer
 from app.core.enhanced_cache import enhanced_cache
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 # WebSocket connection manager
@@ -31,12 +34,12 @@ class AdvancedDashboardManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        print(f"Dashboard connected. Total connections: {len(self.active_connections)}")
+        logger.info(f"Dashboard connected. Total connections: {len(self.active_connections)}")
         
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-        print(f"Dashboard disconnected. Total connections: {len(self.active_connections)}")
+        logger.info(f"Dashboard disconnected. Total connections: {len(self.active_connections)}")
         
     async def broadcast(self, message: Dict[str, Any]):
         if not self.active_connections:
@@ -49,7 +52,7 @@ class AdvancedDashboardManager:
             try:
                 await connection.send_text(message_str)
             except Exception as e:
-                print(f"Error sending to WebSocket: {e}")
+                logger.error(f"Error sending to WebSocket: {e}", exc_info=True)
                 disconnected.append(connection)
                 
         # Remove disconnected connections
@@ -553,7 +556,7 @@ async def websocket_dashboard(websocket: WebSocket):
     except WebSocketDisconnect:
         dashboard_manager.disconnect(websocket)
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         dashboard_manager.disconnect(websocket)
 
 
@@ -588,7 +591,7 @@ async def collect_realtime_metrics() -> Dict[str, float]:
         return metrics
         
     except Exception as e:
-        print(f"Error collecting metrics: {e}")
+        logger.error(f"Error collecting metrics: {e}", exc_info=True)
         return {}
 
 

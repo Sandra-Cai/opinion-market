@@ -423,7 +423,18 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Comprehensive health check endpoint"""
+    """
+    Comprehensive health check endpoint.
+    
+    Checks the health of all critical services including:
+    - Database connectivity
+    - Redis connectivity
+    - Cache system
+    - Core services (ML, Analytics, Market, etc.)
+    
+    Returns:
+        Dict containing health status of all services and overall status
+    """
     health_status = {
         "status": "healthy",
         "service": settings.APP_NAME,
@@ -434,51 +445,65 @@ async def health_check():
         "services": {}
     }
     
-    # Check database health
-    db_health = check_database_health()
-    health_status["services"]["database"] = db_health
-    
-    # Check Redis health
-    redis_health = check_redis_health()
-    health_status["services"]["redis"] = redis_health
-    
-    # Check cache health
-    cache_health = cache_health_check()
-    health_status["services"]["cache"] = cache_health
-    
+    try:
+        # Check database health
+        db_health = check_database_health()
+        health_status["services"]["database"] = db_health
+        
+        # Check Redis health
+        redis_health = check_redis_health()
+        health_status["services"]["redis"] = redis_health
+        
+        # Check cache health
+        cache_health = cache_health_check()
+        health_status["services"]["cache"] = cache_health
+        
         # Check service health
+        service_health = {}
         if ml_service:
-            health_status["services"]["ml_service"] = "healthy"
+            service_health["ml_service"] = {"status": "healthy", "available": True}
         if analytics_service:
-            health_status["services"]["analytics_service"] = "healthy"
+            service_health["analytics_service"] = {"status": "healthy", "available": True}
         if market_service:
-            health_status["services"]["market_service"] = "healthy"
+            service_health["market_service"] = {"status": "healthy", "available": True}
         if real_time_engine:
-            health_status["services"]["real_time_engine"] = "healthy"
+            service_health["real_time_engine"] = {"status": "healthy", "available": True}
         if alerting_system:
-            health_status["services"]["alerting_system"] = "healthy"
+            service_health["alerting_system"] = {"status": "healthy", "available": True}
         if websocket_service:
-            health_status["services"]["websocket_service"] = "healthy"
+            service_health["websocket_service"] = {"status": "healthy", "available": True}
         if security_auditor:
-            health_status["services"]["security_auditor"] = "healthy"
+            service_health["security_auditor"] = {"status": "healthy", "available": True}
         if input_validator:
-            health_status["services"]["input_validator"] = "healthy"
+            service_health["input_validator"] = {"status": "healthy", "available": True}
         if middleware_manager:
-            health_status["services"]["middleware_manager"] = "healthy"
+            service_health["middleware_manager"] = {"status": "healthy", "available": True}
+        
+        health_status["services"].update(service_health)
+        
+        # Determine overall health
+        critical_services = ["database"]
+        unhealthy_services = [
+            service for service, status in health_status["services"].items()
+            if isinstance(status, dict) and status.get("status") != "healthy"
+        ]
+        
+        if any(service in unhealthy_services for service in critical_services):
+            health_status["status"] = "unhealthy"
+        elif unhealthy_services:
+            health_status["status"] = "degraded"
+        
+        return health_status
     
-    # Determine overall health
-    critical_services = ["database"]
-    unhealthy_services = [
-        service for service, status in health_status["services"].items()
-        if isinstance(status, dict) and status.get("status") != "healthy"
-    ]
-    
-    if any(service in unhealthy_services for service in critical_services):
-        health_status["status"] = "unhealthy"
-    elif unhealthy_services:
-        health_status["status"] = "degraded"
-    
-    return health_status
+    except Exception as e:
+        logger.error(f"Health check failed: {e}", exc_info=True)
+        return {
+            "status": "unhealthy",
+            "service": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "timestamp": datetime.utcnow().isoformat(),
+            "error": str(e)
+        }
 
 
 @app.get("/ready")

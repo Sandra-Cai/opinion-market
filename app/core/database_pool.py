@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class DatabasePoolManager:
-    """Advanced database connection pool management"""
+    """
+    Advanced database connection pool management.
+    
+    Manages database connection pooling with monitoring, health checks,
+    and optimization features.
+    """
 
     def __init__(
         self,
@@ -26,7 +31,18 @@ class DatabasePoolManager:
         pool_timeout: int = 30,
         pool_recycle: int = 3600,
         echo: bool = False,
-    ):
+    ) -> None:
+        """
+        Initialize the database pool manager.
+        
+        Args:
+            database_url: Database connection URL
+            pool_size: Number of connections to maintain in the pool
+            max_overflow: Maximum number of connections to create beyond pool_size
+            pool_timeout: Timeout in seconds for getting a connection from the pool
+            pool_recycle: Time in seconds before recycling a connection
+            echo: Enable SQL query logging
+        """
         self.database_url = database_url
         self.pool_size = pool_size
         self.max_overflow = max_overflow
@@ -71,8 +87,13 @@ class DatabasePoolManager:
 
         return self.engine
 
-    def create_async_engine(self):
-        """Create async database engine"""
+    def create_async_engine(self) -> Any:
+        """
+        Create async database engine with connection pooling.
+        
+        Returns:
+            AsyncEngine instance for async database operations
+        """
         if self.async_engine is None:
             self.async_engine = create_async_engine(
                 self.database_url.replace("postgresql://", "postgresql+asyncpg://"),

@@ -1,9 +1,9 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, and_, or_
 from typing import List, Optional
 from datetime import datetime, timedelta
-import logging
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -16,6 +16,7 @@ from app.core.security import (
     get_client_ip
 )
 from app.core.cache import cache, cached
+from app.core.decorators import handle_errors, log_execution_time
 from app.core.logging import log_trading_event, log_system_metric
 from app.models.user import User
 from app.models.market import Market, MarketStatus, MarketCategory
@@ -28,6 +29,7 @@ from app.schemas.market import (
     MarketStats,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -139,13 +141,29 @@ async def get_market_stats(db: Session = Depends(get_db)):
 @router.post("/", response_model=MarketResponse)
 @rate_limit(requests=10, window=3600)  # 10 markets per hour
 @validate_request_data()
+@handle_errors(default_message="Failed to create market")
+@log_execution_time
 async def create_market(
     market_data: MarketCreate,
     current_user: User = Depends(get_current_active_user),
     request: Request = None,
     db: Session = Depends(get_db),
 ):
-    """Create a new prediction market with comprehensive validation"""
+    """
+    Create a new prediction market with comprehensive validation.
+    
+    Args:
+        market_data: Market creation data
+        current_user: Current authenticated user
+        request: FastAPI request object
+        db: Database session
+        
+    Returns:
+        Created market response
+        
+    Raises:
+        HTTPException: If validation fails or rate limit exceeded
+    """
     try:
         # Validate closing date is in the future
         if market_data.closes_at <= datetime.utcnow():

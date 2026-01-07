@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -6,6 +7,7 @@ from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.decorators import handle_errors, log_execution_time
 from app.models.user import User
 from app.models.market import Market, MarketStatus
 from app.models.order import Order, OrderFill, OrderType, OrderStatus, OrderSide
@@ -18,16 +20,32 @@ from app.schemas.order import (
     OrderBookResponse,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.post("/", response_model=OrderResponse)
-def create_order(
+@handle_errors(default_message="Failed to create order")
+@log_execution_time
+async def create_order(
     order_data: OrderCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
-    """Create a new order"""
+) -> OrderResponse:
+    """
+    Create a new trading order.
+    
+    Args:
+        order_data: Order creation data
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Created order response
+        
+    Raises:
+        HTTPException: If market not found, inactive, or validation fails
+    """
 
     # Check if market exists and is active
     market = db.query(Market).filter(Market.id == order_data.market_id).first()

@@ -1,11 +1,14 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.decorators import handle_errors, log_execution_time
+from app.core.query_helpers import paginate_query, order_by_field
 from app.models.user import User
 from app.models.position import Position
 from app.models.market import Market
@@ -15,27 +18,45 @@ from app.schemas.position import (
     PortfolioSummary,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.get("/", response_model=PositionListResponse)
-def get_positions(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    active_only: bool = Query(True),
+@handle_errors(default_message="Failed to retrieve positions")
+@log_execution_time
+async def get_positions(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    active_only: bool = Query(True, description="Filter to show only active positions"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
-    """Get user's positions"""
+) -> PositionListResponse:
+    """
+    Get user's positions with pagination and filtering.
+    
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        active_only: Filter to show only active positions
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Paginated list of positions with updated prices and values
+    """
     query = db.query(Position).filter(Position.user_id == current_user.id)
 
     if active_only:
         query = query.filter(Position.is_active == True)
 
-    total = query.count()
-    positions = (
-        query.order_by(desc(Position.last_updated)).offset(skip).limit(limit).all()
-    )
+    # Apply ordering
+    query = order_by_field(query, order_by="last_updated", order_direction="desc")
+    
+    # Apply pagination using helper
+    page = (skip // limit) + 1 if limit > 0 else 1
+    paginated_query, total = paginate_query(query, page=page, page_size=limit)
+    positions = paginated_query.all()
 
     # Update current prices and values
     for position in positions:
@@ -51,15 +72,27 @@ def get_positions(
             position.total_pnl = position.realized_pnl + position.unrealized_pnl
 
     return PositionListResponse(
-        positions=positions, total=total, page=skip // limit + 1, per_page=limit
+        positions=positions, total=total, page=page, per_page=limit
     )
 
 
 @router.get("/portfolio", response_model=PortfolioSummary)
-def get_portfolio_summary(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """Get user's portfolio summary"""
+@handle_errors(default_message="Failed to retrieve portfolio summary")
+@log_execution_time
+async def get_portfolio_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> PortfolioSummary:
+    """
+    Get user's comprehensive portfolio summary.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Portfolio summary with totals, P/L, and statistics
+    """
     positions = (
         db.query(Position)
         .filter(Position.user_id == current_user.id, Position.is_active == True)

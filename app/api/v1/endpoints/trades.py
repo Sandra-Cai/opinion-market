@@ -8,6 +8,7 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.core.decorators import handle_errors, log_execution_time
+from app.core.query_helpers import paginate_query, order_by_field
 from app.core.response_helpers import success_response, error_response, paginated_response
 from app.models.user import User
 from app.models.market import Market, MarketStatus
@@ -185,11 +186,16 @@ async def get_trades(
     if user_id:
         query = query.filter(Trade.user_id == user_id)
 
-    total = query.count()
-    trades = query.order_by(desc(Trade.created_at)).offset(skip).limit(limit).all()
+    # Apply ordering
+    query = order_by_field(query, order_by="created_at", order_direction="desc")
+    
+    # Apply pagination using helper
+    page = (skip // limit) + 1 if limit > 0 else 1
+    paginated_query, total = paginate_query(query, page=page, page_size=limit)
+    trades = paginated_query.all()
 
     return TradeListResponse(
-        trades=trades, total=total, page=skip // limit + 1, per_page=limit
+        trades=trades, total=total, page=page, per_page=limit
     )
 
 
@@ -244,9 +250,15 @@ async def get_my_trades(
         Paginated list of user's trades
     """
     query = db.query(Trade).filter(Trade.user_id == current_user.id)
-    total = query.count()
-    trades = query.order_by(desc(Trade.created_at)).offset(skip).limit(limit).all()
+    
+    # Apply ordering
+    query = order_by_field(query, order_by="created_at", order_direction="desc")
+    
+    # Apply pagination using helper
+    page = (skip // limit) + 1 if limit > 0 else 1
+    paginated_query, total = paginate_query(query, page=page, page_size=limit)
+    trades = paginated_query.all()
 
     return TradeListResponse(
-        trades=trades, total=total, page=skip // limit + 1, per_page=limit
+        trades=trades, total=total, page=page, per_page=limit
     )

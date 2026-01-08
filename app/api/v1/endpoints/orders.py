@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.core.decorators import handle_errors, log_execution_time
+from app.core.query_helpers import paginate_query, order_by_field, get_or_404
 from app.models.user import User
 from app.models.market import Market, MarketStatus
 from app.models.order import Order, OrderFill, OrderType, OrderStatus, OrderSide
@@ -110,15 +111,30 @@ async def create_order(
 
 
 @router.get("/", response_model=OrderListResponse)
-def get_orders(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    status: Optional[OrderStatus] = None,
-    market_id: Optional[int] = None,
+@handle_errors(default_message="Failed to retrieve orders")
+@log_execution_time
+async def get_orders(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    status: Optional[OrderStatus] = Query(None, description="Filter by order status"),
+    market_id: Optional[int] = Query(None, description="Filter by market ID"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
-    """Get user's orders"""
+) -> OrderListResponse:
+    """
+    Get user's orders with filtering and pagination.
+    
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        status: Optional order status filter
+        market_id: Optional market ID filter
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Paginated list of orders
+    """
     query = db.query(Order).filter(Order.user_id == current_user.id)
 
     if status:
@@ -127,31 +143,48 @@ def get_orders(
     if market_id:
         query = query.filter(Order.market_id == market_id)
 
-    total = query.count()
-    orders = query.order_by(desc(Order.created_at)).offset(skip).limit(limit).all()
+    # Apply ordering
+    query = order_by_field(query, order_by="created_at", order_direction="desc")
+    
+    # Apply pagination using helper
+    page = (skip // limit) + 1 if limit > 0 else 1
+    paginated_query, total = paginate_query(query, page=page, page_size=limit)
+    orders = paginated_query.all()
 
     return OrderListResponse(
-        orders=orders, total=total, page=skip // limit + 1, per_page=limit
+        orders=orders, total=total, page=page, per_page=limit
     )
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-def get_order(
+@handle_errors(default_message="Failed to retrieve order")
+@log_execution_time
+async def get_order(
     order_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
-    """Get specific order"""
-    order = (
-        db.query(Order)
-        .filter(Order.id == order_id, Order.user_id == current_user.id)
-        .first()
+) -> OrderResponse:
+    """
+    Get a specific order by ID.
+    
+    Args:
+        order_id: Order ID to retrieve
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Order response
+        
+    Raises:
+        HTTPException: If order not found or doesn't belong to user
+    """
+    order = get_or_404(
+        db.query(Order).filter(
+            Order.id == order_id,
+            Order.user_id == current_user.id
+        ),
+        error_message="Order not found"
     )
-
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
-        )
 
     return order
 

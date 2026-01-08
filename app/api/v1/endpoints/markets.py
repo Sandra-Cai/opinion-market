@@ -17,6 +17,7 @@ from app.core.security import (
 )
 from app.core.cache import cache, cached
 from app.core.decorators import handle_errors, log_execution_time
+from app.core.query_helpers import paginate_query, order_by_field
 from app.core.logging import log_trading_event, log_system_metric
 from app.models.user import User
 from app.models.market import Market, MarketStatus, MarketCategory
@@ -67,11 +68,13 @@ async def list_markets(
             )
         )
     
-    # Get total count
-    total = query.count()
+    # Apply ordering
+    query = order_by_field(query, order_by="created_at", order_direction="desc")
     
-    # Apply pagination and ordering
-    markets = query.order_by(desc(Market.created_at)).offset(skip).limit(limit).all()
+    # Apply pagination using helper
+    page = (skip // limit) + 1 if limit > 0 else 1
+    paginated_query, total = paginate_query(query, page=page, page_size=limit)
+    markets = paginated_query.all()
     
     return MarketListResponse(
         markets=markets,

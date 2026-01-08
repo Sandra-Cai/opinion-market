@@ -1,42 +1,98 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.decorators import handle_errors, log_execution_time
+from app.core.query_helpers import get_or_404
 from app.models.user import User
 from app.models.market import Market, MarketCategory
 from app.services.analytics_service import analytics_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.get("/market/{market_id}")
-def get_market_analytics(market_id: int, db: Session = Depends(get_db)):
-    """Get comprehensive analytics for a specific market"""
+@handle_errors(default_message="Failed to retrieve market analytics")
+@log_execution_time
+async def get_market_analytics(
+    market_id: int,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get comprehensive analytics for a specific market.
+    
+    Args:
+        market_id: Market ID to get analytics for
+        db: Database session
+        
+    Returns:
+        Market analytics data
+        
+    Raises:
+        HTTPException: If market not found
+    """
+    # Verify market exists
+    get_or_404(
+        db.query(Market).filter(Market.id == market_id),
+        error_message="Market not found"
+    )
+    
     analytics = analytics_service.get_market_analytics(market_id)
     if not analytics:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Market not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analytics not available for this market"
         )
     return analytics
 
 
 @router.get("/user/me")
-def get_my_analytics(current_user: User = Depends(get_current_user)):
-    """Get analytics for the current user"""
+@handle_errors(default_message="Failed to retrieve user analytics")
+@log_execution_time
+async def get_my_analytics(
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get analytics for the current authenticated user.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        User analytics data
+    """
     return analytics_service.get_user_analytics(current_user.id)
 
 
 @router.get("/user/{user_id}")
-def get_user_analytics(user_id: int, db: Session = Depends(get_db)):
-    """Get analytics for a specific user (public data only)"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+@handle_errors(default_message="Failed to retrieve user analytics")
+@log_execution_time
+async def get_user_analytics(
+    user_id: int,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get analytics for a specific user (public data only).
+    
+    Args:
+        user_id: User ID to get analytics for
+        db: Database session
+        
+    Returns:
+        Public user analytics data
+        
+    Raises:
+        HTTPException: If user not found
+    """
+    user = get_or_404(
+        db.query(User).filter(User.id == user_id),
+        error_message="User not found"
+    )
 
     # Return public analytics only
     return {
@@ -46,34 +102,80 @@ def get_user_analytics(user_id: int, db: Session = Depends(get_db)):
         "win_rate": user.win_rate,
         "reputation_score": user.reputation_score,
         "total_volume": user.total_volume,
-        "created_at": user.created_at,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
 
 @router.get("/platform")
-def get_platform_analytics(db: Session = Depends(get_db)):
-    """Get platform-wide analytics"""
+@handle_errors(default_message="Failed to retrieve platform analytics")
+@log_execution_time
+async def get_platform_analytics(
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get platform-wide analytics and statistics.
+    
+    Args:
+        db: Database session
+        
+    Returns:
+        Platform analytics data
+    """
     return analytics_service.get_platform_analytics()
 
 
 @router.get("/market/{market_id}/predictions")
-def get_market_predictions(market_id: int, db: Session = Depends(get_db)):
-    """Get market prediction analytics"""
+@handle_errors(default_message="Failed to retrieve market predictions")
+@log_execution_time
+async def get_market_predictions(
+    market_id: int,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get market prediction analytics.
+    
+    Args:
+        market_id: Market ID to get predictions for
+        db: Database session
+        
+    Returns:
+        Market prediction data
+        
+    Raises:
+        HTTPException: If market not found or predictions unavailable
+    """
+    # Verify market exists
+    get_or_404(
+        db.query(Market).filter(Market.id == market_id),
+        error_message="Market not found"
+    )
+    
     predictions = analytics_service.get_market_predictions(market_id)
     if not predictions:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Market not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Predictions not available for this market"
         )
     return predictions
 
 
 @router.get("/trending")
-def get_trending_analytics(
-    limit: int = Query(10, ge=1, le=50), db: Session = Depends(get_db)
-):
-    """Get trending markets and analytics"""
-    from app.services.analytics_service import analytics_service
-
+@handle_errors(default_message="Failed to retrieve trending analytics")
+@log_execution_time
+async def get_trending_analytics(
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of trending items to return"),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Get trending markets and analytics.
+    
+    Args:
+        limit: Maximum number of trending items to return
+        db: Database session
+        
+    Returns:
+        Trending markets and analytics data
+    """
     # Get trending markets
     trending_markets = (
         db.query(Market)
